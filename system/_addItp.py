@@ -48,7 +48,12 @@ def _renameAtoms(itp, mol):
         itp_str += line+'\n' # collate line into itp_string
  
     return itp_str, hvy
-    
+
+def _getposre(hvy):
+    posre = "[ position_restraints ]"
+    posre = "[ position_restraints ]\n" + '\n'.join([f"  {i}   1  1000 1000 1000" for i in hvy])
+    return posre
+
 def do(mol, conv, tleap_dump=False):
     print("**Generating topology**")
     
@@ -105,7 +110,10 @@ def do(mol, conv, tleap_dump=False):
     print("Renaming atoms to avoid conflict..")
     itp, hvy = _renameAtoms(itp, mol)
     
+    print("Writing position restraint..")
+    posre = _getposre(hvy)
+    
     itp += f'\n; Include Position restraint file\n#ifdef POSRES\n#include "posre_{mol}.itp"\n#endif'
     
     print("**Done**")
-    return itp
+    return itp, posre
