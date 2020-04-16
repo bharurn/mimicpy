@@ -1,6 +1,7 @@
 from pygmx import system
 import pyshell.local as cmd
 from rdkit.Chem import PandasTools
+import pygmx.system.handlePDB as hpdb
 
 class Ligand:
     
@@ -10,6 +11,25 @@ class Ligand:
         self.posre = posre
         self.chains = chains
         self.name = name
+    
+    def splitItp(self):
+        start = False
+        val = ''
+        val2 = ''
+        for line in self.itp.splitlines():
+
+            if line.strip() == '[ atomtypes ]':
+                start = True
+            elif start:
+			    # stop reading atomtypes section when blank line or moleculetype is reached
+                if line.strip() == '' or  line.strip() == '[ moleculetype ]':
+                    start = False
+                else: val += line + '\n'
+		
+            elif not start: # if not start, read line into val2
+                val2 += line + '\n'
+		
+        return val, val2	
     
     def _matchpdb2itp(self):
         start = False
@@ -51,7 +71,7 @@ class Ligand:
                                 ['print', "Sorting pdb atoms.."],
                                 ['sort', '-nk2'], stdin=pdb_str, decode=True)
         print("**Done**")
-        
+    
     @classmethod    
     def loadFromDF(cls, mol, pH=7, prep2pdb={}, tleap_dump=False):
         mol_name = mol.loc[0]['ChemCompId']
@@ -64,6 +84,8 @@ class Ligand:
             itp, posre = system._getItp.do(mol_name, prep2pdb, tleap_dump)
     
             lig = cls(pdb, itp, posre, chains, mol_name)
+        
+            lig._matchpdb2itp()
         else:
             lig = cls(pdb, "", "", 1, mol_name)
         
@@ -88,3 +110,52 @@ class Ligand:
             lig = cls(pdb, "", "", 1, mol_name)
             
         return lig
+    
+    @staticmethod    
+    def runG09FromSDF(server, mol, nc, pH=7, parallel=False):
+        
+        name = mol.loc[0]['ChemCompId']
+        
+        print(f"**Running Gaussian Optimization for {name} on SDF Dataframe**")
+        
+        pdb, chains = system._addH.do(mol, pH, name)
+        
+        with open(f'{name}.pdb', 'w') as f: f.write(pdb)
+        
+        print("Generating Gaussian input file using AmberTools Antechamber..")
+        
+        cmd.run("antechamber", "-i", f"{name}.pdb", "-fi", "pdb", "-o", f"{name}.com", "-fo", "gcrt", "-nc", f"{nc}")
+        
+        print(f'Transferring files to {server.name}..')
+        
+        server.sftp.put(f'{name}.com', f'{name}.com', confirm=True)
+        
+        print(f'Running Gaussian on {server.name}..')
+        
+        server.query_rate = 30
+        server.redirectStdout(f'{name}.out')
+        
+        out = server.run(f'g09 {name}.com {name}.out')
+        
+        print("**Done**")
+        
+        return out
+    
+    @staticmethod
+    def getPrepfromG09(mol):
+        print(f"**Converting Gaussian output file to Amber prep**")
+        cmd.checkFile(f"{mol}.out")
+        print('Running AmberTools antechamber..')
+        out = cmd.run("antechamber", "-i", f"{mol}.out", "-fi", "gout", "-o", f"{mol}.prep", "-fo", "prepi", "-c", "resp", "-rn", mol)
+        print(f"Antechamber output dumped...\nResidue {mol} created in {mol}.prep..\n**Done**")
+        return out
+        
+class StdResidue(Ligand):
+    @classmethod
+    def loadFromDF(cls, mol):
+        return super().loadFromDF(mol, 0)
+    
+    @classmethod 
+    def loadFromFile(cls, mol):
+        return super().loadFromFile(mol, 0)
+    
