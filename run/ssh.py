@@ -1,7 +1,7 @@
-from pyshell.remote import ssh
+from pyshell.remote import shell
 import re
 
-class GmxSSH(ssh.SSH):
+class GmxSSH(shell.Shell):
     
     def __init__(self, server, gmx="gmx", directory="."):
         super().__init__(server)
