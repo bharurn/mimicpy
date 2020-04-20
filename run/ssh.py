@@ -126,7 +126,8 @@ class GmxSSH(shell.Shell):
         return self.sbatch(job)
     
     def moveMDResults(self, old, new):
-        ls = self.ls(file_eval=lambda a: True if a.startswith(old) else False, dir_eval = lambda a: False)
+        ls = self.ls(file_eval=lambda a: True if a.startswith(f"{old}.") or\
+                     a.startswith(f"{old}_prev") else False, dir_eval = lambda a: False)
         
         for l in ls:
             a = l.split('.')
