@@ -72,7 +72,7 @@ class Protein:
        return stdout.read(), stderr.read()
    
    @classmethod
-   def loadFromRCSB(cls, pdbid, chains=None):
+   def loadFromRCSB(cls, pdbid, chains=None, howToreturn=0):
        print(f"**Accessing PDB {pdbid} from RCSB database**")
        print("Downloading PDB file..")
            
@@ -127,7 +127,10 @@ class Protein:
             
        print("**Done**")
        
-       return cls(pdb_, pdbid), ligs
+       if howToreturn == 0:
+           return cls(pdb_, pdbid), ligs
+       else:
+           return pdb_, ligs
        
    @classmethod
    def loadFromFile(cls, pdb):
