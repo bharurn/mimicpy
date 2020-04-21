@@ -1,7 +1,8 @@
 from pygmx.system import handlePDB
-import pyshell.local as cmd
+import pygmx.host as shell
 from rdkit.Chem import PandasTools
 from io import StringIO
+import re
 
 def _cleanPdb(sdf, pdb, resname):
     print("Assigning correct atom names..")
@@ -62,39 +63,38 @@ def do(sdf, pH, name):
     
     print("**Adding Hydrogens**")
     
+    sdf_textio = StringIO()            
+    PandasTools.WriteSDF(sdf, sdf_textio)
+    
+    sdf_text = sdf_textio.getvalue()
+    
     print(f"Cleaning sdf..")
-    
-    sdf_text = StringIO()            
-    PandasTools.WriteSDF(sdf, sdf_text)
-    
-    pdb = cmd.runinSeq(['sed', '-n', '-e', '/A    1/,/M  END/!p'],\
-                       ['sed', '/^A    1/d'],\
-                       ['sed', '/^M  END/d'],\
-                       ['print', "Converting to pdb using Openbabel.."],\
-                       ['obabel', '-isdf', '-opdb'],\
-                       ['print', f'Adding hydrogens at pH={pH}'],\
-                       ['obabel', '-ipdb', f'-p {pH}', '-opdb'],\
-                       stdin=sdf_text.getvalue(), decode=True)
+    sdf_text = re.sub(r'/A    1/(\n.*?)*?/M  END/', '', sdf_text, flags=re.MULTILINE)
+    print("Converting to pdb using Openbabel")
+    pdb = shell.cmd.run('obabel -isdf -opdb', stdin=sdf_text)
+    print(f'Adding hydrogens at pH={pH}')
+    pdb = shell.cmd.run(f'obabel -ipdb -p {pH} -opdb', stdin=pdb)
     
     pdb, chains = _multChains(_cleanPdb(sdf, pdb, name))
     
-    pdb = cmd.run('grep', 'HETATM\|ATOM', stdin=pdb, decode=True)
+    pdb = shell.cmd.run('grep HETATM\|ATOM', stdin=pdb)
     print("**Done**")
     return pdb, chains
 
 def _donoH(sdf, name):
-    sdf_text = StringIO()            
-    PandasTools.WriteSDF(sdf, sdf_text)
+    sdf_textio = StringIO()            
+    PandasTools.WriteSDF(sdf, sdf_textio)
+    
+    sdf_text = sdf_textio.getvalue()
+    
     print(f"Cleaning sdf..")
-    pdb = cmd.runinSeq(['sed', '-n', '-e', '/A    1/,/M  END/!p'],\
-                       ['sed', '/^A    1/d'],\
-                       ['sed', '/^M  END/d'],\
-                       ['print', "Converting to pdb using Openbabel.."],\
-                       ['obabel', '-isdf', '-opdb'],
-                       stdin=sdf_text.getvalue(), decode=True)
+    sdf_text = re.sub(r'/A    1/(\n.*?)*?/M  END/', '', sdf_text, flags=re.MULTILINE)
+    print("Converting to pdb using Openbabel")
+    
+    pdb = shell.cmd.run('obabel -isdf -opdb', stdin=sdf_text)
     
     pdb, chains = _multChains(_cleanPdb(sdf, pdb, name))
     
-    pdb = cmd.run('grep', 'HETATM\|ATOM', stdin=pdb, decode=True)
+    pdb = shell.cmd.run('grep HETATM\|ATOM', stdin=pdb)
     print("**Done**")
     return pdb, chains
