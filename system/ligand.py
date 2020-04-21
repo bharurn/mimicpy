@@ -1,5 +1,5 @@
 from pygmx import system
-import pyshell.local as cmd
+import pygmx.host as shell
 from rdkit.Chem import PandasTools
 import pygmx.system.handlePDB as hpdb
 
