@@ -1,4 +1,4 @@
-import pyshell.local as cmd
+import pygmx.host as shell
 
 def _cleanprep(mol, prep_to_pdb):
     file = open(f'{mol}.prep',mode='r')
@@ -10,16 +10,17 @@ def _cleanprep(mol, prep_to_pdb):
 
     return prep
 
-def _renameAtoms(itp, mol):
+def _cleanItp(itp, mol):
     atoms = False
     atomtypes = False
+    notwrite = False
     itp_str = ""
 
     mol_ = f"{mol}_" # MOL_ string
     
     hvy = []
     
-    for line in itp.splitlines():
+    for line in itp.splitlines()[1:]:
     
         if "[ atomtypes ]" in line:
             atomtypes = True # start atomtypes
@@ -44,8 +45,14 @@ def _renameAtoms(itp, mol):
                 
                 if 'H' not in splt[4].upper():
                     hvy.append(splt[0])
-    
-        itp_str += line+'\n' # collate line into itp_string
+        
+        if "[ defaults ]" in line or "[ system ]" in line or "[ molecules ]" in line:
+            notwrite = True
+        
+        if notwrite and line.strip() == '': notwrite = False
+        
+        if notwrite == False:
+            itp_str += line+'\n' # collate line into itp_string
  
     return itp_str, hvy
 
@@ -59,56 +66,57 @@ def do(mol, conv, tleap_dump=False):
     
     prep = f"{mol}.prep"
     
-    cmd.checkFile(prep)
+    shell.cmd.checkFile(prep)
     
     if conv != {}:
         print(f"Mapping prep of {mol}.prep atom names to that of pdb..")
         
-        f = open("params.prep", "w")
-        f.write(_cleanprep(mol, conv))
-        f.close()
-    
+        shell.cmd.write(_cleanprep(mol, conv), "params.prep")
+        
         print("Ouput saved to params.prep")
         
         prep = "params.prep"
         
     print(f"Running AmberTools parmchk2 on {prep}..")
     
-    cmd.run('parmchk2', '-i', prep, '-f', 'prepi', '-o', 'params.frcmod')
+    shell.cmd.run(f'parmchk2 -i {prep} -f prepi -o params.frcmod')
     
     print("Output saved to params.frcmod..")
     
     tleap_in = "source leaprc.gaff\n"
     tleap_in += f"loadamberprep {prep}\n"
-    tleap_in += "loadamberparams params.frcmod\n"
+    tleap_in += f"loadamberparams params.frcmod\n"
     
-    if cmd.checkFile(f"{mol}.frcmod", throw=False):
+    if shell.cmd.checkFile(f"{mol}.frcmod", throw=False):
         tleap_in += f"loadamberparams {mol}.frcmod\n"
     
     tleap_in += f"saveamberparm {mol} {mol}.prmtop {mol}.inpcrd\nquit"
     
-    print("Running AmberTool LEaP..")
-    output = cmd.run('tleap', '-f -', stdin=tleap_in, decode=True)
+    print("Running AmberTools LEaP..")
+    output = shell.cmd.run('tleap -f -', stdin=tleap_in)
     
     if tleap_dump:
         print("Dumping LEaP output:\n\n")
         print(output)
-        
+    
+    if not shell.cmd.fileExists(f'{mol}.prmtop') or not shell.cmd.fileExists(f'{mol}.inpcrd'):
+        raise Exception(f'LEaP error!\n{output}')
+    
     print(f"Output saved to {mol}.prmtop and {mol}.inpcrd..")
     
     print("Converting to Gromacs topology using Acpype..")
-    cmd.run('acpype', '-p', f'{mol}.prmtop', '-x', f'{mol}.inpcrd')
+    output = shell.cmd.run(f'acpype -p {mol}.prmtop -x {mol}.inpcrd')
+    
+    if not shell.cmd.fileExists(f'{mol}_GMX.gro') or not shell.cmd.fileExists(f'{mol}_GMX.top'):
+        raise Exception(f'Acpype error!\n{output}')
+        
     print(f"Output saved to {mol}_GMX.gro and {mol}_GMX.top..")
     
     print("Cleaning Acpype output..")
-    itp = cmd.runinSeq(['sed', '-e', '/\[ defaults \]/{N;N;N;d;}', f'{mol}_GMX.top'],\
-                 ['sed', '-e', '/\[ system \]/{N;N;d;}'],\
-                 ['sed', '-e', '/\[ molecules \]/{N;N;N;N;d;}'],\
-                 ['sed', f's/{mol}_GMX/{mol}/g'],\
-    ['sed', f's/{mol}.top created by acpype/Topology for {mol} created on/g'], decode=True)
+    itp = shell.cmd.read(f'{mol}_GMX.top')
     
     print("Renaming atoms to avoid conflict..")
-    itp, hvy = _renameAtoms(itp, mol)
+    itp, hvy = _cleanItp(itp, mol) # rename atoms, remove uneeeded sections, get list of heavy atoms for posre
     
     print("Writing position restraint..")
     posre = _getposre(hvy)
