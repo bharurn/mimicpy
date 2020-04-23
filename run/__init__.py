@@ -1,5 +1,4 @@
-from .gmxrun import GMXRun
-from .prepper import Prepper
+from .gmxrun import GMX
+from .prepare import Prepare
 from .md import MD
 from .mdp import MDP
-from .gmxssh import SSH
