@@ -1,10 +1,8 @@
 import pygmx.host as shell
 
 def _cleanprep(mol, prep_to_pdb):
-    file = open(f'{mol}.prep',mode='r')
- 
-    prep = file.read()
-
+    prep = shell.cmd.read(f'{mol}.prep')
+    
     for i in prep_to_pdb:
         prep = prep.replace(i, prep_to_pdb[i])
 
@@ -99,7 +97,7 @@ def do(mol, conv, tleap_dump=False):
         print("Dumping LEaP output:\n\n")
         print(output)
     
-    if not shell.cmd.fileExists(f'{mol}.prmtop') or not shell.cmd.fileExists(f'{mol}.inpcrd'):
+    if shell.cmd.fileExists(f'{mol}.prmtop') == False or shell.cmd.fileExists(f'{mol}.inpcrd') == False:
         raise Exception(f'LEaP error!\n{output}')
     
     print(f"Output saved to {mol}.prmtop and {mol}.inpcrd..")
@@ -107,7 +105,7 @@ def do(mol, conv, tleap_dump=False):
     print("Converting to Gromacs topology using Acpype..")
     output = shell.cmd.run(f'acpype -p {mol}.prmtop -x {mol}.inpcrd')
     
-    if not shell.cmd.fileExists(f'{mol}_GMX.gro') or not shell.cmd.fileExists(f'{mol}_GMX.top'):
+    if shell.cmd.fileExists(f'{mol}_GMX.gro') == False or shell.cmd.fileExists(f'{mol}_GMX.top') == False:
         raise Exception(f'Acpype error!\n{output}')
         
     print(f"Output saved to {mol}_GMX.gro and {mol}_GMX.top..")
