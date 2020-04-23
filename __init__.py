@@ -4,8 +4,8 @@ from .system import _addH
 from .system import _getItp
 from .system import _hndlWater
 from .system import handlePDB
-from .run import ssh
-from .run import prepper
+from .shell import remote
+from .run import prepare
 from .run import mdp
 from .run import gmxrun
 from .run import md
