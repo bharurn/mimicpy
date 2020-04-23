@@ -67,10 +67,22 @@ class Ligand:
         
             pdb_str += line+'\n'
         
-        self.pdb = cmd.runinSeq(['sed', "s/ATOM  /HETATM/g"],
-                                ['print', "Sorting pdb atoms.."],
-                                ['sort', '-nk2'], stdin=pdb_str, decode=True)
+        self.pdb = pdb_str.replace('ATOM  ','HETATM')
+        print("Sorting pdb atoms..")
+        self.pdb = shell.cmd.run('sort -nk2', stdin=self.pdb)
         print("**Done**")
+    
+    @classmethod
+    def _load(cls, mol, pH, mol_name, prep2pdb, tleap_dump):
+        pdb, chains = system._addH.do(mol, pH, mol_name)
+        
+        itp, posre = system._getItp.do(mol_name, prep2pdb, tleap_dump)
+    
+        lig = cls(pdb, itp, posre, chains, mol_name)
+        
+        lig._matchpdb2itp()
+        
+        return lig
     
     @classmethod    
     def loadFromDF(cls, mol, pH=7, prep2pdb={}, tleap_dump=False):
@@ -78,38 +90,17 @@ class Ligand:
         
         print(f"**Creating ligand {mol_name} from SDF Dataframe**")
         
-        pdb, chains = system._addH.do(mol, pH, mol_name)
-        
-        if pH != 0:
-            itp, posre = system._getItp.do(mol_name, prep2pdb, tleap_dump)
-    
-            lig = cls(pdb, itp, posre, chains, mol_name)
-        
-            lig._matchpdb2itp()
-        else:
-            lig = cls(pdb, "", "", 1, mol_name)
-        
-        return lig
+        return cls._load(mol, pH, mol_name, prep2pdb, tleap_dump)
     
     @classmethod    
     def loadFromFile(cls, mol_name, pH=7, prep2pdb={}, tleap_dump=False):
-        cmd.checkFile(f'{mol_name}.sdf')
+        shell.cmd.checkFile(f'{mol_name}.sdf')
+        
         mol = PandasTools.LoadSDF(f'{mol_name}.sdf')
         
         print(f"**Creating ligand {mol_name} from SDF file**")
         
-        pdb, chains = system._addH.do(mol, pH, mol_name)
-        
-        if pH != 0:    
-            itp, posre = system._getItp.do(mol_name, prep2pdb, tleap_dump)
-    
-            lig = cls(pdb, itp, posre, chains, mol_name)
-        
-            lig._matchpdb2itp()
-        else:
-            lig = cls(pdb, "", "", 1, mol_name)
-            
-        return lig
+        return cls._load(mol, pH, mol_name, prep2pdb, tleap_dump)
     
     @staticmethod    
     def runG09FromSDF(server, mol, nc, pH=7, parallel=False):
@@ -124,18 +115,14 @@ class Ligand:
         
         print("Generating Gaussian input file using AmberTools Antechamber..")
         
-        cmd.run("antechamber", "-i", f"{name}.pdb", "-fi", "pdb", "-o", f"{name}.com", "-fo", "gcrt", "-nc", f"{nc}")
-        
-        print(f'Transferring files to {server.name}..')
-        
-        server.sftp.put(f'{name}.com', f'{name}.com', confirm=True)
+        shell.cmd.run(f"antechamber -i {name}.pdb -fi pdb -o {name}.com -fo gcrt -nc {nc}")
         
         print(f'Running Gaussian on {server.name}..')
         
-        server.query_rate = 30
-        server.redirectStdout(f'{name}.out')
+        shell.cmd.query_rate = 30
+        shell.cmd.redirectStdout(f'{name}.out') # add this to local shell
         
-        out = server.run(f'g09 {name}.com {name}.out')
+        out = shell.cmd.run(f'g09 {name}.com {name}.out')
         
         print("**Done**")
         
@@ -144,18 +131,31 @@ class Ligand:
     @staticmethod
     def getPrepfromG09(mol):
         print(f"**Converting Gaussian output file to Amber prep**")
-        cmd.checkFile(f"{mol}.out")
+        shell.cmd.checkFile(f"{mol}.out")
         print('Running AmberTools antechamber..')
-        out = cmd.run("antechamber", "-i", f"{mol}.out", "-fi", "gout", "-o", f"{mol}.prep", "-fo", "prepi", "-c", "resp", "-rn", mol)
+        out = shell.cmd.run(f"antechamber -i {mol}.out -fi gout -o {mol}.prep -fo prepi -c resp -rn {mol}")
         print(f"Antechamber output dumped...\nResidue {mol} created in {mol}.prep..\n**Done**")
+        
         return out
         
 class StdResidue(Ligand):
     @classmethod
     def loadFromDF(cls, mol):
-        return super().loadFromDF(mol, 0)
+        mol_name = mol.loc[0]['ChemCompId']
+        
+        print(f"**Creating standard residue {mol_name} from SDF Dataframe*")
+        
+        pdb, chains = system._addH._donoH(mol, mol_name)
+        return cls(pdb, "", "", 1, mol_name)
     
     @classmethod 
-    def loadFromFile(cls, mol):
-        return super().loadFromFile(mol, 0)
+    def loadFromFile(cls, mol_name):
+        shell.cmd.checkFile(f'{mol_name}.sdf')
+        mol = PandasTools.LoadSDF(f'{mol_name}.sdf')
+        
+        print(f"**Creating standard residue {mol_name} from SDF file**")
+        
+        pdb, chains = system._addH._donoH(mol, mol_name)
+        
+        return cls(pdb, "", "", 1, mol_name)
     
