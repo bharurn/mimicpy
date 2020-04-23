@@ -88,4 +88,13 @@ def editLine(line, **kwargs):
     vals = readLine(line)
     vals.update(kwargs)
     return writeLine(**vals)
+
+def matchLine(line, **kwargs):
+    vals = readLine(line)
+    flg = False
+    for key, val in kwargs.items():
+        if vals[key] == val: flg = True
+        else: flg = False
+    
+    return flg
     
