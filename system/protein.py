@@ -1,5 +1,5 @@
 import pygmx.system.ligand as lig
-import pyshell.local as cmd
+import pygmx.host as shell
 from pygmx.system import _hndlWater
 import requests
 import pygmx.system.handlePDB as hpdb
@@ -18,11 +18,12 @@ class Protein:
         
         print("Extracting water..")
         
-        self.water = cmd.runinSeq(['grep', '^HETATM'],['grep', "HOH"], stdin=self.pdb, decode=True)
+        self.water = shell.cmd.run('grep ^HETATM', stdin=self.pdb)
+        self.water = shell.cmd.run('grep HOH', stdin=self.water)
         
         print("Extracting amino acid residues..")
         
-        self.pdb  = f"TITLE     {self.name}\n" + cmd.run('grep', "^ATOM", stdin=self.pdb, decode=True)
+        self.pdb  = f"TITLE     {self.name}\n" + shell.cmd.run('grep ^ATOM', stdin=self.pdb)
         
         self.ligands=[]
         self.ligands_dict={}
@@ -58,19 +59,8 @@ class Protein:
       
       command = '\|'.join(ids)
     
-      self.water = cmd.run('grep', command, stdin=self.water, decode=True)
-     
-   def prepare(self, ssh, sftp, gmx_load, gmx="gmx_mpi"):
-       f = sftp.open('confin.pdb', 'w')
-       f.write(self.pdb+'END')
-       f.close()
-       
-       stdin,stdout,stderr=ssh.exec_command(f"module load {gmx_load}", get_pty=True)
-       stdin,stdout,stderr=ssh.exec_command(f"{gmx} pdb2gmx -f confin.pdb -o conf.pdb -water tip3p -ff amber99sb-ildn", get_pty=True)
-       
-       
-       return stdout.read(), stderr.read()
-   
+      self.water = shell.cmd.run(f'grep {command}', stdin=self.water)
+    
    @classmethod
    def loadFromRCSB(cls, pdbid, chains=None, howToreturn=0):
        print(f"**Accessing PDB {pdbid} from RCSB database**")
@@ -134,7 +124,7 @@ class Protein:
        
    @classmethod
    def loadFromFile(cls, pdb):
-        cmd.checkFile(f"{pdb}.pdb")
+        shell.cmd.checkFile(f"{pdb}.pdb")
         
         f = open(f"{pdb}.pdb", "r")
         
