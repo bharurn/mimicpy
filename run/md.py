@@ -1,130 +1,112 @@
 from pygmx.run import mdp, gmxrun
-from pyshell.remote import slurm
+from pygmx import host
 
-class MD(gmxrun.GMXRun):
+class MD(gmxrun.GMX):
     
-    def __init__(self, server, job_settings=None, modules=[], sources=[], gmx="gmx", directory=""):
-        print("**Setting up MD Engine**")
+    def __init__(self, **kwargs):
         
+        self.jobscript = None
         
-        if job_settings:    
-            if not job_settings.noCommands():
-                print("Warning! Jobscript contains commands..")
-            self.slurm_settings = job_settings
+        for k,v in kwargs.items():
+            self.setcurrent(k, v)
+    
+    def SlurmSettings(self, settings):
+        print(f"Setting SLURM job settings from jobscript {settings.name}..")
+        self.jobscript = settings
+        print(f"Transferring sources, modules and other header commands from Host to job script..")
+        self.jobscript.module(host.cmd.modules)
+        self.jobscript.source(host.cmd.sources)
+        self.jobscript.addMany(host.cmd.loaders)
+        
+        return self.jobscript
+            
+    def mdrun(self, new, **kwargs):
+        
+        def _do(self, new, **kwargs):
+            if self.jobscript in None:
+                return self.gmx('mdrun', **kwargs, deffnm = new)
+            else:
+                self.jobscript.add(self.gmx('mdrun', **kwargs, deffnm = new, onlycmd=True))
+                return None
+        
+        if kwargs['noappend'] == True:
+            out = self._do(new, **kwargs, noappend = '')
         else:
-            self.slurm_settings = slurm.Jobscript()
+            out = self._do(new, **kwargs)
             
-        super().__init__(server, modules, sources, gmx, directory)
+        self.setcurrent('edr', f"{new}.edr")
+        self.setcurrent('trr', f"{new}.trr")
+        self.setcurrent('cpt', f"{new}.cpt")
+        self.setcurrent('log', f"{new}.log")
         
-    def _getjob(self, jobscript, name):
-        if jobscript:
-            return jobscript
-        elif self.slurm_settings:
-            j = self.slurm_settings
-            j.name = name
-            return j
+        if out == None:
+            print("MDrun job submmitted as a SLURM job script"
+                 f"{self.jobscript.name}.sh..\nPlease use squeue() for details and check for job ID {out}..")
+            return host.cmd.sbatch(self.jobscript)
         else:
-            return slurm.Jobscript()
-            
-    def restartMD(self, old, new, until=0, extend=0, fromcrash=False, job_settings=None):
-        job = self._getjob(job_settings, 'EQMD')
-        
-        job.source(self.sources)
-        job.modules(self.modules)
-        
-        return self.ssh.restartMD(old, new, job, until=0, extend=0, fromcrash=False)
-        
-    def _calc(self, mdp_data, old, new, topol, job):
-        
-        with self.shell.vi(f"{new}.mdp", 'w') as f:
-            f.write(str(mdp_data))
-        
-        job.add(f"{self.gmx} grompp -f {new}.mdp -c {old}.gro -r {old}.gro -p {topol}.top -o {new}.tpr")
-        job.add(f"$MPIEXEC $FLAGS_MPI_BATCH {self.gmx} mdrun -deffnm {new}")
-        
-        return job
+            print("Running mdrun on the login node..\nConsider using SLURM if this is a production run..")
+            return out
     
-    def _run_job(self, job):
+    def continueRun(self, new, until=0, extend=0, fromcrash=False, noappend=True):
         
-        jid = self.shell.sbatch(job)
-        
-        print(f"Job started with job ID: {jid}..\nPlease use squeue() to check status..\n**Done**")
-        
-        return jid
-    
-    def calc(self, mdp_data, old, new, topol='topol', job_settings=None):
-        
-        print("**Running MD Simulation**")
-        print("Setting up Slurm job..")
-        
-        job = self._getjob(job_settings, 'EM')
+        if fromcrash:
+            out = self.mdrun(new, s = self.getcurrent('tpr'), cpi = self.getcurrent('cpt'), noappend = noappend)
+        elif until != 0:
+            out1 = self.gmx('convert-tpr', s = self.getcurrent('tpr'), until = until, o = f'{new}.tpr')
+            self.setcurrent('tpr', f"{new}.tpr")
+            out2 = self.mdrun(s = f'{new}.tpr', cpi = self.getcurrent('cpt'), deffnm = new, noappend = noappend)
             
-        job.source(self.sources)
-        job.module(self.modules)
-        
-        job = self._calc(mdp_data, old, new, topol, job_settings)
-        
-        return self._run_job(job)
-    
-    def _em(self, job):
-        
-        job.add('$MPIEXEC $FLAGS_MPI_BATCH gmx_mpi mdrun -deffnm em')
-        
-        return job
-    
-    def em(self, job_settings=None):
-        
-        print("**Running Energy Minimization**")
-        print("Setting up Slurm job..")
-        
-        job = self._getjob(job_settings, 'EM')
+            if isinstance(out2, str):
+                out = f"Convert-TPR output:\n{out1}\n\nMDrun output:\n{out2}"
+            else:
+                out = f"Convert-TPR output:\n{out1}\n\nMDrun SLURM job ID:\n{out2}"
+                
+        elif extend:
+            self.gmx('convert-tpr', s = self.getcurrent('tpr'), extend = extend, o = f'{new}.tpr')
+            self.setcurrent('tpr', f"{new}.tpr")
+            self.mdrun(s = f'{new}.tpr', cpi = '{cpt}.cpt', deffnm = new, noappend = noappend)
             
-        job.source(self.sources)
-        job.module(self.modules)
-        
-        job = self._em(job)
-        
-        return self._run_job(job)
-        
-    def nvt(self, nvt_mdp=mdp.MDP.defaultNVT(), old='em', new='nvt', topol='topol', job_settings=None):
-        
-        print("**Running NVT Simulation**")
-        print("Setting up Slurm job..")
-        
-        job = self._getjob(job_settings, new.upper())
+            if isinstance(out2, str):
+                out = f"Convert-TPR output:\n{out1}\n\nMDrun output:\n{out2}"
+            else:
+                out = f"Convert-TPR output:\n{out1}\n\nMDrun SLURM job ID:\n{out2}"
             
-        job.source(self.sources)
-        job.module(self.modules)
-        
-        job = self._calc(nvt_mdp, old, new, topol, job)
-        
-        return self._run_job(job)
+        return out
     
-    def npt(self, npt_mdp=mdp.MDP.defaultNPT(), old='nvt', new='npt', topol='topol', job_settings=None):
+    def calc(self, mdp, new, **kwargs):
         
-        print("**Running NPT Simulation**")
-        print("Setting up Slurm job..")
+        if 'disp' not in kwargs: disp = new.title()
+        else:
+            disp = kwargs['name']
+            del kwargs['name']
         
-        job = self._getjob(job_settings, new.upper())
-            
-        job.source(self.sources)
-        job.module(self.modules)
+        print(f"**Starting classical MD calculation: {disp}**")
         
-        job = self._calc(npt_mdp, old, new, topol, job)
+        print(f"All files will be saved with the name {new}..")
         
-        return self._run_job(job)
+        self.write(str(mdp), f"{new}.mdp")
+        
+        print("Running grompp..")
+        
+        out1 = self.gmx('grompp', f = f'{new}.mdp', c = self.getcurrent('coords'),\
+                     p = self.getcurrent('topology'), o = f"{new}.tpr", **kwargs)
+        
+        self.setcurrent('tpr', f"{new}.tpr")
+        
+        out2 = self.mdrun(new)
+        
+        print("**Done**")
+        
+        if isinstance(out2, str):
+            return f"Grompp output:\n{out1}\n\nMDrun output:\n{out2}"
+        else:
+            return f"Grompp output:\n{out1}\n\nMDrun SLURM job ID:\n{out2}"
     
-    def eqmd(self, eq_mdp=mdp.MDP.defaultEQMD(), old='npt', new='md', topol='topol', job_settings=None):
-        
-        print("**Running Production MD**")
-        print("Setting up Slurm job..")
-        
-        job = self._getjob(job_settings, new.upper())
-            
-        job.source(self.sources)
-        job.module(self.modules)
-        
-        job = self._calc(eq_mdp, old, new, topol, job)
-        
-        return self._run_job(job)
+    def em(self, em_mdp = mdp.MDP.defaultEM()): return self.calc(em_mdp, 'em', disp='Minimization')
+    
+    def nvt(self, nvt_mdp = mdp.MDP.defaultNVT()): return self.calc(nvt_mdp, 'nvt', disp='NVT simulation', r = self.current('coords'))
+    
+    def npt(self, npt_mdp = mdp.MDP.defaultNPT()): return self.calc(npt_mdp, 'npt', disp='NPT simulation', r = self.current('coords'))
+    
+    def prd(self, prd_mdp = mdp.MDP.defaultPRD()): return self.calc(prd_mdp, 'prd', disp='Production run', r = self.current('coords'))
             
