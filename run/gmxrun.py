@@ -1,41 +1,21 @@
-from pygmx.run import ssh
+from pygmx import host
+from pygmx.shell import remote
+from collections import defaultdict
+import re
 
-class GMXRun:
-    def __init__(self, server, modules=[], sources=[], gmx="gmx", directory=".", ignloadxerr = True):
-        print(f"Using {gmx} as Gromacs executable..")
-        self.gmx = gmx
-        print(f"Invoking interactive SSH connection to {server}..")
-        self.shell = ssh.GmxSSH(server, self.gmx, directory)
+class GMX:
+    def __init__(self):
+        self._status = defaultdict(list)
+        self.log = ''
+    
+    def setcurrent(self, key, val): self._status[key].append(val)
+    def getcurrent(self, key): return self._status[key][-1]
+    
+    def continueFrom(self, session):
+        if hasattr(session, '_status'):
+            raise Exception("Does not contain simulation status variables!")
         
-        self.modules = modules
-        
-        for module in modules:
-            print(f"Loading module {module}..")
-            try:
-                self.shell.run(f'module load {module}')
-            except Exception as e:
-                if ignloadxerr:
-                    print(f"Warning! {e}. Ignoring..")
-                else:
-                    raise Exception(str(e))
-        
-        self.sources = sources
-        
-        for source in sources:
-            print(f"Sourcing {source}..")
-            try:
-                self.shell.run(f'source {source}')
-            except Exception as e:
-                if ignloadxerr:
-                    print(f"Warning! {e}. Ignoring..")
-                else:
-                    raise Exception(str(e))
-        
-        print('**Done**')
-        
-    @classmethod
-    def continueSession(cls, session):
-        return cls(session.server, session.sources, session.gmx, session.directory)
+        self._status = session._status
     
     def saveSessionToFile(self, filename):
         pass
@@ -44,28 +24,105 @@ class GMXRun:
     def continueSessionFromFile(cls, filename):
         pass
     
-    def restartShell(self, new_shell, fullrestore=True):
-        self.shell.close()
-        self.shell = new_shell
+    def moveMDResults(self, old, new):
+        ls = self.ls(file_eval=lambda a: True if a.startswith(f"{old}.") or\
+                     a.startswith(f"{old}_prev") else False, dir_eval = lambda a: False)
         
-        if fullrestore:
-            self.shell.cd(self.pwd(), mkdir=True)
+        for l in ls:
+            a = l.split('.')
+            n = a[0].replace(old, new)
+            
+            print(f"Renaming {l} to {n}.{a[-1]}")
+            host.cmd.rename(f"{l}", f"{n}.{a[-1]}")
+    
+    def logToFile(self, log):
+        print(f"Dumping standard output from all Gromacs runs so far to {log}..")
         
-            for module in self.modules:
-                self.shell.run(f'module load {module}')
+        host.cmd.write(host.cmd.log, log)
         
-            for source in self.sources:
-                self.shell.run(f'source {source}')
+    def _errorHandle(self, text, dont_raise=False):
+        
+        if 'Halting program' in text or 'Fatal error' in text:
+            
+            pattern = re.compile("^-+$")
+            
+            msg = []
+            start = False
+            
+            for line in text.splitlines()[::-1]:
+                if line.startswith('For more information and tips for troubleshooting') and not start:
+                    start=True
+                elif start:
+                    if pattern.match(line):
+                        break
+                    else:
+                        msg.append(line)
+                    
+                err = '\n'.join(msg[::-1])
+                  
+            if dont_raise:
+                err += f"Error running Gromacs!\n{err}"
+            else:
+                raise Exception(f"Error running Gromacs!\n{err}")
+        
+        if dont_raise:
+            return err
         else:
-            self.shell.dir = ''
-            self.modules = ''
-            self.sources = ''
-    
-    def __enter__(self):
-        return self
+            return None
         
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.__del__()
+    def _notes(self, text):
+        
+        pattern = re.compile("^-+$")
+        
+        notes = ''
+        start = False
+        for i, line in enumerate(text.splitlines()):
+            if line.startswith('NOTE') or line.startswith('WARNING') or 'One or more water molecules can not be settled.' in line:
+                notes += line + '\n'
+                start = True
+            elif start:
+                if line.strip() == '' or line.startswith('WARNING') or line.startswith('NOTE') or pattern.match(line):
+                    start = False
+                else:
+                    notes += line + '\n'
+        
+        return notes
     
-    def __del__(self):
-        self.shell.__del__()
+    def gmx(self, cmd, **kwargs):
+        
+        if not hasattr(host, 'gmx'):
+            raise Exception('Gromacs executable not set! Please set it in host..')
+            
+        gmx_ex = host.gmx.strip()
+        
+        if gmx_ex[:3] != 'gmx':
+            raise Exception(f'{host.gmx} is an invalid Gromacs executable! Please set it correctly in host..')
+        
+        splt = cmd.split()
+        
+        print(f"Running Gromacs {splt[0]}..")
+        if type(host.cmd) is remote.SSH: host.cmd.query_rate = 3
+        
+        cmd = f"{gmx_ex} {cmd}"
+        
+        stdin = None
+        
+        for k, v in kwargs.items():
+            if k != 'stdin':
+                cmd += f"-{k} {v}"
+            elif k == 'stdin':
+                stdin = v
+            elif k == 'onlycmd':
+                onlycmd = True
+                
+        if onlycmd: return cmd
+        
+        text = host.cmd.run(cmd, stdin=stdin, errorHandle=self._errorHandle)
+        
+        notes = self._notes(text)
+            
+        self.log += f"========================\n{cmd}\n========================\n"+text+'\n\n'
+        if notes != '':
+            print('\n'+notes)
+        
+        return text
