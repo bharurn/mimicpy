@@ -112,7 +112,7 @@ class MDP:
         return npt
      
     @classmethod
-    def defaultEQMD(cls):
+    def defaultPRD(cls):
         eq = cls.defaultNPT()
         eq.name = 'EQMD'
         eq.define = None
