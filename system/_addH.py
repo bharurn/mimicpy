@@ -58,9 +58,6 @@ def _multChains(pdb):
     return pdb_str, n_chains
     
 def do(sdf, pH, name):
-    if pH == 0:
-        return _donoH(sdf, name)
-    
     print("**Adding Hydrogens**")
     
     sdf_textio = StringIO()            
