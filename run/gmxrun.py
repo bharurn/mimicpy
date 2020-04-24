@@ -4,12 +4,13 @@ from collections import defaultdict
 import re
 
 class GMX:
+    log = ''
     def __init__(self):
         self._status = defaultdict(list)
-        self.log = ''
     
     def setcurrent(self, key, val): self._status[key].append(val)
     def getcurrent(self, key): return self._status[key][-1]
+    def gethistory(self, key): return self._status[key]
     
     def continueFrom(self, session):
         if hasattr(session, '_status'):
@@ -39,10 +40,11 @@ class GMX:
         print(f"Dumping standard output from all Gromacs runs so far to {log}..")
         
         host.cmd.write(host.cmd.log, log)
+    
+    @staticmethod
+    def _errorHandle(text, dont_raise=False):
         
-    def _errorHandle(self, text, dont_raise=False):
-        
-        if 'Halting program' in text or 'Fatal error' in text:
+        if 'Halting program' in text or 'Fatal error' in text or 'Error in user input' in text:
             
             pattern = re.compile("^-+$")
             
@@ -70,7 +72,8 @@ class GMX:
         else:
             return None
         
-    def _notes(self, text):
+    @staticmethod
+    def _notes(text):
         
         pattern = re.compile("^-+$")
         
@@ -88,7 +91,8 @@ class GMX:
         
         return notes
     
-    def gmx(self, cmd, **kwargs):
+    @staticmethod
+    def gmx(cmd, **kwargs):
         
         if not hasattr(host, 'gmx'):
             raise Exception('Gromacs executable not set! Please set it in host..')
@@ -100,16 +104,21 @@ class GMX:
         
         splt = cmd.split()
         
-        print(f"Running Gromacs {splt[0]}..")
+        if 'noverbose' not in kwargs:
+            print(f"Running Gromacs {splt[0]}..")
+        else:
+            del kwargs['noverbose']
+            
         if type(host.cmd) is remote.SSH: host.cmd.query_rate = 3
         
         cmd = f"{gmx_ex} {cmd}"
         
         stdin = None
+        onlycmd = False
         
         for k, v in kwargs.items():
             if k != 'stdin':
-                cmd += f"-{k} {v}"
+                cmd += f" -{k} {v}"
             elif k == 'stdin':
                 stdin = v
             elif k == 'onlycmd':
@@ -117,11 +126,11 @@ class GMX:
                 
         if onlycmd: return cmd
         
-        text = host.cmd.run(cmd, stdin=stdin, errorHandle=self._errorHandle)
+        text = host.cmd.run(cmd, stdin=stdin, errorHandle=GMX._errorHandle)
         
-        notes = self._notes(text)
+        notes = GMX._notes(text)
             
-        self.log += f"========================\n{cmd}\n========================\n"+text+'\n\n'
+        GMX.log += f"========================\n{cmd}\n========================\n"+text+'\n\n'
         if notes != '':
             print('\n'+notes)
         
