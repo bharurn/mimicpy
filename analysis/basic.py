@@ -1,9 +1,21 @@
 from pygmx import host
-import numpy as np
+from pygmx.run.gmxrun import GMX
 import re
 
 class Value:
-    def __init__(self, xtitle, ytitle, x, y): self.xtitle=xtitle; self.ytitle=ytitle; self.x=x; self.y=y
+    def __init__(self, xlabel, ylabel, x, y): self.xlabel=xlabel; self.ylabel=ylabel; self.x=x; self.y=y
+    
+    def __add__(self, a):
+        xlabel = a.xlabel
+        ylabel = a.ylabel
+        x = self.x  + a.x
+        y = self.y + a.y
+        
+        return Value(xlabel, ylabel, x, y)
+    
+    @classmethod
+    def empty(cls):
+        return cls('', '', [], [])
     
     @classmethod
     def fromxvg(cls, xvg):
@@ -31,7 +43,7 @@ class Value:
                 x.append(float(splt[0]))
                 y.append(float(splt[1]))
                 
-        return cls(xlabel, ylabel, np.asarray(x), np.asarray(y))
+        return cls(xlabel, ylabel, x, y)
 
 def _parse(out):
         
@@ -66,18 +78,9 @@ def dump(file):
     out = host.cmd.run(f'{host.gmx} dump -{cmd} {file}')
     return out
 
-def energy(file, component, b=None, f=None):
-    if b:
-        d1 = f' -b {b}'
-    else:
-        d1 = ''
-        
-    if f:
-        d2 = f' -e {f}'
-    else:
-        d2 = ''
+def energy(file, component, **kwargs):
     
-    txt = host.cmd.run(f'{host.gmx} energy -f {file}{d1}{d2}', stdin=component)
+    txt = GMX.gmx('energy', f = file, **kwargs, noverbose=True, stdin=component)
     
     try:
         out = host.cmd.read('energy.xvg')
