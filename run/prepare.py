@@ -55,7 +55,7 @@ class Prepare(gmxrun.GMX):
         top2 = ''
         
         print("Combining lignads topology into single file ligands.itp..")
-        for lig in self.protein.ligands:
+        for ligname, lig in self.protein.ligands.items():
             t1, t2 = lig.splitItp()
 	
             top1 += t1
