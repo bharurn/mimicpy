@@ -24,10 +24,9 @@ class MD(gmxrun.GMX):
         
         def _do(self, new, **kwargs):
             if self.jobscript in None:
-                return self.gmx('mdrun', **kwargs, deffnm = new)
+                self.gmx('mdrun', **kwargs, deffnm = new)
             else:
                 self.jobscript.add(self.gmx('mdrun', **kwargs, deffnm = new, onlycmd=True))
-                return None
         
         if kwargs['noappend'] == True:
             out = self._do(new, **kwargs, noappend = '')
@@ -45,33 +44,22 @@ class MD(gmxrun.GMX):
             return host.cmd.sbatch(self.jobscript)
         else:
             print("Running mdrun on the login node..\nConsider using SLURM if this is a production run..")
-            return out
+            return None
     
     def continueRun(self, new, until=0, extend=0, fromcrash=False, noappend=True):
         
         if fromcrash:
-            out = self.mdrun(new, s = self.getcurrent('tpr'), cpi = self.getcurrent('cpt'), noappend = noappend)
+            return self.mdrun(new, s = self.getcurrent('tpr'), cpi = self.getcurrent('cpt'), noappend = noappend)
         elif until != 0:
-            out1 = self.gmx('convert-tpr', s = self.getcurrent('tpr'), until = until, o = f'{new}.tpr')
-            self.setcurrent('tpr', f"{new}.tpr")
-            out2 = self.mdrun(s = f'{new}.tpr', cpi = self.getcurrent('cpt'), deffnm = new, noappend = noappend)
             
-            if isinstance(out2, str):
-                out = f"Convert-TPR output:\n{out1}\n\nMDrun output:\n{out2}"
-            else:
-                out = f"Convert-TPR output:\n{out1}\n\nMDrun SLURM job ID:\n{out2}"
+            self.gmx('convert-tpr', s = self.getcurrent('tpr'), until = until, o = f'{new}.tpr')
+            self.setcurrent('tpr', f"{new}.tpr")
+            return self.mdrun(s = f'{new}.tpr', cpi = self.getcurrent('cpt'), deffnm = new, noappend = noappend)
                 
         elif extend:
             self.gmx('convert-tpr', s = self.getcurrent('tpr'), extend = extend, o = f'{new}.tpr')
             self.setcurrent('tpr', f"{new}.tpr")
-            self.mdrun(s = f'{new}.tpr', cpi = '{cpt}.cpt', deffnm = new, noappend = noappend)
-            
-            if isinstance(out2, str):
-                out = f"Convert-TPR output:\n{out1}\n\nMDrun output:\n{out2}"
-            else:
-                out = f"Convert-TPR output:\n{out1}\n\nMDrun SLURM job ID:\n{out2}"
-            
-        return out
+            return self.mdrun(s = f'{new}.tpr', cpi = '{cpt}.cpt', deffnm = new, noappend = noappend)
     
     def calc(self, mdp, new, **kwargs):
         
@@ -88,20 +76,17 @@ class MD(gmxrun.GMX):
         
         print("Running grompp..")
         
-        out1 = self.gmx('grompp', f = f'{new}.mdp', c = self.getcurrent('coords'),\
+        self.gmx('grompp', f = f'{new}.mdp', c = self.getcurrent('coords'),\
                      p = self.getcurrent('topology'), o = f"{new}.tpr", **kwargs)
         
         self.setcurrent('tpr', f"{new}.tpr")
         
-        out2 = self.mdrun(new)
+        out = self.mdrun(new)
         
         print("**Done**")
         
-        if isinstance(out2, str):
-            return f"Grompp output:\n{out1}\n\nMDrun output:\n{out2}"
-        else:
-            return f"Grompp output:\n{out1}\n\nMDrun SLURM job ID:\n{out2}"
-    
+        return out
+        
     def em(self, em_mdp = mdp.MDP.defaultEM()): return self.calc(em_mdp, 'em', disp='Minimization')
     
     def nvt(self, nvt_mdp = mdp.MDP.defaultNVT()): return self.calc(nvt_mdp, 'nvt', disp='NVT simulation', r = self.current('coords'))
