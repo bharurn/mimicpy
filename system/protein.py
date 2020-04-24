@@ -6,6 +6,7 @@ import pygmx.system.handlePDB as hpdb
 from collections import defaultdict
 import io
 from rdkit.Chem import PandasTools
+from collections import OrderedDict
 
 class Protein:
    
@@ -25,8 +26,7 @@ class Protein:
         
         self.pdb  = f"TITLE     {self.name}\n" + shell.cmd.run('grep ^ATOM', stdin=self.pdb)
         
-        self.ligands=[]
-        self.ligands_dict={}
+        self.ligands=OrderedDict()
         
         self.ligand_pdb = ""
         
@@ -40,9 +40,7 @@ class Protein:
        if not isinstance(ligand, lig.StdResidue):
            print(f"Adding non standard ligand {ligand.name} to {self.name}..") 
            
-           self.ligands.append(ligand)
-           
-           self.ligands_dict.update({ligand.name:ligand})
+           self.ligands.update({ligand.name:ligand})
            
            self.ligand_pdb += ligand.pdb
        else:
@@ -53,7 +51,7 @@ class Protein:
    def stripWater(self, *args):
        
       ids = [ r for (res, chain, dist) in args\
-                             for r in _hndlWater.coordsWithin(self.ligands_dict[res].pdb, chain, self.water, dist) ]
+                             for r in _hndlWater.coordsWithin(self.ligands[res].pdb, chain, self.water, dist) ]
      
       self.hoh_mols = len(ids)
       
