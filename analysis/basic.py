@@ -1,6 +1,8 @@
 from pygmx import host
 from pygmx.run.gmxrun import GMX
+import yaml
 import re
+import pandas as pd
 
 class Value:
     def __init__(self, xlabel, ylabel, x, y): self.xlabel=xlabel; self.ylabel=ylabel; self.x=x; self.y=y
@@ -90,3 +92,42 @@ def energy(file, component, **kwargs):
     host.cmd.rm('energy.xvg')
     
     return Value.fromxvg(out)
+
+def _checkstatus(status):
+    if status: return status
+    else:
+        with open('_status.yaml') as f:
+            return yaml.load(f, Loader=yaml.FullLoader)
+        
+def readLog(file):
+    f = host.cmd.read(file)
+    x = re.compile(r"^\s*(Step\s*Time)\n(.+)\n(?:\n.+)+\s*Energies\s*\(kJ/mol\)((?:\n.+)+)\s+\n",\
+               re.MULTILINE)
+    res = x.findall(f)
+    
+    def c(log_txt):
+        colms = []
+        vals = []
+        n = 15
+        colms += log_txt[0].split()
+        vals += [float(i) for i in log_txt[1].split()]
+        for j,l in enumerate(log_txt[2].splitlines()):
+            if j%2 != 0:
+                cols = [l[i:i+n].strip() for i in range(0, len(l), n)]
+                colms.extend(cols)
+            else:
+                cols = [float(l[i:i+n].strip()) for i in range(0, len(l), n)]
+                vals.extend(cols)
+        return (colms, vals)
+   
+    cols, v1 = c(res[0])
+    
+    vals = []
+    for i in res:
+        vals.append(c(i)[1])
+        
+    df = pd.DataFrame(vals, columns=cols)
+    df = df.set_index(['Step', 'Time'])
+    
+    return df
+    
