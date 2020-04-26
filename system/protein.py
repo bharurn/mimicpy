@@ -124,6 +124,6 @@ class Protein:
    def loadFromFile(cls, pdb):
         shell.cmd.checkFile(f"{pdb}.pdb")
         
-        f = open(f"{pdb}.pdb", "r")
+        f = shell.cmd.read(f"{pdb}.pdb")
         
-        return cls(f.read(), pdb)
+        return cls(f, pdb)
