@@ -1,5 +1,5 @@
 import numpy as np
-import pygmx.system.handlePDB as hpdb
+from ..utils import handlePDB as hpdb
 
 def _getSphere(coords):
     center = coords.mean(0)
