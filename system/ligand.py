@@ -1,7 +1,7 @@
-from pygmx import system
-import pygmx.host as shell
+from . import _addH, _getItp
+from ..utils import handlePDB as hpdb
+from .. import host as shell
 from rdkit.Chem import PandasTools
-import pygmx.system.handlePDB as hpdb
 
 class Ligand:
     
@@ -74,9 +74,9 @@ class Ligand:
     
     @classmethod
     def _load(cls, mol, pH, mol_name, prep2pdb, tleap_dump):
-        pdb, chains = system._addH.do(mol, pH, mol_name)
+        pdb, chains = _addH.do(mol, pH, mol_name)
         
-        itp, posre = system._getItp.do(mol_name, prep2pdb, tleap_dump)
+        itp, posre = _getItp.do(mol_name, prep2pdb, tleap_dump)
     
         lig = cls(pdb, itp, posre, chains, mol_name)
         
@@ -109,7 +109,7 @@ class Ligand:
         
         print(f"**Running Gaussian Optimization for {name} on SDF Dataframe**")
         
-        pdb, chains = system._addH.do(mol, pH, name)
+        pdb, chains = _addH.do(mol, pH, name)
         
         with open(f'{name}.pdb', 'w') as f: f.write(pdb)
         
@@ -145,7 +145,7 @@ class StdResidue(Ligand):
         
         print(f"**Creating standard residue {mol_name} from SDF Dataframe*")
         
-        pdb, chains = system._addH._donoH(mol, mol_name)
+        pdb, chains = _addH._donoH(mol, mol_name)
         return cls(pdb, "", "", 1, mol_name)
     
     @classmethod 
@@ -155,7 +155,7 @@ class StdResidue(Ligand):
         
         print(f"**Creating standard residue {mol_name} from SDF file**")
         
-        pdb, chains = system._addH._donoH(mol, mol_name)
+        pdb, chains = _addH._donoH(mol, mol_name)
         
         return cls(pdb, "", "", 1, mol_name)
     
