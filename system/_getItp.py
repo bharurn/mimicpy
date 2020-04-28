@@ -1,4 +1,4 @@
-import pygmx.host as shell
+from .. import host as shell
 
 def _cleanprep(mol, prep_to_pdb):
     prep = shell.cmd.read(f'{mol}.prep')
