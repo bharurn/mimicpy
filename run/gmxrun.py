@@ -1,5 +1,5 @@
-from pygmx import host
-from pygmx.shell import remote
+from .. import host
+from ..shell import remote
 from collections import defaultdict
 import re
 
