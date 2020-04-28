@@ -1,8 +1,7 @@
-import pygmx.system.ligand as lig
-import pygmx.host as shell
-from pygmx.system import _hndlWater
+from . import ligand as lig, _hndlWater
+from ..utils import handlePDB as hpdb
+from .. import host as shell
 import requests
-import pygmx.system.handlePDB as hpdb
 from collections import defaultdict
 import io
 from rdkit.Chem import PandasTools
