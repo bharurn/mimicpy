@@ -1,6 +1,6 @@
-import pygmx.system.handlePDB as hpdb
-from pygmx.run import mdp, gmxrun
-from pygmx import host
+from ..utils import handlePDB as hpdb
+from . import mdp, gmxrun
+from .. import host
 
 class Prepare(gmxrun.GMX):
     
