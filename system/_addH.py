@@ -1,5 +1,5 @@
-from pygmx.system import handlePDB
-import pygmx.host as shell
+from ..utils import handlePDB
+from .. import host as shell
 from rdkit.Chem import PandasTools
 from io import StringIO
 import re
