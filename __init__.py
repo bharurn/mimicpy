@@ -5,6 +5,10 @@ from .system import _getItp
 from .system import _hndlWater
 from .system import handlePDB
 from .shell import remote
+from .analysis import parse
+from .analysis import dashboard
+from .analysis import plotbox
+from .analysis import rms
 from .run import prepare
 from .run import mdp
 from .run import gmxrun
