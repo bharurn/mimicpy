@@ -1,5 +1,5 @@
-from pygmx.run import mdp, gmxrun
-from pygmx import host
+from . import mdp, gmxrun
+from .. import host
 
 class MD(gmxrun.GMX):
     
