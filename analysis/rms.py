@@ -6,8 +6,8 @@ def d(top, trr, selections):
     try:
         import MDAnalysis as mda
         from MDAnalysis.analysis import align
-    except:
-        raise ImportError("Please install MDAnalysis python package to parse trajectory files.")
+    except ImportError:
+        raise Exception("Please install MDAnalysis python package to parse trajectory files.")
         
     u = mda.Universe(top)
 
@@ -32,8 +32,8 @@ def f(top, trr, selection, selections):
     try:
         import MDAnalysis as mda
         from MDAnalysis.analysis import align
-    except:
-        raise ImportError("Please install MDAnalysis python package to parse trajectory files.")
+    except ImportError:
+        raise Exception("Please install MDAnalysis python package to parse trajectory files.")
     
     u = mda.Universe(top, trr)
     align.AlignTraj(u, u, select=selection, in_memory=True).run()
