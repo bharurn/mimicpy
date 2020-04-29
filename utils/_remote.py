@@ -1,5 +1,4 @@
 import time
-from . import slurm
 from stat import S_ISDIR, S_ISREG
 
 class Shell:
@@ -44,8 +43,8 @@ class Shell:
     def _lookup(self, name):
         try:
             import paramiko
-        except:
-            raise ImportError("Install paramiko python package to remotely run MiMiC")
+        except ImportError:
+            raise Exception("Install paramiko python package to remotely run MiMiC")
             
         config = paramiko.SSHConfig()
         config.parse(open(self.config))
@@ -57,8 +56,8 @@ class Shell:
     def _getssh(name, sock=None):
         try:
             import paramiko
-        except:
-            raise ImportError("Install paramiko python package to remotely run MiMiC")
+        except ImportError:
+            raise Exception("Install paramiko python package to remotely run MiMiC")
             
         conf = Shell._lookup(name)
     
@@ -141,17 +140,6 @@ class Shell:
             lines = self.stdout.replace(startout, '').splitlines()[1:-1]
         
             return '\n'.join(lines)
-    
-    def ps(self, arg):
-        r = self.run(f'ps {arg}', onNewChan=True)
-        
-        if len(r) > 1:
-            return True
-        else:
-            return False
-        
-    def squeue(self):
-        return slurm.Joblist.fromQueue(self.run('squeue -u $USER', onNewChan=True))
     
     def sbatch(self, job):
         if job.noCommands():
