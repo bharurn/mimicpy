@@ -5,12 +5,13 @@ from rdkit.Chem import PandasTools
 
 class Ligand:
     
-    def __init__(self, pdb, itp, posre, chains, name):
+    def __init__(self, pdb, itp, posre, chains, name, elems):
         self.pdb = pdb
         self.itp = itp
         self.posre = posre
         self.chains = chains
         self.name = name
+        self.elems = elems
     
     def splitItp(self):
         start = False
@@ -30,7 +31,7 @@ class Ligand:
                 val2 += line + '\n'
 		
         return val, val2	
-    
+
     def _matchpdb2itp(self):
         start = False
         vals = {}
@@ -77,8 +78,10 @@ class Ligand:
         pdb, chains = _addH.do(mol, pH, mol_name)
         
         itp, posre = _getItp.do(mol_name, prep2pdb, tleap_dump)
-    
-        lig = cls(pdb, itp, posre, chains, mol_name)
+        
+        elems = [a.GetSymbol() for a in mol.loc[0]['ROMol'].GetAtoms()] # for MiMiC
+        
+        lig = cls(pdb, itp, posre, chains, mol_name, elems)
         
         lig._matchpdb2itp()
         
