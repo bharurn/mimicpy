@@ -1,8 +1,12 @@
 from ..utils import handlePDB as hpdb
-from . import mdp, gmxrun
+from ..utils.scripts import mdp
+from . import gmxrun
 from .. import host
+from . import _qmhelper
+from ._constants import bohr_rad
+from ..utils.scripts import cpmd
 
-class Prepare(gmxrun.GMX):
+class MM(gmxrun.GMX):
     
     def __init__(self, protein=None):
         print(f"Attaching protein {protein.name}..")
@@ -51,7 +55,9 @@ class Prepare(gmxrun.GMX):
         
         self.setcurrent('coords', "conf.pdb")
         
-        top1 = f'; Topology data for all non-standard resiude in {self.protein.name} created by pygmx\n[ atomtypes ]\n'
+        top1 = (f"; Topology data for all non-standard resiudes in {self.protein.name} created by MiMiCPy\n"
+            "; AmberTools was used to generate topolgy parameter for Amber Force Field, conversion done using Acpype"
+                    "\n\n[ atomtypes ]\n")
         top2 = ''
         
         print("Combining lignads topology into single file ligands.itp..")
@@ -103,3 +109,79 @@ class Prepare(gmxrun.GMX):
         self.setcurrent('tpr', 'ions.tpr')
         
         print("**Done**")
+        
+class QM(gmxrun.GMXRun):
+    
+    def __init__(self, prepare):
+        self._qmatoms = {}
+        self.continueFrom(prepare)
+        self.protein = prepare.protein
+        self._protein_res = []
+        self._mm_box = [5, 5, 5]
+        self.inp = cpmd.Input()
+        
+    def addAtoms(self, **kwargs):
+        
+        lst = ['serial', 'name', 'resName', 'chainID', 'element']
+        
+        for k in kwargs.keys():
+            if k not in lst:
+                slst = ", ".join(lst)
+                raise Exception(f'{k} not a valid selection. Please use the following keywords:\n{slst}')
+        
+        pdb_coords = host.read(self.gethistory('coords')[1]) #pdb file after pdb2gmx, with ligands included
+        gro_coords = host.read(self.getcurrent('coords'))
+        
+        pdb_splt = pdb_coords.splitlines()
+        gro_splt = gro_coords.splitlines()
+        
+        for i, pdb, gro in enumerate(zip(pdb_splt, gro_splt)):
+            if hpdb.matchLine(pdb, kwargs):
+                idx = i+1
+                
+                resname = hpdb.readLine(pdb)['resName'] # check for non standard ligands
+                if resname in self.protein.ligands: elem = self.protein._lig_elems[i]
+                else:
+                    elem = self.protein._prt_atom_names[i]
+                    self._protein_res.append(idx)
+                
+                coords = [float(v)/bohr_rad for v in gro.split()[2:5]]
+                
+                self._qmatoms[idx] = (elem, coords)
+        
+        self._mm_box = [float(v)/bohr_rad for v in gro_splt[-1].split()]
+    
+    def addLinkAtoms(self, **kwargs):
+        pass
+    
+    def detectLinkAtoms(self):
+        pass
+    
+    def prepareQMRegion(self, mdp, inp=cpmd.Input()):
+        mdp.integrator = 'mimic'
+        mdp.nsteps = 10000 # dummy value
+        mdp.dt = 0.002 #dummy value
+        mdp.QMMM_grps = 'QMatoms'
+        
+        host.cmd.write(str(mdp), 'mimic.mdp')
+        host.cmd.write(_qmhelper.index(self.qmatoms.keys()), 'index.ndx')
+        
+        self.gmx('grompp', f='mimic.mdp', c=self.getcurrent('coords'),\
+                 p=self.getcurrent('topology'), o='mimic.tpr', pp='processed.top', n='index.ndx')
+        self.setcurrent('tpr', 'mimic.tpr')
+        
+        qmatoms_updated = _qmhelper.pptop(self._qmatoms, self._protein_res, host.cmd.read('processed.top'))
+        
+        inp.mimic = cpmd.Section()
+        inp.mimic.paths = f"1\n{host.cmd.pwd()}/gmx"
+        inp.mimic.box = '  '.join(self._mm_box)
+        
+        inp = _qmhelper.getOverlaps_Atoms(qmatoms_updated, inp)
+        
+        if not inp.checkSection('cpmd'): inp.cpmd = cpmd.Section()
+        inp.cpmd.mimic = ''
+        inp.cpmd.parallel__constraints = ''
+        
+        self.inp = inp
+        
+        return inp
