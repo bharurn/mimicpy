@@ -29,6 +29,8 @@ class Protein:
         
         self.ligand_pdb = ""
         
+        self._lig_elems = [] # for MiMiC
+        
         print("**Done**")
         
    def addLigand(self, ligand):
@@ -42,6 +44,9 @@ class Protein:
            self.ligands.update({ligand.name:ligand})
            
            self.ligand_pdb += ligand.pdb
+           
+           self._lig_elems.extend(ligand.elems) # for MiMiC
+           
        else:
            print(f"Adding standard ligand {ligand.name} to {self.name}..") 
            
