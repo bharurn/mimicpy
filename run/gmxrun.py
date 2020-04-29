@@ -36,10 +36,11 @@ class GMX:
             print(f"Renaming {l} to {n}.{a[-1]}")
             host.cmd.rename(f"{l}", f"{n}.{a[-1]}")
     
-    def logToFile(self, log):
-        print(f"Dumping standard output from all Gromacs runs so far to {log}..")
+    @staticmethod
+    def logToFile(self, log_file):
+        print(f"Dumping standard output from all Gromacs runs so far to {log_file}..")
         
-        host.cmd.write(host.cmd.log, log)
+        host.cmd.write(host.cmd.log, log_file)
     
     @staticmethod
     def _errorHandle(text, dont_raise=False):
