@@ -54,7 +54,7 @@ class Local(Base):
     
     def rm(self, a): os.remove(a)
 
-class SSH(remote.shell.Shell, Base):
+class Remote(remote.Shell, Base):
     
     def __init__(self, work_dir, modules=[], sources=[], loaders=[], ignloaderr = True):
         
