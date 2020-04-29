@@ -1,2 +1,2 @@
-from .ligand import Ligand, StdResidue
-from .protein import Protein
+from . import ligand
+from . import protein
