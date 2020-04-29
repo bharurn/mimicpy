@@ -1,18 +1,48 @@
 from ..utils import handlePDB
-from .. import host as shell
-from rdkit.Chem import PandasTools
-from io import StringIO
+from .._global import host as shell, obabel
 import re
 
-def _cleanPdb(sdf, pdb, resname):
+def _cleanPdb(sdf, pdb):
     print("Assigning correct atom names..")
     
-    atm_names = [a.GetProp('molFileAlias') for i in range(len(sdf)) for a in sdf.loc[i]['ROMol'].GetAtoms()]
+    #####Read sdf file#####
+    l_cnt = 0
+    start = False
+    resname = ""
+    atm_names = [] # store atoms names
+    elems = [] # store element list for MiMiC
+    for line in sdf.splitlines():
+        if l_cnt > 3 and not start: # read coordinates
+            elems.append(line.split()[3]) #4th value if the element symbol
+            l_cnt += 1
+        elif "A    1" in line: # start reading atom names
+            start = True
+            val = line.split()
+            if len(val) == 1:
+                # get atom names to be added to the pdb file
+                atm_names.append(val[0])
+            elif "M  END" in line:
+                start = False # stop reading atom names
+            elif start:
+                val = line.split()
+                if len(val) == 1:
+                    # get atom names to be added to the pdb file
+                    atm_names.append(val[0])
+                # search for ChemCompId tag to get ligand name
+            elif "ChemCompId" in line:
+                resname = "start"
+            elif resname == "start":
+                resname = line.strip()
+        elif '$$$$' in line:
+            l_cnt = 0 # reset l_cnt to read elements again
+            
+
+    #####END#####
     
     pdb_str = ""
     atm_i = 0 # counter for atom name
-    h_i = 1 # counter for new hydrogen atom name
-    # hydrogen atom names are addedas H1, H2, H3, ....
+    h_i = 1 # counter for new hydrogen atom names
+    # hydrogen atom names are added as H1, H2, H3, ....
     for line in pdb.splitlines():
         header = line.split()[0]
         if header == "HETATM":
@@ -26,7 +56,7 @@ def _cleanPdb(sdf, pdb, resname):
         
         pdb_str += line + '\n'
 
-    return pdb_str
+    return pdb_str, resname, elems
 
 def _multChains(pdb):
     pdb_str = ""
@@ -57,41 +87,34 @@ def _multChains(pdb):
 
     return pdb_str, n_chains
     
-def do(sdf, pH, name):
-    print("**Adding Hydrogens**")
-    
-    sdf_textio = StringIO()            
-    PandasTools.WriteSDF(sdf, sdf_textio)
-    
-    sdf_text = sdf_textio.getvalue()
+def do(sdf, pH):
+    sdf_text = sdf.copy()
     
     print(f"Cleaning sdf..")
     sdf_text = re.sub(r'/A    1/(\n.*?)*?/M  END/', '', sdf_text, flags=re.MULTILINE)
     print("Converting to pdb using Openbabel")
-    pdb = shell.cmd.run('obabel -isdf -opdb', stdin=sdf_text)
+    pdb = shell.cmd.run('{obabel} -isdf -opdb', stdin=sdf_text)
     print(f'Adding hydrogens at pH={pH}')
-    pdb = shell.cmd.run(f'obabel -ipdb -p {pH} -opdb', stdin=pdb)
+    pdb = shell.cmd.run(f'{obabel} -ipdb -p {pH} -opdb', stdin=pdb)
     
-    pdb, chains = _multChains(_cleanPdb(sdf, pdb, name))
+    pdb, resname, elems = _cleanPdb(sdf, pdb)
+    pdb, chains = _multChains(pdb)
     
     pdb = shell.cmd.run('grep HETATM\|ATOM', stdin=pdb)
-    print("**Done**")
-    return pdb, chains
-
-def _donoH(sdf, name):
-    sdf_textio = StringIO()            
-    PandasTools.WriteSDF(sdf, sdf_textio)
     
-    sdf_text = sdf_textio.getvalue()
+    return pdb, resname, chains, elems
+
+def donoH(sdf):
+    sdf_text = sdf.copy()
     
     print(f"Cleaning sdf..")
     sdf_text = re.sub(r'/A    1/(\n.*?)*?/M  END/', '', sdf_text, flags=re.MULTILINE)
     print("Converting to pdb using Openbabel")
     
-    pdb = shell.cmd.run('obabel -isdf -opdb', stdin=sdf_text)
+    pdb = shell.cmd.run('{obabel} -isdf -opdb', stdin=sdf_text)
     
-    pdb, chains = _multChains(_cleanPdb(sdf, pdb, name))
+    pdb, resname, elems = _cleanPdb(sdf, pdb)
+    pdb, chains = _multChains(pdb)
     
     pdb = shell.cmd.run('grep HETATM\|ATOM', stdin=pdb)
-    print("**Done**")
-    return pdb, chains
+    return pdb, resname, chains, elems
