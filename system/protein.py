@@ -1,18 +1,15 @@
 from . import ligand as lig, _hndlWater
 from ..utils import handlePDB as hpdb
-from .. import host as shell
+from .._global import host as shell
 import requests
-from collections import defaultdict
-import io
-from rdkit.Chem import PandasTools
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 
 class Protein:
    
    def __init__(self, pdb, name):
         self.name = name
         
-        print(f"**Creating protein {name}**")
+        print(f"Creating protein {name}..")
         
         self.pdb = pdb
         
@@ -31,14 +28,12 @@ class Protein:
         
         self._lig_elems = [] # for MiMiC
         
-        print("**Done**")
-        
    def addLigand(self, ligand):
         
-       if not isinstance(ligand, lig.Ligand):
+       if not isinstance(ligand, lig.NonStdLigand):
            raise Exception(f"Cannot add {type(ligand)} as ligand")
        
-       if not isinstance(ligand, lig.StdResidue):
+       if not isinstance(ligand, lig.StdLigand):
            print(f"Adding non standard ligand {ligand.name} to {self.name}..") 
            
            self.ligands.update({ligand.name:ligand})
@@ -51,6 +46,9 @@ class Protein:
            print(f"Adding standard ligand {ligand.name} to {self.name}..") 
            
            self.pdb += ligand.pdb
+    
+   def addLigands(self, ligand_list):
+       for ligand in ligand_list:  self.addLigand(ligand)
        
    def stripWater(self, *args):
        
@@ -65,7 +63,7 @@ class Protein:
     
    @classmethod
    def loadFromRCSB(cls, pdbid, chains=None, howToreturn=0):
-       print(f"**Accessing PDB {pdbid} from RCSB database**")
+       print(f"Accessing PDB {pdbid} from RCSB database..")
        print("Downloading PDB file..")
            
        response = requests.get(f'http://files.rcsb.org/view/{pdbid}.pdb')
@@ -73,9 +71,7 @@ class Protein:
        
        pdb = response.text
        
-       lig = {}
-
-       lig = defaultdict(str)
+       ligs = defaultdict(str)
        
        print("Parsing ligands..")
        
@@ -97,16 +93,9 @@ class Protein:
                 resp.raise_for_status()
 
         
-                lig[v[0]] += resp.text
+                ligs[v[0]] += resp.text
                 
             elif vals['record'] == 'HETNAM': break
-    
-       ligs = {}
-       
-       for lg in lig:
-            output = io.BytesIO(lig[lg].encode('utf-8'))
-
-            ligs[lg] = PandasTools.LoadSDF(output)
             
        pdb_ = ''
        
@@ -116,18 +105,18 @@ class Protein:
             if vals['record'] == 'ATOM' or vals['record'] == 'HETATM':
                 if vals['chainID'] in chains:
                     pdb_ += line + '\n'
-            
-       print("**Done**")
        
        if howToreturn == 0:
-           return cls(pdb_, pdbid), ligs
+           prt = cls(pdb_, pdbid)
+           prt.addLigands(ligs.values())
+           print("Returned as Protein with Ligands added..")
+           return prt
        else:
+           print("Returned as raw data..")
            return pdb_, ligs
        
    @classmethod
    def loadFromFile(cls, pdb):
-        shell.cmd.checkFile(f"{pdb}.pdb")
-        
-        f = shell.cmd.read(f"{pdb}.pdb")
-        
+        shell.checkFile(f"{pdb}.pdb")
+        f = shell.read(f"{pdb}.pdb")
         return cls(f, pdb)
