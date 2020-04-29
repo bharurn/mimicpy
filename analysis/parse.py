@@ -1,4 +1,4 @@
-from .. import host
+from ..__init__ import host
 import re
 import pandas as pd
 from .plotbox import plotBoxGen
@@ -61,16 +61,6 @@ def dump(file):
     out = host.cmd.run(f'{host.gmx} dump -{cmd} {file}')
     return out
 
-@plotBoxGen('Gromacs EDR', 'Time')
-def edr(filelst):
-    
-    try:
-        import panedr
-    except:
-        raise ImportError("Please install panedr python package to parse Gromacs EDR files.")
-    
-    return pd.concat([panedr.edr_to_df(l) for l in filelst])
-        
 @plotBoxGen('Logs', 'Step', 'Time')
 def log(file):
     f = host.cmd.read(file)
