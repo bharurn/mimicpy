@@ -1,6 +1,4 @@
-from prettytable import PrettyTable
-
-class Jobscript:
+class Slurm:
     def __init__(self, name='JOB', shebang='/bin/bash', allocation='', cmds = [], **kwargs):
         self._shebang = shebang
         self._allocation = allocation
@@ -111,73 +109,3 @@ class Jobscript:
         cmd += '\n'.join(self._cmds)
         
         return cmd
-    
-class Jobinfo:
-    def __init__(self, jobid, partition, name, user, status, time, nodes, nodelist):
-        self.jobid = jobid
-        self.partition = partition
-        self.name = name
-        self.user = user
-        self.status = status
-        self.time = time
-        self.nodes = nodes
-        self.nodelist = nodelist
-        
-    def __str__(self):
-        return str(self.tolist())
-    
-    def __len__(self):
-        return 8
-    
-    def __iter__(self, i):
-        if i == 0: return self.jobid
-        elif i==1: return self.partition
-        elif i==2: return self.name
-        elif i==3: return self.user
-        elif i==4: return self.status
-        elif i==5: return self.time
-        elif i==6: return self.nodes
-        elif i==7: return self.nodelist
-    
-    def tolist(self):
-        s = []
-        for i in range(8):
-            s.append(self.__iter__(i))
-        
-        return s
-        
-class Joblist:
-    def __init__(self, jobs, ids, names):
-        self.jobs = jobs
-        self.jobid = dict(zip(ids, self.jobs))
-        self.jobname = dict(zip(names, self.jobs))
-    
-    @classmethod
-    def fromQueue(cls, q):
-        jobs = []
-        jobid = []
-        jobname = []
-        
-        if len(q.splitlines()) == 1:
-            raise Exception("Error: No jobs in queue!")
-            
-        for i in q.splitlines()[1:]:
-            a = i.split()
-            jobs.append(Jobinfo(*a))
-            jobid.append(int(a[0]))
-            jobname.append(a[2])
-        
-        return cls(jobs, jobid, jobname)
-    
-    def __str__(self):
-        t = PrettyTable(["JobID", "Partition", "Name", "User", "Status", "Time", "Nodes", "Nodelist"])
-        for i in self.jobs:
-            t.add_row(i.tolist())
-        
-        return t.get_string()
-    
-    def __getitem__(self, i):
-        if isinstance(i, int):
-            return self.jobid[i]
-        else:
-            return self.jobname[i]
