@@ -1,7 +1,7 @@
 from . import _addH, _getItp
 from ..utils import handlePDB as hpdb
 from ..utils._misc import f
-from .._global import host as shell, gauss
+import mimicpy._global as _global
 
 class NonStdLigand: 
     
@@ -70,7 +70,7 @@ class NonStdLigand:
         
         self.pdb = pdb_str.replace('ATOM  ','HETATM')
         print("Sorting pdb atoms..")
-        self.pdb = shell.cmd.run('sort -nk2', stdin=self.pdb)
+        self.pdb = _global.host.run('sort -nk2', stdin=self.pdb)
     
     @classmethod
     def _load(cls, mol, pH, prep2pdb, tleap_dump):
@@ -85,72 +85,72 @@ class NonStdLigand:
         return lig
     
     @classmethod    
-    def loadFromDF(cls, mol, pH=7, prep2pdb={}, tleap_dump=False):
+    def fromBlock(cls, mol, pH=7, prep2pdb={}, tleap_dump=False):
         print(f"Creating non standard ligand from SDF data..")
         
         return cls._load(mol, pH, prep2pdb, tleap_dump)
     
     @classmethod    
-    def loadFromFile(cls, file, pH=7, prep2pdb={}, tleap_dump=False):
-        shell.checkFile(f'{file}.sdf')
+    def fromFile(cls, file, pH=7, prep2pdb={}, tleap_dump=False):
+        _global.host.checkFile(f'{file}.sdf')
         
-        mol = shell.read(file)
+        mol = _global.host.read(file)
         
         print(f"Creating non standard ligand from {file}..")
         
         return cls._load(mol, pH, prep2pdb, tleap_dump)
     
     @staticmethod    
-    def runGaussFromSDF(mol, nc, pH=7, parallel=False):
+    def gaussFromSDF(mol, nc, pH=7, parallel=False):
         
-        print(f"Running Gaussian Calculation on ligand..")
+        print(f"Running _global.gaussian Calculation on ligand..")
         
         print(f"Converting to PDB..")
         
         pdb, chains, name, elems = _addH.do(mol, pH)
         
-        shell.write(pdb, f(name,'.pdb'))
+        _global.host.write(pdb, f(name,'.pdb'))
         
-        print("Generating Gaussian input file using AmberTools Antechamber..")
+        print("Generating _global.gaussian input file using AmberTools Antechamber..")
         
-        shell.run(f("antechamber -i ",name,".pdb -fi pdb -o ",name,".com -fo gcrt -nc ",nc))
+        _global.host.run(f("antechamber -i ",name,".pdb -fi pdb -o ",name,".com -fo gcrt -nc ",nc))
         
-        shell.query_rate = 30
-        shell.redirectStdout(f(name,'.out')) # add this to local shell
+        _global.host.query_rate = 30
+        _global.host.redirectStdout(f(name,'.out')) # add this to local _global.host
         
-        if gauss is None:
-            raise Exception("No Gaussian executable given!")
+        if _global.gauss is None:
+            raise Exception("No _global.gaussian executable given!")
         
-        out = shell.cmd.run(f(gauss,' ',name,'.com ',name,'.out'))
+        out = _global.host.run(f(_global.gauss,' ',name,'.com ',name,'.out'))
         
         return out
     
     @staticmethod
-    def getPrepfromGauss(mol):
-        print(f"Converting Gaussian output file to Amber prep..")
-        shell.cmd.checkFile(f(mol,".out"))
+    def getPrepGauss(mol):
+        print(f"Converting _global.gaussian output file to Amber prep..")
+        _global.host.checkFile(f(mol,".out"))
         print('Running AmberTools antechamber..')
-        out = shell.cmd.run(f"antechamber -i {mol}.out -fi gout -o {mol}.prep -fo prepi -c resp -rn {mol}")
-        print(f"Antechamber output dumped...\nResidue {mol} created in {mol}.prep..\n**Done**")
+        out = _global.host.run(f"antechamber -i {mol}.out -fi gout -o {mol}.prep -fo prepi -c resp -rn {mol}")
+        print(f"Antechamber output dumped...\nResidue {mol} created in {mol}.prep..")
         
         return out
         
 class StdLigand(NonStdLigand):
     @classmethod
-    def loadFromDF(cls, mol):
-        print(f"Creating standard ligand from SDF data..")
+    def fromBlock(cls, mol):
+        print(f"Creating standard ligand from SDF block..")
         
         pdb, chains, mol_name, elems = _addH.donoH(mol)
-        return cls(pdb, "", "", 1, mol_name, mol_name, elems)
+        return cls(pdb, "", "", 1, mol_name, elems)
     
     @classmethod 
-    def loadFromFile(cls, file):
-        shell.checkFile(f'{file}.sdf')
+    def fromFile(cls, file):
+        _global.host.checkFile(f'{file}.sdf')
         
-        mol = shell.read(file)
+        mol = _global.host.read(file)
         
         print(f"Creating standard ligand from {file}..")
         
         pdb, chains, mol_name, elems = _addH.donoH(mol)
-        return cls(pdb, "", "", 1, mol_name, mol_name, elems)
+        return cls(pdb, "", "", 1, mol_name, elems)
     
