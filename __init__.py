@@ -7,4 +7,4 @@ from . import analysis
 from .analysis import dashboard
 from .utils import shell
 from .utils import scripts
-from ._global import host, gmx, cpmd
+import mimicpy._global as config
