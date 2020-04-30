@@ -1,5 +1,6 @@
 import time
 from stat import S_ISDIR, S_ISREG
+import re
 
 class Shell:
     def __init__(self, name, config):
@@ -12,15 +13,15 @@ class Shell:
         
         if 'proxyjump' in conf:
             proxy_name, port = conf['proxyjump'].split(':')
-            vmtransport = Shell._getssh(proxy_name).get_transport()
-            dest_addr = (Shell._lookup(name)['hostname'], int(port))
-            local_addr = (Shell._lookup(proxy_name)['hostname'], int(port))
+            vmtransport = self._getssh(proxy_name).get_transport()
+            dest_addr = (self._lookup(name)['hostname'], int(port))
+            local_addr = (self._lookup(proxy_name)['hostname'], int(port))
             vmchannel = vmtransport.open_channel("direct-tcpip", dest_addr, local_addr)
             
-            self.ssh = Shell._getssh(name, sock=vmchannel)
+            self.ssh = self._getssh(name, sock=vmchannel)
         
         else:
-            self.ssh =  Shell._getssh(name)
+            self.ssh =  self._getssh(name)
             
         self.sftp = self.ssh.open_sftp()
         self.shell = self.ssh.invoke_shell()
@@ -39,7 +40,6 @@ class Shell:
     def source(self, source):
         self.run(f'source {source}')
         
-    @staticmethod
     def _lookup(self, name):
         try:
             import paramiko
@@ -52,14 +52,13 @@ class Shell:
         
         return conf
     
-    @staticmethod
-    def _getssh(name, sock=None):
+    def _getssh(self, name, sock=None):
         try:
             import paramiko
         except ImportError:
             raise Exception("Install paramiko python package to remotely run MiMiC")
             
-        conf = Shell._lookup(name)
+        conf = self._lookup(name)
     
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -114,8 +113,11 @@ class Shell:
                 self.shell.send(cmd+'\n')
             else:
                 self.shell.send(f'printf "{stdin}" | {cmd}\n')
+                
+            if 'mdrun' in cmd: log = True
+            else: log = False
         
-            prev = ''
+            prev = startout
             while not self.parallel:
                 if self.query_rate > 0:    
                     time.sleep(self.query_rate)
@@ -123,9 +125,16 @@ class Shell:
                 self.queryStdout()
                 
                 if prev != self.stdout:
+                    text = self.stdout.replace(prev, '')
+                    
                     prev = self.stdout
                     
-                    text = self.stdout.replace(startout, '')
+                    if log:
+                        x = re.compile(r"^\s*(Step\s*Time)\n(.+)",\
+                                       re.MULTILINE)
+                        res = x.findall(text)
+                        if res:
+                            for r in res: print(f'Step: {r[1].split()[0]}   |   Time: {r[1].split()[1]}')
                     
                     if errorHandle != None:
                         errorHandle(text)
