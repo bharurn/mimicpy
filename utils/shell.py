@@ -56,7 +56,7 @@ class Local(Base):
 
 class Remote(remote.Shell, Base):
     
-    def __init__(self, work_dir, modules=[], sources=[], loaders=[], ignloaderr = True):
+    def __init__(self, work_dir, ssh_config, modules=[], sources=[], loaders=[], ignloaderr = True):
         
         if ':' in work_dir:
             r = work_dir.split(':')
@@ -69,7 +69,7 @@ class Remote(remote.Shell, Base):
             
         print(f"Setting remote machine {r[0]} as host..")
         
-        remote.Shell.__init__(self, server)
+        remote.Shell.__init__(self, server, ssh_config)
         
         Base.__init__(self, dir_)
         
@@ -132,3 +132,5 @@ class Remote(remote.Shell, Base):
         
     def rename(self, a, b): self.sftp.rename(a, b)
     def rm(self, a): self.sftp.remove(a)
+    
+    def close(self): self.__del__()
