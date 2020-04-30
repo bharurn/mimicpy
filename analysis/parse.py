@@ -1,7 +1,8 @@
-from ..__init__ import host
+import mimicpy._global as _global
+from ..core.base import Run
 import re
 import pandas as pd
-from .plotbox import plotBoxGen
+from .dashboard import PlotBoxDF
 
 def xvg(cls, xvg):
     x = []
@@ -33,13 +34,13 @@ def xvg(cls, xvg):
 def gmxErrors(file_eval=None):
     
     def _parse(out):
-        output = host.cmd.read(out)   
-        return host._notes(output), host._errorHandle(output, dont_raise=True)
+        output = _global.host.read(out)   
+        return Run._notes(output), Run._errorHandle(output, dont_raise=True)
     # include ls() in local
     if file_eval is None:
-        files = host.cmd.ls(file_eval=lambda a: True if a.endswith('.log') or a.endswith('.out') else False)
+        files = _global.host.cmd.ls(file_eval=lambda a: True if a.endswith('.log') or a.endswith('.out') else False)
     else:
-        files = host.cmd.ls(file_eval=file_eval)
+        files = _global.host.cmd.ls(file_eval=file_eval)
         
     for file in files:
         print(f"\n<========{file}========>")
@@ -58,12 +59,12 @@ def dump(file):
     elif ext == 'top': cmd = 'p'
     elif ext == 'mtx': cmd = 'mtx'
     
-    out = host.cmd.run(f'{host.gmx} dump -{cmd} {file}')
+    out = _global.host.run(f'{_global.gmx} dump -{cmd} {file}')
     return out
 
-@plotBoxGen('Logs', 'Step', 'Time')
+@PlotBoxDF
 def log(file):
-    f = host.cmd.read(file)
+    f = _global.host.read(file)
     x = re.compile(r"^\s*(Step\s*Time)\n(.+)\n(?:\n.+)+\s*Energies\s*\(kJ/mol\)((?:\n.+)+)\s+\n",\
                re.MULTILINE)
     res = x.findall(f)
@@ -86,6 +87,7 @@ def log(file):
     cols, v1 = c(res[0])
     
     vals = []
+    
     for i in res:
         vals.append(c(i)[1])
         
