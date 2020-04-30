@@ -1,7 +1,7 @@
-from .plotbox import plotBoxGen
+from .dashboard import PlotBoxDF
 import pandas as pd
 
-@plotBoxGen('RMSD', 'Step', 'Time')
+@PlotBoxDF
 def d(top, trr, selections):
     try:
         import MDAnalysis as mda
@@ -26,15 +26,23 @@ def d(top, trr, selections):
     df = pd.DataFrame(rmsd, columns=('Step', 'Time', *cols))
     return df.set_index(['Step', 'Time'])
 
-@plotBoxGen('RMSF', 'Step', 'Time')
-def f(top, trr, selection, selections):
+@PlotBoxDF(x_axis=['Name', 'ID'])
+def f(top, trr, selection, align_with='protein'):
     
     try:
         import MDAnalysis as mda
         from MDAnalysis.analysis import align
+        from MDAnalysis.analysis.rms import RMSF
     except ImportError:
         raise Exception("Please install MDAnalysis python package to parse trajectory files.")
     
     u = mda.Universe(top, trr)
-    align.AlignTraj(u, u, select=selection, in_memory=True).run()
+    align.AlignTraj(u, u, select=align_with, in_memory=True).run()
     
+    calphas = u.select_atoms(selection)
+    rmsfer = RMSF(calphas, verbose=True).run()
+    
+    x = [(a.name,a.id) for a in rmsfer.atomgroup.atoms]
+    df = pd.DataFrame(x, columns=('Name', 'ID'))
+    df['RMSF'] = rmsfer.rmsf
+    return df.set_index(['Name', 'ID'])
