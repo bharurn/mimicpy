@@ -1,30 +1,39 @@
-from .._global import host
 from ..utils.shell import Remote
 from collections import defaultdict
 import re
+import yaml
+from yaml.representer import Representer
+import mimicpy._global as _global
 
 class Run:
     log = ''
     
-    def __init__(self):
-        self._status = defaultdict(list)
+    def __init__(self, status=defaultdict(list)):
+        self._status = status
+        self.jobscript = None
     
     def setcurrent(self, key, val): self._status[key].append(val)
     def getcurrent(self, key): return self._status[key][-1]
     def gethistory(self, key): return self._status[key]
     
-    def continueFrom(self, session):
-        if hasattr(session, '_status'):
+    @classmethod
+    def continueFrom(cls, session):
+        if not hasattr(session, '_status'):
             raise Exception("Does not contain simulation status variables!")
         
-        self._status = session._status
+        return cls(status=session._status)
     
-    def saveSessionToFile(self, filename):
-        pass
+    def saveToYaml(self, filename='_status.yaml'):
+        print(f"Saving session to {filename}..")
+        yaml.add_representer(defaultdict, Representer.represent_dict)
+        _global.host.write(yaml.dump(self._status), filename)
     
     @classmethod
-    def continueSessionFromFile(cls, filename):
-        pass
+    def continueFromYaml(cls, filename='_status.yaml'):
+       print(f"Loading session from {filename}")
+       txt = _global.host.read(filename)
+       _status = yaml.safe_load(txt)
+       return cls(status=defaultdict(list, _status))
     
     def moveMDResults(self, old, new):
         ls = self.ls(file_eval=lambda a: True if a.startswith(f"{old}.") or\
@@ -35,16 +44,18 @@ class Run:
             n = a[0].replace(old, new)
             
             print(f"Renaming {l} to {n}.{a[-1]}")
-            host.cmd.rename(f"{l}", f"{n}.{a[-1]}")
+            _global.host.cmd.rename(f"{l}", f"{n}.{a[-1]}")
     
     @staticmethod
     def logToFile(self, log_file):
         print(f"Dumping standard output from all MiMiC/MD runs so far to {log_file}..")
         
-        host.write(Run.log, log_file)
+        _global.host.write(Run.log, log_file)
     
     @staticmethod
     def _errorHandle(text, dont_raise=False):
+        
+        Run.log += text
         
         if 'Halting program' in text or 'Fatal error' in text or 'Error in user input' in text:
             
@@ -96,13 +107,13 @@ class Run:
     @staticmethod
     def gmx(cmd, **kwargs):
         
-        if not hasattr(host, 'gmx'):
+        if _global.gmx is None:
             raise Exception('Gromacs executable not set! Please set it in host..')
             
-        gmx_ex = host.gmx.strip()
+        gmx_ex = _global.gmx.strip()
         
         if gmx_ex[:3] != 'gmx':
-            raise Exception(f'{host.gmx_exec} is an invalid Gromacs executable! Please set it correctly in host..')
+            raise Exception(f'{gmx_ex} is an invalid Gromacs executable! Please set it correctly in config..')
         
         splt = cmd.split()
         
@@ -111,7 +122,8 @@ class Run:
         else:
             del kwargs['noverbose']
             
-        if type(host.cmd) is Remote: host.query_rate = 3
+            
+        if type(_global.host) is Remote: _global.host.query_rate = 3
         
         cmd = f"{gmx_ex} {cmd}"
         
@@ -128,11 +140,10 @@ class Run:
                 
         if onlycmd: return cmd
         
-        text = host.run(cmd, stdin=stdin, errorHandle=Run._errorHandle)
+        text = _global.host.run(cmd, stdin=stdin, errorHandle=Run._errorHandle)
         
         notes = Run._notes(text)
-            
-        Run.log += f"========================\n{cmd}\n========================\n"+text+'\n\n'
+        
         if notes != '':
             print('\n'+notes)
         
