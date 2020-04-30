@@ -1,6 +1,6 @@
 from . import ligand as lig, _hndlWater
 from ..utils import handlePDB as hpdb
-from .._global import host as shell
+import mimicpy._global as _global
 import requests
 from collections import defaultdict, OrderedDict
 
@@ -15,12 +15,12 @@ class Protein:
         
         print("Extracting water..")
         
-        self.water = shell.cmd.run('grep ^HETATM', stdin=self.pdb)
-        self.water = shell.cmd.run('grep HOH', stdin=self.water)
+        self.water = _global.host.run('grep ^HETATM', stdin=self.pdb)
+        self.water = _global.host.run('grep HOH', stdin=self.water)
         
         print("Extracting amino acid residues..")
         
-        self.pdb  = f"TITLE     {self.name}\n" + shell.cmd.run('grep ^ATOM', stdin=self.pdb)
+        self.pdb  = f"TITLE     {self.name}\n" + _global.host.run('grep ^ATOM', stdin=self.pdb)
         
         self.ligands=OrderedDict()
         
@@ -59,7 +59,7 @@ class Protein:
       
       command = '\|'.join(ids)
     
-      self.water = shell.cmd.run(f'grep {command}', stdin=self.water)
+      self.water = _global.host.run(f'grep {command}', stdin=self.water)
     
    @classmethod
    def loadFromRCSB(cls, pdbid, chains=None, howToreturn=0):
@@ -116,7 +116,7 @@ class Protein:
            return pdb_, ligs
        
    @classmethod
-   def loadFromFile(cls, pdb):
-        shell.checkFile(f"{pdb}.pdb")
-        f = shell.read(f"{pdb}.pdb")
-        return cls(f, pdb)
+   def fromFile(cls, pdb):
+        _global.host.checkFile(pdb)
+        f = _global.host.read(pdb)
+        return cls(f, pdb.split('.')[0])
