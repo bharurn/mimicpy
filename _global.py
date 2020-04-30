@@ -1,4 +1,5 @@
 from . import utils
+
 host = utils.shell.Local()
 gmx = 'gmx'
 cpmd = 'cpmd.x'
