@@ -114,8 +114,8 @@ class Shell:
             else:
                 self.shell.send(f'printf "{stdin}" | {cmd}\n')
                 
-            if 'mdrun' in cmd: log = True
-            else: log = False
+            #if 'mdrun' in cmd: log = True
+            #else: log = False
         
             prev = startout
             while not self.parallel:
@@ -129,12 +129,12 @@ class Shell:
                     
                     prev = self.stdout
                     
-                    if log:
-                        x = re.compile(r"^\s*(Step\s*Time)\n(.+)",\
-                                       re.MULTILINE)
-                        res = x.findall(text)
-                        if res:
-                            for r in res: print(f'Step: {r[1].split()[0]}   |   Time: {r[1].split()[1]}')
+                    #if log:
+                        #x = re.compile(r"^\s*(Step\s*Time)\n(.+)",\
+                        #               re.MULTILINE)
+                        #res = x.findall(text)
+                        #if res:
+                        #    for r in res: print(f'Step: {r[1].split()[0]}   |   Time: {r[1].split()[1]}')
                     
                     if errorHandle != None:
                         errorHandle(text)
