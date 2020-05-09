@@ -1,24 +1,26 @@
-class Slurm:
+from .base import Script
+
+class Slurm(Script):
     def __init__(self, name='JOB', shebang='/bin/bash', allocation='', cmds = [], **kwargs):
+        if kwargs is None:
+            kwargs = {'nodes':2, 'ntasks': 16, 'cpus_per_task': 3, 'mem_per_cpus': 3, 'export': 'NONE', 'time': '00:10:00'}
+            
+        super().__init__(**kwargs)
+        
         self._shebang = shebang
         self._allocation = allocation
         self._name = name
         self._dir = ""
-        self.nodes = 2
-        self.ntasks = 16
-        self.cpus_per_task = 3
-        self.mem_per_cpu = '1240M'
-        self.export = 'NONE'
-        self.time = '00:10:00'
-        
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-        
         self._cmds = cmds
     
     def setDir(self, dirc):
         self._dir = f"./{dirc}"
-        
+    
+    def setSpecial(self, name=None, shebang=None, allocation=None):
+        if name: self._name = name
+        if shebang: self._shebang = shebang
+        if allocation: self._allocation = allocation
+    
     @classmethod    
     def loadFromPrevious(cls, script):
         if isinstance(script, str):
@@ -69,6 +71,8 @@ class Slurm:
             return self._name
         elif val == 'output':
             return f'{self._name}.%J.out'
+        else:
+            return super().__getattr__(val)
     
     def noCommands(self):
         if len(self._cmds) <= 0:
@@ -94,15 +98,14 @@ class Slurm:
     def __str__(self):
         cmd = f'#!{self._shebang}\n'
         
-        data = [attr for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith('_')]
-        
-        for d in data:
+        for d in self.params():
             if getattr(self,d) == None: continue
             d_ = d.replace('_','-')
             cmd += f"#SBATCH --{d_}={getattr(self, d)}\n"
         
         cmd += f'#SBATCH --job-name={self._name}\n'
         cmd += f'#SBATCH --output={self._name}.%J.out\n'
+        
         if self._allocation:
             cmd += f'#SBATCH -A {self._allocation}\n\n'
         
