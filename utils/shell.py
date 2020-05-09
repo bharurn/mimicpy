@@ -3,7 +3,7 @@ import os
 
 class Base():
     
-    def __init__(self, directory="."):
+    def __init__(self, directory=".",  modules=[], sources=[], loaders=[], ignloaderr = True):
         
         if directory.strip() == '':
             directory = '.'
@@ -17,6 +17,10 @@ class Base():
                 print(f"{directory} not found, creating new directory..")
             
             print(f"Setting current directory to {directory}..")
+        
+        self.modules = modules
+        self.sources = sources
+        self.loaders = loaders
             
 class Local(Base):
     
@@ -38,14 +42,17 @@ class Local(Base):
     def fileExists(self, file):
         local.fileExists(file)
     
-    def pwd(): return os.getcwd()
+    def pwd(self): return os.getcwd()
     
     def read(self, file):
         with open(file, 'r') as f:
                 return f.read()
     
-    def write(self, content, file, mode='w'):
-        with open(file, mode) as f: f.write(content)
+    def write(self, content, file):
+        with open(file, 'w') as f: f.write(content)
+    
+    def vi(self, file, mode):
+        return open(file, mode)
         
     def run(self, cmd, stdin=None, errorHandle=None):
         return local.run(cmd, stdin=stdin, errorHandle=errorHandle)
@@ -71,10 +78,10 @@ class Remote(remote.Shell, Base):
         
         remote.Shell.__init__(self, server, ssh_config)
         
-        Base.__init__(self, dir_)
+        Base.__init__(self, dir_, modules, sources, loaders)
         
         self.query_rate = 3
-         
+        
         for module in modules:
             print(f"Loading module {module}..")
             try:
@@ -127,8 +134,8 @@ class Remote(remote.Shell, Base):
         with self.vi(file, 'r') as f:
             return f.read().decode('utf-8')
     
-    def write(self, content, file, mode='w'):
-        with self.vi(file, mode) as f: f.write(content)
+    def write(self, content, file):
+        with self.vi(file, 'w') as f: f.write(content)
         
     def rename(self, a, b): self.sftp.rename(a, b)
     def rm(self, a): self.sftp.remove(a)
