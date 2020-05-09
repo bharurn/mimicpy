@@ -4,20 +4,24 @@ import re
 import pandas as pd
 from .dashboard import PlotBoxDF
 
-def xvg(cls, xvg):
+def xvg(xvg, readlabel=True):
     x = []
     y = []
     
-    reg = re.compile(r"@\s*xaxis\s*label\s*\"(.*?)\"", re.MULTILINE).findall(xvg)
-    if reg == []: xlabel = 'X Axis'
-    else: xlabel = reg[0]
+    if readlabel:
+        reg = re.compile(r"@\s*xaxis\s*label\s*\"(.*?)\"", re.MULTILINE).findall(xvg)
+        if reg == []: xlabel = 'X Axis'
+        else: xlabel = reg[0]
     
-    reg = re.compile(r"@\s*yaxis\s*label\s*\"(.*?)\"", re.MULTILINE).findall(xvg)
-    if reg == []: ylabel = 'Y Axis'
-    else: ylabel = reg[0]
+        reg = re.compile(r"@\s*yaxis\s*label\s*\"(.*?)\"", re.MULTILINE).findall(xvg)
+        if reg == []: ylabel = 'Y Axis'
+        else: ylabel = reg[0]
     
-    reg = re.compile(r"@\s*s0\s*legend\s*\"(.*?)\"", re.MULTILINE).findall(xvg)
-    if reg != []: ylabel = reg[0] + ' ' + ylabel
+        reg = re.compile(r"@\s*s0\s*legend\s*\"(.*?)\"", re.MULTILINE).findall(xvg)
+        if reg != []: ylabel = reg[0] + ' ' + ylabel
+    else:
+        xlabel = 'X'
+        ylabel = 'Y'
     
     for line in xvg.splitlines():
         if line.startswith('#') or line.startswith('@'):
@@ -27,11 +31,11 @@ def xvg(cls, xvg):
             x.append(float(splt[0]))
             y.append(float(splt[1]))
     
-    df = pd.DataFrame([x,y], columns=(xlabel, ylabel))
+    df = pd.DataFrame(list(zip(x,y)), columns=(xlabel, ylabel))
     
-    return df.set_index([xlabel])
+    return df
     
-def gmxErrors(file_eval=None):
+def errors(file_eval=None):
     
     def _parse(out):
         output = _global.host.read(out)   
@@ -59,7 +63,9 @@ def dump(file):
     elif ext == 'top': cmd = 'p'
     elif ext == 'mtx': cmd = 'mtx'
     
-    out = _global.host.run(f'{_global.gmx} dump -{cmd} {file}')
+    kwargs = {cmd:file}
+    
+    out = Run.gmx(f'dump', **kwargs)
     return out
 
 @PlotBoxDF
