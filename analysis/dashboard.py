@@ -1,6 +1,7 @@
 from itertools import cycle
 import random
 import threading
+import time
 import sys
 from tqdm.notebook import tqdm
 import matplotlib.pyplot as plt
@@ -13,7 +14,7 @@ class _PlotBoxDF(object):
     def __init__(self, foo, x_axis=['Step', 'Time']):
         self.foo = foo
         self.x_axis = x_axis
-        self.estimated_time = 0 # not loading bar
+        self.estimated_time = 2 # not loading bar
         self.tstep = 0.2
     
     def pbar_wrapper(self, function, args=[], kwargs={}):
@@ -51,7 +52,7 @@ def PlotBoxDF(function=None, x_axis=['Time', 'Step']):
 
         return wrapper
             
-class PlotBox:
+class StaticPlot:
     def __init__(self, df_gen, *args):
         self._df_gen = df_gen
         self._df_args = args
@@ -65,11 +66,14 @@ class PlotBox:
         self.ax_kwargs = {'marker':'o', 'linewidth':2, 'markersize':4.5, 'linestyle':'-.'}
     
     def setAxisProps(self, **kwargs): self.ax_kwargs.update(kwargs)
+    
+    def _init(self):
+        self._df = self._df_gen(*self._df_args)
+        self._df_no_ndx = self._df.reset_index()
         
     def _plot(self, x, y):
         if self._df is None:
-            self._df = self._df_gen(*self._df_args)
-            self._df_no_ndx = self._df.reset_index()
+            self._init()
             self._fixColor()
             
         if y == self._ydef_opt:
@@ -130,7 +134,20 @@ class PlotBox:
         self._x = self._getDropDown(self._index.copy(), self._xdef_opt, 'X Axis:')
         self._y = self._getDropDown([], self._ydef_opt, 'Y Axis:')
         return interactive(lambda x, y: self._plot(x, y), x = self._x, y = self._y)
+
+class MonitorPlot(StaticPlot):
+    def __init__(self, df_gen, update, *args):
+        super().__init__(df_gen, *args)
+        self.update = update
+        self._time = time.time()
     
+    def _plot(self, x, y):
+        if (time.time() - self._time) >= self.update:
+            self._init()
+            self._time = time.time()
+    
+        super()._plot(x, y)
+        
 def show(*args, **font):
     fnt = {'family' : 'Arial',
         'size'   : 14}
@@ -148,3 +165,10 @@ def show(*args, **font):
     
     tab.children = chld
     display(tab)
+    
+def watch(gmx_log=None, cpmd_log=None):
+    parse = sys.modules[__package__ + '.parse']
+    if gmx_log:
+        p1 = MonitorPlot(parse.log, 30, gmx_log)
+        p1.title = 'Gromacs Log'
+        show(p1)
