@@ -1,13 +1,17 @@
 from ..utils.scripts import mdp
 from .base import Run
 import mimicpy._global as _global
+from collections import defaultdict
 
 class MD(Run):
+    def __init__(self, status=defaultdict(list), settings=None):
+        super().__init__(status)
+        if settings: self.setSlurmSettings()
     
-    def SlurmSettings(self, settings):
+    def setSlurmSettings(self, settings):
         print(f"Setting Slurm job settings from jobscript {settings.name}..")
         self.jobscript = settings
-        print(f"Transferring sources, modules and other header commands from _global.host to job script..")
+        print(f"Transferring sources, modules and other header commands from host to job script..")
         self.jobscript.module(_global.host.modules)
         self.jobscript.source(_global.host.sources)
         self.jobscript.addMany(_global.host.loaders)
@@ -18,10 +22,8 @@ class MD(Run):
         
         def _do(new, **kwargs):
             if self.jobscript is None:
-                 # shell.local -- add polling for stdout and print timestep
-                _global.host.redirectStdout(f"{new}.log")
-                Run.gmx('mdrun', **kwargs, deffnm = new)
-                print("Done..")
+                out = Run.gmx('mdrun', **kwargs, deffnm = new)
+                return out
             else:
                 return self.jobscript.add(Run.gmx('mdrun', **kwargs, deffnm = new, onlycmd=True, nonverbose=True))
         
@@ -35,14 +37,18 @@ class MD(Run):
         self.setcurrent('trr', f"{new}.trr")
         self.setcurrent('cpt', f"{new}.cpt")
         self.setcurrent('log', f"{new}.log")
+        self.saveToYaml()
         
         if out == None:
-            print("MDrun job submmitted as a Slurm job script"
-                 f"{self.jobscript.name}.sh with the job ID {out}.."
+            jid = _global.host.sbatch(self.jobscript)
+            print("MDrun job submmitted as a Slurm job "
+                 f"{self.jobscript.name}.sh with the job ID {jid}.."
                  f"\nThe host and/or this script can be safely closed..")
-            return _global.host.sbatch(self.jobscript)
+            return jid
         else:
-            return None
+            print("MDrun job submmitted on the current login node"
+                 f"Please do not close this script or config.host until the job is done!!")
+            return out
     
     def continueRun(self, new, until=0, extend=0, fromcrash=False, noappend=True):
         
@@ -72,6 +78,8 @@ class MD(Run):
         
         _global.host.write(str(mdp), f"{new}.mdp")
         
+        print(f"Using {self.getcurrent('coords')}, {self.getcurrent('topology')} for grompp")
+        
         Run.gmx('grompp', f = f'{new}.mdp', c = self.getcurrent('coords'),\
                      p = self.getcurrent('topology'), o = f"{new}.tpr", **kwargs)
         
@@ -83,11 +91,23 @@ class MD(Run):
         
         return out
         
-    def em(self, em_mdp = mdp.MDP.defaultEM()): return self.calc(em_mdp, 'em', disp='Minimization')
+    def em(self, **kwargs):
+        em_mdp = mdp.MDP.defaultEM()
+        em_mdp.edit(**kwargs)
+        return self.calc(em_mdp, 'em', disp='Minimization')
     
-    def nvt(self, nvt_mdp = mdp.MDP.defaultNVT()): return self.calc(nvt_mdp, 'nvt', disp='NVT simulation', r = self.current('coords'))
+    def nvt(self, **kwargs):
+        nvt_mdp = mdp.MDP.defaultNVT()
+        nvt_mdp.edit(**kwargs)
+        return self.calc(nvt_mdp, 'nvt', disp='NVT simulation', r = self.getcurrent('coords'))
     
-    def npt(self, npt_mdp = mdp.MDP.defaultNPT()): return self.calc(npt_mdp, 'npt', disp='NPT simulation', r = self.current('coords'))
+    def npt(self, **kwargs):
+        npt_mdp = mdp.MDP.defaultNPT()
+        npt_mdp.edit(**kwargs)
+        return self.calc(npt_mdp, 'npt', disp='NPT simulation', r = self.getcurrent('coords'))
     
-    def prd(self, prd_mdp = mdp.MDP.defaultPRD()): return self.calc(prd_mdp, 'prd', disp='Production run', r = self.current('coords'))
+    def prd(self, **kwargs):
+        prd_mdp = mdp.MDP.defaultPRD()
+        prd_mdp.edit(**kwargs)
+        return self.calc(prd_mdp, 'prd', disp='Production run', r = self.getcurrent('coords'))
             
