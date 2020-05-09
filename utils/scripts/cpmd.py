@@ -1,17 +1,13 @@
 from collections import OrderedDict 
+from .base import Script
 
-class Section:
-    def __init__(self, **kwargs):
-        
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-        
+class Section(Script):
+   
     def __str__(self):
-        data = [attr for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith('__')]
         
         val = ''
         
-        for d in data:
+        for d in self.params():
             if getattr(self, d) == None:
                 continue
             
@@ -42,35 +38,32 @@ class Atom:
         val += '\n'
         return val
     
-class Input:
+class Input(Script):
     def __init__(self, *args):
+        super().__init__()
         self.atoms = OrderedDict()
         self.info = 'MiMiC Run'
         for val in args:
             setattr(self, val, Section())
     
     def checkSection(self, section):
-        if callable(section) or section.startswith('__'): return False
-        
-        return hasattr(self, section)
+        return self.hasparam(section)
     
     def __str__(self):
-        data = [attr for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith('__')]
-        
         val = ''
         
-        for d in data:
+        for d in self.params():
             if getattr(self, d) == None:
                 continue
             elif d.upper() == 'INFO':
-                val += f'\n&INFO\n{getattr(self, d)}\n&END'
+                info = f'\n&INFO\n{getattr(self, d)}\n&END\n'
             elif d.upper() == 'ATOMS':
-                val += '\n&ATOMS\n'
+                atoms = '\n&ATOMS\n'
                 for k, v in getattr(self, d).items():
-                    val += f'*{k}{str(v)}'
-                val += '&END\n'
+                    atoms += f'*{k.replace("*", "")}{str(v)}'
+                atoms += '&END\n'
             else:
                 v = str(getattr(self, d))
                 val += f"\n&{d.upper()}\n{v}&END\n"
         
-        return val
+        return info+val+atoms
