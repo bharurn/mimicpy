@@ -10,7 +10,6 @@ class Run:
     
     def __init__(self, status=defaultdict(list)):
         self._status = status
-        self.jobscript = None
     
     def setcurrent(self, key, val): self._status[key].append(val)
     def getcurrent(self, key): return self._status[key][-1]
@@ -30,7 +29,7 @@ class Run:
     
     @classmethod
     def continueFromYaml(cls, filename='_status.yaml'):
-       print(f"Loading session from {filename}")
+       print(f"Loading session from {filename}..")
        txt = _global.host.read(filename)
        _status = yaml.safe_load(txt)
        return cls(status=defaultdict(list, _status))
@@ -112,39 +111,44 @@ class Run:
             
         gmx_ex = _global.gmx.strip()
         
-        if gmx_ex[:3] != 'gmx':
-            raise Exception(f'{gmx_ex} is an invalid Gromacs executable! Please set it correctly in config..')
-        
         splt = cmd.split()
         
-        if 'noverbose' not in kwargs:
-            print(f"Running Gromacs {splt[0]}..")
+        if 'nonverbose' not in kwargs:
+            nonverbose = False
         else:
-            del kwargs['noverbose']
+            nonverbose = True
+            del kwargs['nonverbose']
+            
+        if 'onlycmd' in kwargs:
+            onlycmd = True
+            del kwargs['onlycmd']
+        else:
+            onlycmd = False
             
             
-        if type(_global.host) is Remote: _global.host.query_rate = 3
+        if type(_global.host) is Remote:
+            _global.host.query_rate = 3
         
         cmd = f"{gmx_ex} {cmd}"
         
         stdin = None
-        onlycmd = False
         
         for k, v in kwargs.items():
             if k != 'stdin':
                 cmd += f" -{k} {v}"
             elif k == 'stdin':
                 stdin = v
-            elif k == 'onlycmd':
-                onlycmd = True
                 
-        if onlycmd: return cmd
+        if onlycmd:
+            return cmd
+        elif not nonverbose:
+            print(f"Running {cmd}..")
         
         text = _global.host.run(cmd, stdin=stdin, errorHandle=Run._errorHandle)
         
         notes = Run._notes(text)
         
-        if notes != '':
+        if notes != '' and not nonverbose:
             print('\n'+notes)
         
         return text
