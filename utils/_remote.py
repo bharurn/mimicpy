@@ -1,6 +1,5 @@
 import time
-from stat import S_ISDIR, S_ISREG
-import re
+#import re
 
 class Shell:
     def __init__(self, name, config):
@@ -27,19 +26,12 @@ class Shell:
         self.shell = self.ssh.invoke_shell()
         self.stdout = ''
         self.dir = '.'
-        self.query_rate = 0.3
         self.parallel = False
         self.errorHandle = None
         self.stdout_source = '_std'
         self.nohup = False
         self.decoder = 'utf-8'
     
-    def module(self, module):
-        self.run(f'module load {module}')
-        
-    def source(self, source):
-        self.run(f'source {source}')
-        
     def _lookup(self, name):
         try:
             import paramiko
@@ -89,7 +81,7 @@ class Shell:
     def redirectStdout(self, fname):
         self.stdout_source = fname
     
-    def run(self, cmd, stdin=None, errorHandle=None, onNewChan=None):
+    def run(self, cmd, stdin=None, errorHandle=None, onNewChan=None, query_rate=0.3):
         
         if errorHandle is None: errorHandle = self.errorHandle
         
@@ -119,8 +111,8 @@ class Shell:
         
             prev = startout
             while not self.parallel:
-                if self.query_rate > 0:    
-                    time.sleep(self.query_rate)
+                if query_rate > 0:    
+                    time.sleep(query_rate)
                 
                 self.queryStdout()
                 
@@ -150,77 +142,8 @@ class Shell:
         
             return '\n'.join(lines)
     
-    def sbatch(self, job):
-        if job.noCommands():
-            raise Exception("No commands in jobscript!")
-        job.setDir(self.dir)
-        
-        f = self.vi(f'{job.name}.sh', 'w')
-        f.write(str(job))
-        f.close()
-        
-        def _sbatch_err(err):
-            if 'error' in err.lower():
-                raise Exception(err) 
-            
-        out = self.run(f'cd {self.dir} && sbatch {job.name}.sh', errorHandle=_sbatch_err, onNewChan=True)
-        
-        try:
-            idx = int(out.split()[3])
-        except:
-            raise Exception(out)
-        
-        return idx
-        
-    def cd(self, directory, mkdir=False):
-        if directory.strip() == '.':
-            return -1
-        
-        if not self.fileExists(directory):
-             if mkdir:       
-                self.sftp.mkdir(directory)
-                return 1
-             else:
-                 raise Exception(f'Directory {directory} not found')
-        else:     
-            self.dir = directory+'/'
-            self.run(f'cd {self.dir}')
-            self.sftp.chdir(self.dir)
-            return 0
-    
-    def scancel(self, jobid):
-        return self.run(f'scancel {jobid}', onNewChan=True)
-    
-    def vi(self, name, s):
-        return self.sftp.open(f"{name}", s)
-    
     def clearStdout(self):
         self.stdout = ''
-    
-    def fileExists(self, file):
-        try:
-            self.sftp.stat(file)
-            return True
-        except FileNotFoundError:
-           return False
-    
-    def ls(self, file_eval=lambda a: True, dir_eval=lambda a: True):
-        
-        files = []
-        
-        for entry in self.sftp.listdir_attr():
-            if S_ISDIR(entry.st_mode) and dir_eval(entry.filename):
-                files.append(entry.filename)
-            elif S_ISREG(entry.st_mode) and file_eval(entry.filename):
-                files.append(entry.filename)
-            
-        return files
-    
-    def pwd(self): return self.dir
-    
-    def put(self, local, remote): self.sftp.put(local, remote, confirm=True) #to do use callback to create a tqdm loader
-    
-    def get(self, remote, local): self.sftp.get(remote, local) #to do use callback to create a tqdm loader
     
     def __enter__(self):
         return self
