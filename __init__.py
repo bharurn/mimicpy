@@ -1,8 +1,6 @@
 from .system.ligand import NonStdLigand, StdLigand
 from .system.protein import Protein
-from .core import prepare
-from .core.md import MD
-from .core.base import Run
+from .core import prepare, simulate
 from . import analysis
 from .analysis import dashboard
 from .utils import shell
@@ -10,6 +8,8 @@ from .utils import scripts
 import mimicpy._global as _global
 
 def setHost(dirc, **kwargs):
+    closeHost()
+    
     if ':' not in dirc:
         _global.host = shell.Local(dirc)
     else:
@@ -24,12 +24,7 @@ def setHost(dirc, **kwargs):
 
 def getHost(): return _global.host
 
-def setExec(**kwargs):
+def setEnv(**kwargs):
     for k,v in kwargs.items(): exec(f'_global.{k}="{v}"')
     
-def closeHost():
-    if _global.host.name != 'localhost':
-        print(f"Closing connection to {_global.host.name}..")
-        _global.host.close()
-    else:
-        print(f"This is your local machine!")
+def closeHost(): _global.host.close()
