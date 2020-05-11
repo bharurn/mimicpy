@@ -1,42 +1,42 @@
 from .base import Script
+import mimicpy._global as _global
 
 class Slurm(Script):
-    def __init__(self, name='JOB', shebang='/bin/bash', allocation='', cmds = [], **kwargs):
+    def __init__(self, name='jobscript', shebang='/bin/bash', cmd_hdr='srun', cmds = [], **kwargs):
         if kwargs is None:
             kwargs = {'nodes':2, 'ntasks': 16, 'cpus_per_task': 3, 'mem_per_cpus': 3, 'export': 'NONE', 'time': '00:10:00'}
             
         super().__init__(**kwargs)
         
         self._shebang = shebang
-        self._allocation = allocation
         self._name = name
         self._dir = ""
         self._cmds = cmds
+        self._cmd_hdr = cmd_hdr
     
     def setDir(self, dirc):
         self._dir = f"./{dirc}"
     
-    def setSpecial(self, name=None, shebang=None, allocation=None):
+    def setSpecial(self, name=None, shebang=None, cmd_hdr=None):
         if name: self._name = name
         if shebang: self._shebang = shebang
-        if allocation: self._allocation = allocation
+        if cmd_hdr: self._cmd_hdr = cmd_hdr
     
     @classmethod    
-    def loadFromPrevious(cls, script):
-        if isinstance(script, str):
-            text = script
-        else:
-            text = script.read().decode('utf-8')
-            
+    def loadFromFile(cls, script):
+        return cls.loadFromText(_global.host.read(script))
+                
+    @classmethod    
+    def loadFromText(cls, text):
         shebang = "/usr/sh"
-        name = "JOB"
+        name = 'jobscript'
         cmds = []
         kwargs = {}
         for line in text.splitlines():
             if line.startswith('#!'):
                   shebang = line[2:].strip()
             elif line.startswith('#SBATCH -A'):
-                  allocation = line[11:].strip()  
+                  kwargs.update({'account':line[11:].strip()})
             elif line.startswith('#SBATCH --'):
                 l = line[10:].replace('-', '_').split('=')
                 key = l[0].strip()
@@ -50,10 +50,14 @@ class Slurm(Script):
             elif line.strip() != '':
                 cmds.append(line)
         
-        return cls(name=name, shebang=shebang, allocation=allocation, cmds=cmds, **kwargs)
-                
-    def add(self, cmd):
-        self._cmds.append(cmd)
+        return cls(name=name, shebang=shebang, cmds=cmds, **kwargs)
+
+    def add(self, cmd, **kwargs):
+        opt = ' '
+        for k,v in kwargs.items():
+            if len(k) == 1: opt += f"-{k}{v} "
+            else: opt += f"--{k.replace('_','-')}={v} "
+        self._cmds.append(f"{self._cmd_hdr}{opt}{cmd}")
     
     def addMany(self, cmds):
         self._cmds.extend(cmds)
@@ -104,10 +108,7 @@ class Slurm(Script):
             cmd += f"#SBATCH --{d_}={getattr(self, d)}\n"
         
         cmd += f'#SBATCH --job-name={self._name}\n'
-        cmd += f'#SBATCH --output={self._name}.%J.out\n'
-        
-        if self._allocation:
-            cmd += f'#SBATCH -A {self._allocation}\n\n'
+        cmd += f'#SBATCH --output={self._name}.%J.out\n\n'
         
         cmd += '\n'.join(self._cmds)
         
