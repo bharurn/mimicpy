@@ -1,5 +1,5 @@
 import mimicpy._global as _global
-from ..core.base import Run
+from ..core.base import BaseCalc
 import re
 import pandas as pd
 from .dashboard import PlotBoxDF
@@ -39,7 +39,7 @@ def errors(file_eval=None):
     
     def _parse(out):
         output = _global.host.read(out)   
-        return Run._notes(output), Run._errorHandle(output, dont_raise=True)
+        return BaseCalc._notes(output), BaseCalc._errorHandle(output, dont_raise=True)
     # include ls() in local
     if file_eval is None:
         files = _global.host.cmd.ls(file_eval=lambda a: True if a.endswith('.log') or a.endswith('.out') else False)
@@ -65,7 +65,7 @@ def dump(file):
     
     kwargs = {cmd:file}
     
-    out = Run.gmx(f'dump', **kwargs)
+    out = BaseCalc.gmx(f'dump', **kwargs)
     return out
 
 @PlotBoxDF

@@ -6,7 +6,7 @@ class MDP(Script):
         super().__init__(**kwargs)
         
         if self.name is None:
-            self.name = 'MiMiC/Gromacs Simulation'
+            self.name = 'MD Run'
     
     def edit(self, **kwargs):
         for k,v in kwargs.items():
@@ -45,7 +45,7 @@ class MDP(Script):
     @classmethod
     def defaultEM(cls):
         em = cls.defaultGenion()
-        em.name = 'Minim'
+        em.name = 'EM'
         em.coulombtype = "PME"
         return em
     
@@ -117,7 +117,7 @@ class MDP(Script):
     @classmethod
     def defaultPRD(cls):
         eq = cls.defaultNPT()
-        eq.name = 'EQMD'
+        eq.name = 'MD'
         eq.define = None
         eq.nstxout = 10000
         eq.nstvout = 0
