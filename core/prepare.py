@@ -20,7 +20,15 @@ class MM(BaseCalc):
         self.his_str = ''
         super().__init__(status)
         self.dir = 'prepareMM'
-        self.setcurrent()
+        
+        self.confin = "confin.pdb"
+        self.conf = 'conf.pdb'
+        self.conf1 = 'conf1.gro'
+        self.conf2 = 'conf2.gro'
+        self.conf3 = 'conf3.gro'
+        self.topol = f"topol.top"
+        self.ions_mdp = f"ions.mdp"
+        self.ions_tpr = f"ions.tpr"
     
     def topolParams(self, **kwargs):
         if 'his' in kwargs:
@@ -32,21 +40,22 @@ class MM(BaseCalc):
         self._topol_kwargs = kwargs
         
     def getTopology(self, protein):
+        self.setcurrent(key='prepMM')
+        
         print('Preparing protein topology..')
         
         print(f"Writing {self.protein.name} to confin.pdb..")
         
-        confin = f"{self.dir}/confin.pdb"
-        conf = '{self.dir}/conf.pdb'
-        
-        _global.host.write(protein.pdb+protein.water, confin)
+        _global.host.write(protein.pdb+protein.water, f'{self.dir}/{self.confin}')
         
         if self.his_str == '':
             print("Letting Gromacs calculate histidine protonantion states..")
-            BaseCalc.gmx('pdb2gmx', f = confin, o = conf, **self._topol_kwargs)
+            BaseCalc.gmx('pdb2gmx', f = self.confin, o = self.conf, dirc=self.dir, **self._topol_kwargs)
         else:
             print("Reading histidine protonation states from list..")
-            BaseCalc.gmx('pdb2gmx', f = confin, o = conf, **self._topol_kwargs, stdin=self.his_str)
+            BaseCalc.gmx('pdb2gmx', f = self.confin, o = self.conf, dirc=self.dir, **self._topol_kwargs, stdin=self.his_str)
+        
+        conf = f'{self.dir}/{self.conf}'
         
         pdb = _global.host.read(conf)
         
@@ -97,7 +106,7 @@ class MM(BaseCalc):
         
         _global.host.write(top1+'\n'+top2, f"{self.dir}/ligands.itp")
         
-        topol = f"{self.dir}/topol.top"
+        topol = f"{self.dir}/{self.topol}"
         
         _global.host.run(r'sed -i -r "/^#include \".+.ff\/forcefield.itp\"/a #include \"ligands.itp\"" '+topol)
         _global.host.run('grep -v SOL topol.top > topol_.top && mv topol_.top '+topol)
@@ -106,7 +115,7 @@ class MM(BaseCalc):
         
         print('Topology prepared..')
         
-        self.saveToYaml(self.dir)
+        self.saveToYaml()
         
     def ionParams(self, **kwargs): self._ion_kwargs = kwargs
     def boxParams(self, **kwargs): self._box_kwargs = kwargs
@@ -116,25 +125,20 @@ class MM(BaseCalc):
         print("Preparing system box..")
         print("Solavting protein..")
         
-        conf1 = '{self.dir}/conf1.gro'
-        conf2 = '{self.dir}/conf2.gro'
-        conf3 = '{self.dir}/conf3.gro'
-        topol = f"{self.dir}/topol.top"
-        ions_mdp = f"{self.dir}/ions.mdp"
-        ions_tpr = f"{self.dir}/ions.tpr"
+        BaseCalc.gmx('editconf', f = self.conf, o = self.conf1, dirc=self.dir, **self._box_kwargs)
         
-        BaseCalc.gmx('editconf', f = self.getcurrent('gro'), o = conf1, **self._box_kwargs)
+        BaseCalc.gmx('solvate', cp = self.conf1, o = self.conf2, p = self.topol, dirc=self.dir, **self._solavte_kwargs)
         
-        BaseCalc.gmx('solvate', cp = conf1,o = conf2, p = topol, **self._solavte_kwargs)
-        
-        _global.host.write(str(genion_mdp), ions_mdp)
+        _global.host.write(str(genion_mdp), f'{self.dir}/{self.ions_mdp}')
         
         print("Adding ions to neutralize charge..")
-        BaseCalc.gmx('grompp', f = ions_mdp, c = conf2, p = topol, o = ions_tpr)
+        BaseCalc.gmx('grompp', f = self.ions_mdp, c = self.conf2, p = self.topol, o = self.ions_tpr, dirc=self.dir)
         
-        BaseCalc.gmx('genion', s = ions_tpr, o = conf3, p = topol, **self._ion_kwargs, stdin="SOL")
+        BaseCalc.gmx('genion', s = self.ions_tpr, o = self.conf3, p = self.topol, dirc=self.dir, **self._ion_kwargs, stdin="SOL")
         
         print('Simulation box prepared..')
+        
+        self.saveToYaml()
         
 class QM(MD):
     
@@ -148,7 +152,7 @@ class QM(MD):
         coords = self.getcurrent('gro') # TO DO: check if latest run is trr or gro, and if trr convert
         
         print(f"Combining with latest coordinates data from {coords}..")
-        gro_splt = _global.host.read(coords).splitlines()
+        gro_splt = _global.host.read(coords).splitlines() # don't load full file into memory
         x = []
         y = []
         z = []
@@ -171,7 +175,10 @@ class QM(MD):
         self.qmatoms = None
         
         self.dir = 'prepareQM'
-        self.setcurrent()
+        
+        self.index = 'index.ndx'
+        self.preprc = 'processed.top'
+        self.mdp_tpr = 'mimic'
         
     def add(self, selection, link=False):
         if isinstance(selection, str):
@@ -185,32 +192,29 @@ class QM(MD):
             self.qmatoms = self.qmatoms.append(qdf)
     
     def getInp(self, mdp, inp=cpmd.Input()):
-        _global.host.mkdir(self.dir)
-        self.setcurrent(self.dir)
+        dirc = self.dir
+        self.setcurrent(key='prepQM')
         
         mdp.integrator = 'mimic'
         mdp.nsteps = 10000 # dummy value
         mdp.dt = 0.0001 #dummy value
         mdp.QMMM_grps = 'QMatoms'
         
-        pp = f'{self.dir}/processed.top'
-        ndx = f'{self.dir}/index.ndx'
-        
-        _global.host.write(_qmhelper.index(self.qmatoms.index), ndx)
+        _global.host.write(_qmhelper.index(self.qmatoms.index), f'{dirc}/{self.index}')
         print("Generating Gromacs tpr file for MiMiC run..")
-        self.grompp(mdp, f'{self.dir}/mimic', pp=pp, n=ndx)
+        self.grompp(mdp, f'{self.mdp_tpr}', pp=self.preprc, n=self.index, dirc=dirc)
         
         unk_lst = self.qmatoms[self.qmatoms['element'].apply(lambda x: False if x.strip() != '' else True)]['name'].to_list()
         
         if unk_lst != []:
             print("Reading force field data to fill in missing atomic symbol information..")
-            conv = _qmhelper.pptop(unk_lst, _global.host.read(pp))
+            conv = _qmhelper.pptop(unk_lst, _global.host.read(f'{dirc}/{self.preprc}') )
             self.qmatoms['element'] = self.qmatoms[['name', 'element']].apply(\
                                         lambda x: x[1] if x[1].strip() != '' else conv[x[0]], axis=1)
         
         self.qmatoms = self.qmatoms.sort_values(by=['link', 'element']).reset_index()
         
-        print("Writing CPMD input file..")
+        print("Creating CPMD input file object..")
         inp.mimic = cpmd.Section()
         inp.mimic.paths = "1\n---" #set path in run function
         inp.mimic.box = '  '.join([str(s) for s in self._mm_box])
@@ -224,5 +228,7 @@ class QM(MD):
         self.inp = inp
         
         print("Done..")
+        
+        self.saveToYaml()
         
         return inp
