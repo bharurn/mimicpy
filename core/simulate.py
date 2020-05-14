@@ -5,15 +5,15 @@ from collections import defaultdict
 class MD(BaseCalc):
     def __init__(self, status=defaultdict(list), settings=None):
         super().__init__(status)
+        self.jobscript = None
         if settings: self.setSlurmSettings()
     
     def setSlurmSettings(self, settings):
         print(f"Setting Slurm job settings from jobscript {settings.name}..")
         self.jobscript = settings
-        print(f"Transferring sources, modules and other header commands from host to job script..")
-        self.jobscript.module(_global.host.modules)
-        self.jobscript.source(_global.host.sources)
-        self.jobscript.addMany(_global.host.loaders)
+        if _global.host.loaders.strip() != '':
+            print(f"Transferring loader commands from host to job script..")
+            self.jobscript.addMany(_global.host.loaders)
         
         return self.jobscript
             
@@ -21,83 +21,91 @@ class MD(BaseCalc):
         
         def _do(new, **kwargs):
             if self.jobscript is None:
-                out = BaseCalc.gmx('mdrun', **kwargs, deffnm = new)
-                return out
+                self.gmx('mdrun', **kwargs, deffnm = new)
             else:
-                return self.jobscript.add(BaseCalc.gmx('mdrun', **kwargs, deffnm = new, onlycmd=True))
+                self.jobscript.add(self.gmx('mdrun', **kwargs, deffnm = new, onlycmd=True))
         
         if 'noappend' in kwargs:
-            if kwargs['noappend'] == True: out = self._do(new, **kwargs, noappend = '')
-            else: out = _do(new, **kwargs)
+            if kwargs['noappend'] == True:
+                del kwargs['noappend']
+                _do(new, **kwargs, noappend = '')
+            else: _do(new, **kwargs)
         else:
-            out = _do(new, **kwargs)
+            _do(new, **kwargs)
         
-        if out == None:
-            jid = _global.host.sbatch(self.jobscript)
-            print("MDrun job submmitted as a Slurm job "
+        if self.jobscript:
+            if 'dirc' in kwargs:
+                dirc = kwargs['dirc']
+                del kwargs['dirc']
+            else:
+                dirc = ''
+                    
+            jid = _global.host.sbatch(self.jobscript, dirc=dirc)
+            print("Gromacs simulations submmitted as a Slurm job "
                  f"{self.jobscript.name}.sh with the job ID {jid}.."
                  f"\nThe host and/or this script can be safely closed..")
             return jid
         else:
-            print("MDrun job submmitted on the current node..\n"
-                 f"Please do not close host and/or this script until the job is done!!")
-            return out
+            print("Gromacs simulation is now running as a background job..")
+            if _global.host.name != 'localhost':
+                print("Please do not close remote host until the job is done!")
     
     def restart(self, new, until=0, extend=0, fromcrash=False, noappend=True):
         
-        new_dir = '{new}/{new}'
         self.setcurrent(new)
         
         if fromcrash:
-            return self.mdrun(new, s = self.getcurrent('tpr'), cpi = self.getcurrent('cpt'), noappend = noappend)
+            out = self.mdrun(new, s = self.getcurrent('tpr'), cpi = self.getcurrent('cpt'), noappend = noappend, dirc=new)
         elif until != 0:
             
-            BaseCalc.gmx('convert-tpr', s = self.getcurrent('tpr'), until = until, o = f'{new_dir}.tpr')
-            self.setcurrent('tpr', f"{new_dir}.tpr")
-            return self.mdrun(s = f'{new_dir}.tpr', cpi = self.getcurrent('cpt'), deffnm = new_dir, noappend = noappend)
+            self.gmx('convert-tpr', s = self.getcurrent('tpr'), until = until, o = f'{new}.tpr', dirc=new)
+            out = self.mdrun(new, s = f'{new}.tpr', cpi = self.getcurrent('cpt'), noappend = noappend, dirc=new)
                 
         elif extend:
-            BaseCalc.gmx('convert-tpr', s = self.getcurrent('tpr'), extend = extend, o = f'{new_dir}.tpr')
-            return self.mdrun(s = f'{new_dir}.tpr', cpi = '{cpt}.cpt', deffnm = new_dir, noappend = noappend)
+            self.gmx('convert-tpr', s = self.getcurrent('tpr'), extend = extend, o = f'{new}.tpr', dirc=new)
+            out = self.mdrun(new, s = f'{new}.tpr', cpi = '{cpt}.cpt', noappend = noappend, dirc=new)
         
-        self.saveToYaml(new)
+        self.saveToYaml()
+        return out
         
         
     def grompp(self, mdp, new, **kwargs):
-        _global.host.write(str(mdp), f"{new}.mdp")
+        if 'dirc' in kwargs:
+            mdp_file = f'{kwargs["dirc"]}/{new}.mdp'
+        else:
+            mdp_file = f'{new}.mdp'
+        _global.host.write(str(mdp), mdp_file)
         
         gro = self.getcurrent('gro', level=True, exp=False)
         trr = self.getcurrent('trr', level=True, exp=False)
         
         if gro == None and trr ==  None:
-            raise Exception("No coordinate data present..")
+            raise Exception("No coordinate data (gro/trr file) was found..")
         
         if trr != None:
             if gro[0] < trr[0]:
-                BaseCalc.gmx('grompp', f = f'{new}.mdp', c = gro[1],\
+                self.gmx('grompp', f = f'{new}.mdp', c = gro[1],\
                      p = self.getcurrent('top'), o = f"{new}.tpr", **kwargs)
             else:
-                BaseCalc.gmx('grompp', f = f'{new}.mdp', c = gro[1],\
+                self.gmx('grompp', f = f'{new}.mdp', c = gro[1],\
                      p = self.getcurrent('top'), t=trr[1], o = f"{new}.tpr", **kwargs)
         else:
-            BaseCalc.gmx('grompp', f = f'{new}.mdp', c = gro[1],\
+            self.gmx('grompp', f = f'{new}.mdp', c = gro[1],\
                      p = self.getcurrent('top'), o = f"{new}.tpr", **kwargs)
         
     def run(self, mdp, **kwargs):
-        new = mdp.name.tolower().replace(' ', '_')
-        self.setdir(new)
+        new = mdp.name.lower().replace(' ', '_')
+        self.setcurrent(new)
         
         print(f"Starting classical MD calculation: {new}..")
         
-        print(f"All files will be saved with the name {new}..")
+        print(f"All files will be saved to the directory {new}..")
         
-        self.grompp(mdp, f'{new}/{new}', **kwargs)
+        self.grompp(mdp, f'{new}', dirc=new, **kwargs)
         
-        out = self.mdrun(f'{new}/{new}')
+        out = self.mdrun(f'{new}', dirc=new)
         
-        self.saveToYaml(new)
-        
-        print("Done..")
+        self.saveToYaml()
         
         return out
         
@@ -126,7 +134,7 @@ class MiMiC(MD):
     def setGMXSettings(self, **kwargs): self.gmx_opt = kwargs
     def setCPMDSettings(self, **kwargs): self.cpmd_opt = kwargs
     
-    def run(self, inp, tpr=None):
+    def run(self, inp, tpr=None, dirc=''):
         new = inp.info.lower().replace(' ', '_')
         self.setcurrent(new)
         _global.host.mkdir(f"{new}/cpmd")
@@ -135,7 +143,7 @@ class MiMiC(MD):
         inp.mimic.paths = f"1\n{_global.host.pwd()+new}/gmx"
         _global.host.write(str(inp), f"{new}/cpmd/{new}.inp")
         
-        if tpr is None: tpr = self.getcurrent('tpr')
+        if tpr is None: tpr = self.getcurrent('mimic-tpr')
         
         _global.host.cp(tpr, f'{new}/gmx/mimic.tpr')
         
@@ -143,18 +151,21 @@ class MiMiC(MD):
             if not hasattr(self, 'gmx_opt'): self.gmx_opt = {}
             if not hasattr(self, 'cpmd_opt'): self.cpmd_opt = {}
             
-            self.jobscript.add(self.gmx('mdrun', deffnm=f'{new}/gmx/mimic', onlycmd=True), **self.gmx_opt)
-            self.jobscript.add(BaseCalc.cpmd(f"{new}/cpmd/{new}.inp", f"{new}/cpmd/{new}.out", onlycmd=True), **self.cpmd_opt)
-            jid = _global.host.sbatch(self.jobscript)
+            self.jobscript.add(self.gmx('mdrun', deffnm=f'gmx/mimic', onlycmd=True, dirc='new'), **self.gmx_opt)
+            self.jobscript.add(BaseCalc.cpmd(f"cpmd/{new}.inp", f"cpmd/{new}.out", onlycmd=True, dirc='new'), **self.cpmd_opt)
+            jid = _global.host.sbatch(self.jobscript, dirc=dirc)
             print("MiMiC run submmitted as a Slurm job "
                  f"{self.jobscript.name}.sh with the job ID {jid}.."
                  f"\nThe host and/or this script can be safely closed..")
             return jid
         else:
-            out = self.gmx('mdrun', deffnm=f'{new}/gmx/mimic')
-            BaseCalc.cpmd(f"{new}/cpmd/{new}.inp", f"{new}/cpmd/{new}.out")
-            print("MiMiC run submmitted on the current node..\n"
-                 f"Please do not close host and/or this script until the job is done!!")
-            return out
+            self.gmx('mdrun', deffnm=f'gmx/mimic', dirc='new')
+            self.cpmd(f"cpmd/{new}.inp", f"cpmd/{new}.out", dirc='new')
+            print("MiMiC simulation is now running in the background..")
+            
+            if _global.host.name != 'localhost':
+                print("Please do not close remote host until the job is done!")
+            
+        self.saveToYaml()
         
         
