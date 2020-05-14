@@ -10,12 +10,8 @@ class Slurm(Script):
         
         self._shebang = shebang
         self._name = name
-        self._dir = ""
         self._cmds = cmds
         self._cmd_hdr = cmd_hdr
-    
-    def setDir(self, dirc):
-        self._dir = f"./{dirc}"
     
     def setSpecial(self, name=None, shebang=None, cmd_hdr=None):
         if name: self._name = name
@@ -23,11 +19,11 @@ class Slurm(Script):
         if cmd_hdr: self._cmd_hdr = cmd_hdr
     
     @classmethod    
-    def loadFromFile(cls, script):
-        return cls.loadFromText(_global.host.read(script))
+    def fromFile(cls, script):
+        return cls.fromText(_global.host.read(script))
                 
     @classmethod    
-    def loadFromText(cls, text):
+    def fromText(cls, text):
         shebang = "/usr/sh"
         name = 'jobscript'
         cmds = []
@@ -61,14 +57,6 @@ class Slurm(Script):
     
     def addMany(self, cmds):
         self._cmds.extend(cmds)
-    
-    def source(self, sources):
-        for source in sources:
-            self._cmds.append(f'source {source}')
-        
-    def module(self, modules):
-        for module in modules:
-            self._cmds.append(f'module load {module}')
     
     def __getattr__(self, val):
         if val == 'job_name' or val == 'name':
