@@ -1,57 +1,51 @@
 import subprocess
-from os import path
 import os
 
 decoder = 'utf-8'
 
-def run(cmd, stdin=None, errorHandle=None):
-    args = cmd.split()
-    if stdin == None: 
-        cmd = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    elif stdin.strip() == '':
-        cmd = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+def run(cmd, shell_ex, remove_from_out, stdin=None, hook=None):
+    if stdin == None or stdin.strip() == '':
+        p = subprocess.Popen(cmd, shell=True, executable=shell_ex, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        out = p.stdout.read().decode(decoder)
     else:
-        if isinstance(stdin, bytes):
-            cmd = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, input=stdin)
-        else:
-            cmd = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, input=stdin.encode('utf-8'))
-            
-    if errorHandle != None:
-        errorHandle(cmd.stdout.decode(decoder))
-        errorHandle(cmd.stderr.decode(decoder))
+        p = subprocess.Popen(cmd, shell=True, executable=shell_ex, stdin=subprocess.PIPE,\
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         
-    if cmd.returncode != 0:
-        raise Exception(f"Error executing {args[0]}!\nCommand executed: {subprocess.list2cmdline(args)}\n{cmd.stdout.decode(decoder)}\n{cmd.stderr.decode(decoder)}")
+        inp = stdin
+        if isinstance(stdin, str):
+            inp = stdin.encode(decoder)
+        
+        out = p.communicate(input=inp)[0].decode()
     
-    return cmd.stdout.decode(decoder)
+    out = out.replace(remove_from_out, '')
+            
+    if hook: hook(out)
     
-def runinSeq(*args, stdin=''):
-    val = run(args[0], stdin=stdin)
-    
-    for i in args[1:-1]:
-        if i[0] == 'print':
-            print(i[1])
-        else:
-            val = run(i, stdin=val)
-    
-    return run(*args[-1], stdin=val)
+    return out
+
+def runbg(self, cmd, shell_ex, remove_from_out, hook=None):
+    subprocess.Popen(cmd, shell=True, executable=shell_ex, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    # add communication till output not changes like remote
 
 def fileExists(file):
-    if path.isfile(file) or path.isdir(file):
+    if os.path.isfile(file) or os.path.isdir(file):
         return True
     else:
         return False
 
-def cd(directory, mkdir=False):
-    if directory.strip() == '.':
-        return -1
+def ls(dirc, file_eval, dir_eval):
         
-    if not fileExists(directory):
-        if mkdir:       
-            run('mkdir', directory)
-            return 1
-        else:
-            raise Exception(f'Directory {directory} not found')
+    files = []
+        
+    if dirc:
+        dirs = os.listdir(dirc)
     else:
-        os.chdir(directory)
-        return 0
+        dirs = os.listdir()
+        
+    for file in dirs:
+        if os.path.isfile(file) and dir_eval(file):
+            files.append(file)
+        elif os.path.isdir(file) and file_eval(file):
+            files.append(file)
+            
+    return files
