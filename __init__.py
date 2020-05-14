@@ -7,24 +7,17 @@ from .utils import shell
 from .utils import scripts
 import mimicpy._global as _global
 
-def setHost(dirc, **kwargs):
+def setHost(dirc='.', *args, path=None):
     closeHost()
     
     if ':' not in dirc:
-        _global.host = shell.Local(dirc)
+        _global.host = shell.Local(dirc, path, *args)
     else:
-        if 'ssh_config' not in kwargs:
-            from os.path import expanduser
-            ssh_config = expanduser("~")+'/.ssh/config'
-        else:
-            ssh_config = kwargs['ssh_config']
-            del kwargs['ssh_config']
-            
-        _global.host = shell.Remote(dirc, ssh_config, **kwargs)
+        _global.host = shell.Remote(dirc, path, *args)
 
 def getHost(): return _global.host
 
 def setEnv(**kwargs):
     for k,v in kwargs.items(): exec(f'_global.{k}="{v}"')
     
-def closeHost(): _global.host.close()
+def closeHost(): _global.host.__del__()
