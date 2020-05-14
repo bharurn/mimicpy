@@ -1,10 +1,11 @@
 from . import _local as local, _remote as remote
 import os
 from stat import S_ISDIR, S_ISREG
+from shutil import copyfile
 
 class Base():
     
-    def __init__(self, directory=".",  modules=[], sources=[], loaders=[], ignloaderr = True):
+    def __init__(self, directory,  *loaders):
         
         if directory.strip() == '':
             directory = '.'
@@ -19,18 +20,80 @@ class Base():
             
             print(f"Setting current directory to {directory}..")
         
-        self.modules = modules
-        self.sources = sources
-        self.loaders = loaders
+        self.loaders = []
+        self.loader_str = ''
+        self.loader_out = ''
+        
+        if loaders:
+            self.addLoaders(*loaders)
+        
+    def addLoaders(self, *loader):
+         self.loaders.extend(loader)
+         if self.loader_str.strip() == '':
+             self.loader_str += ' ; '.join(loader)
+         else:
+             self.loader_str = ' ; '.join(loader)
+         self.loader_out = self.run(self.loader_str, fresh=True)
+         
+    def rename(self, a, b): self.hndl().rename(a, b)
+    def rm(self, a): self.hndl().remove(a)
+    def pwd(self): return self.hndl().getcwd()
+    
+    def mkdir(self, directory):
+        if not self.fileExists(directory):
+            self.hndl().mkdir(directory)
+            return 0
+        else: return 1
+        
+    def cd(self, directory, mkdir=False):
+        if directory.strip() == '.':
+            return -1
+        
+        if not self.fileExists(directory):
+             if mkdir:       
+                self.hndl().mkdir(directory)
+                return 1
+             else:
+                 raise Exception(f'Directory {directory} not found')
+        else:
+            self.hndl().chdir(directory+'/')
+            return 0
+    
+    def sbatch(self, job, dirc=''):
+        if job.noCommands(): raise Exception("No commands in jobscript!")
+        
+        self.write(str(job), f'{dirc}/{job.name}.sh')
+        
+        def _sbatch_err(txt):
+            if 'error' in txt.lower():
+                raise Exception(txt) 
             
+        out = self.run(f'sbatch {job.name}.sh', hook=_sbatch_err, dirc=dirc, fresh=True)
+        
+        splt = out.split()
+        
+        if len(splt) < 3:
+            raise Exception(out)
+        
+        if splt[3].isnumber():
+            return int(splt[3])
+        else:
+            raise Exception(out)
+    
+    def scancel(self, jobid):
+        return self.run(f'scancel {jobid}', fresh=True)
+        
 class Local(Base):
     
-    def __init__(self, directory="."):
-        super().__init__(directory)
+    def __init__(self, directory, shell_path, *loaders):
+        super().__init__(directory, *loaders)
         self.name = 'localhost'
+        if shell_path:
+            self.shell_path = shell_path
+        else:
+            self.shell_path = os.environ['SHELL'] # check env vars and get shell exec, works only for UNIX
     
-    def cd(self, directory, mkdir=False):
-        return local.cd(directory, mkdir)
+    def hndl(self): return os
     
     def checkFile(self, file, throw=False):
         ret = local.fileExists(file)
@@ -42,15 +105,6 @@ class Local(Base):
     
     def fileExists(self, file):
         local.fileExists(file)
-        
-    def mkdir(self, directory):
-        if not self.fileExists(directory):
-            os.mkdir(directory)
-            return 0
-        else:
-            return 1
-    
-    def pwd(self): return os.getcwd()
     
     def read(self, file):
         with open(file, 'r') as f:
@@ -62,18 +116,32 @@ class Local(Base):
     def vi(self, file, mode):
         return open(file, mode)
         
-    def run(self, cmd, stdin=None, errorHandle=None, query_rate=0):
-        return local.run(cmd, stdin=stdin, errorHandle=errorHandle)
+    def run(self, cmd, stdin=None, hook=None, fresh=False, dirc=''):
+        replace = ''
+        if not fresh:
+            cmd = self.loader_str + ' ; ' + cmd
+            replace = self.loader_out
+        if not dirc != '': cmd = f'cd {dirc} ; ' + cmd
+        return local.run(cmd, self.shell_path, replace, stdin=stdin, hook=hook)
     
-    def rename(self, a, b): os.rename(a, b)
+    def runbg(self, cmd, hook=None, fresh=False, dirc='', query_rate=1):
+        replace = ''
+        if not fresh:
+            cmd = self.loader_str + ' ; ' + cmd
+            replace = self.loader_out
+        if not dirc != '': cmd = f'cd {dirc} ; ' + cmd
+        return local.runbg(cmd, self.shell_path, replace, hook=hook)
+
+    def ls(self, dirc=None, file_eval=lambda a: True, dir_eval=lambda a: True):
+        return local.ls(dirc, file_eval, dir_eval)
     
-    def rm(self, a): os.remove(a)
-    
-    def close(self): pass
+    def cp(self, f1, f2): copyfile(f1, f2)
+   
+    def __del__(self): pass
 
 class Remote(remote.Shell, Base):
     
-    def __init__(self, work_dir, ssh_config, modules=[], sources=[], loaders=[], ignloaderr = True):
+    def __init__(self, work_dir, ssh_config, *loaders):
         
         if ':' in work_dir:
             r = work_dir.split(':')
@@ -88,45 +156,9 @@ class Remote(remote.Shell, Base):
         
         remote.Shell.__init__(self, server, ssh_config)
         
-        Base.__init__(self, dir_, modules, sources, loaders)
-        
-        for module in modules:
-            print(f"Loading module {module}..")
-            try:
-                self.run(f'module load {module}')
-            except Exception as e:
-                if ignloaderr:
-                    print(f"Warning! {e}. Ignoring..")
-                else:
-                    raise Exception(str(e))
-        
-        for source in sources:
-            print(f"Sourcing {source}..")
-            try:
-                self.run(f'source {source}')
-            except Exception as e:
-                if ignloaderr:
-                    print(f"Warning! {e}. Ignoring..")
-                else:
-                    raise Exception(str(e))
-        
-        for loader in loaders:
-            print(f"Running commands: {loader}..")
-            try:
-                self.run(loader)
-            except Exception as e:
-                if ignloaderr:
-                    print(f"Warning! {e}. Ignoring..")
-                else:
-                    raise Exception(str(e))
-      
-    def source(self, sources):
-         for source in sources:
-            self.run(f'source {source}')
-        
-    def module(self, modules):
-        for module in modules:
-            self.run(f'module load {module}')
+        Base.__init__(self, dir_, *loaders)
+    
+    def hndl(self): return self.sftp
     
     def checkFile(self, file, throw=False):
         ret = self.fileExists(file)
@@ -145,17 +177,12 @@ class Remote(remote.Shell, Base):
     def write(self, content, file):
         with self.vi(file, 'w') as f: f.write(content)
         
-    def rename(self, a, b): self.sftp.rename(a, b)
-    def rm(self, a): self.sftp.remove(a)
-    
     def fileExists(self, file):
         try:
             self.sftp.stat(file)
             return True
         except FileNotFoundError:
            return False
-    
-    def pwd(self): return self.dir
     
     def ls(self, dirc=None, file_eval=lambda a: True, dir_eval=lambda a: True):
         
@@ -175,59 +202,8 @@ class Remote(remote.Shell, Base):
         return files
     
     def vi(self, name, s, prefetch=True):
-        file = self.sftp.open(f"{name}", s)
+        file = self.sftp.open(name, s)
         if prefetch: file.prefetch()
         return file
     
-    def sbatch(self, job):
-        if job.noCommands():
-            raise Exception("No commands in jobscript!")
-        job.setDir(self.dir)
-        
-        f = self.vi(f'{job.name}.sh', 'w')
-        f.write(str(job))
-        f.close()
-        
-        def _sbatch_err(err):
-            if 'error' in err.lower():
-                raise Exception(err) 
-            
-        out = self.run(f'cd {self.dir} && sbatch {job.name}.sh', errorHandle=_sbatch_err, onNewChan=True)
-        
-        try:
-            idx = int(out.split()[3])
-        except:
-            raise Exception(out)
-        
-        return idx
-        
-    def cd(self, directory, mkdir=False):
-        if directory.strip() == '.':
-            return -1
-        
-        if not self.fileExists(directory):
-             if mkdir:       
-                self.sftp.mkdir(directory)
-                return 1
-             else:
-                 raise Exception(f'Directory {directory} not found')
-        else:     
-            self.dir = directory+'/'
-            self.run(f'cd {self.dir}')
-            self.sftp.chdir(self.dir)
-            return 0
-    
-    def mkdir(self, directory):
-        if not self.fileExists(directory):
-            self.sftp.mkdir(directory)
-            return 0
-        else:
-            return 1
-    
-    def cp(self, f1, f2):
-        self.run(f"cp {f1} {f2}")
-    
-    def scancel(self, jobid):
-        return self.run(f'scancel {jobid}', onNewChan=True)
-    
-    def close(self): self.__del__()
+    def cp(self, f1, f2): self.run(f"cp {f1} {f2}")
