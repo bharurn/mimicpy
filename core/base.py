@@ -1,4 +1,4 @@
-from ..utils.shell import Remote
+#rom ..utils.shell import Remote
 #from collections import defaultdict
 import re
 import yaml
@@ -6,24 +6,32 @@ import yaml
 import mimicpy._global as _global
 
 class BaseCalc:
-    log = ''
     
-    def __init__(self, status=[]):
+    def __init__(self, status=None):
+        if not status:
+            status = {'prepMM': '', 'prepQM': '', 'run': []}
         self._status = status
+        self.log = ''
     
     def getcurrent(self, ext, level=False, exp=True):
         
-        if ext == 'top': return self._status[0]+'/topol.top'
-        elif ext == 'mpt': return self._status[0]+'/topol.mpt'
+        _dir = _global.host.pwd()+'/'
         
-        for i,d in enumerate(self._status[::-1]):
+        if ext == 'top' or ext == 'mpt' or ext == 'mimic-tpr':
+            return _dir+BaseCalc._getFile(self._status['prepMM'], ext)
+        elif ext == 'mimic-tpr':
+            return _dir+BaseCalc._getFile(self._status['prepQM'], ext)
+        
+        run = self._status['run']
+        
+        for i,d in enumerate(run[::-1]):
             ret = BaseCalc._getFile(d, ext)
             
             if ret != None:
-                if level: return(i, ret)
-                else: return ret
+                if level: return(i, _dir+ret)
+                else: return _dir+ret
         
-        if exp: raise Exception(f"Cannot find file with extension {ext}")
+        if exp: raise Exception(f"Cannot find file type: {ext}")
     
     def __del__(self): self.saveToYaml()
         
@@ -48,24 +56,26 @@ class BaseCalc:
         
         return cls(status=session._status)
     
-    def saveToYaml(self, filename='_status.yaml'):
-        #print(f"Saving session to {filename}..")
-        #yaml.add_representer(defaultdict, Representer.represent_dict)
-        _global.host.write(yaml.dump(self._status), filename)
+    def saveToYaml(self):
+        print(f"Saving status to _status.yaml..")
+        y = yaml.dump(self._status)
+        _global.host.write(y, '_status.yaml')
     
     @classmethod
-    def continueFromYaml(cls, filename='_status.yaml'):
-       #print(f"Loading session from {filename}..")
-       txt = _global.host.read(filename)
+    def continueFromYaml(cls):
+       print(f"Loading session from _status.yaml..")
+       txt = _global.host.read('_status.yaml')
        _status = yaml.safe_load(txt)
        return cls(status=_status)
    
-    def setcurrent(self, dirc=None):
+    def setcurrent(self, dirc=None, key='run'):
         if dirc == None:
             dirc = self.dir
         _global.host.mkdir(dirc)
-        if self._status[-1] != dirc:
-            self._status.append(dirc)
+        if key == 'prepMM' or key == 'prepQM':
+            self._status[key] = dirc
+        elif dirc not in self._status['run']:
+            self._status['run'].append(dirc)
     
     #def moveMDResults(self, old, new):
     #    ls = self.ls(file_eval=lambda a: True if a.startswith(f"{old}.") or\
@@ -78,17 +88,24 @@ class BaseCalc:
     #        print(f"Renaming {l} to {n}.{a[-1]}")
     #        _global.host.cmd.rename(f"{l}", f"{n}.{a[-1]}")
     
-    @staticmethod
-    def logToFile(self, log_file):
+    def dump(self, log_file):
         print(f"Dumping standard output from all MiMiC/MD runs so far to {log_file}..")
         
-        _global.host.write(BaseCalc.log, log_file)
+        _global.host.write(self.log, log_file)
+    
+    def _gmxhook(self, text):
+        
+        self.log += text
+        
+        BaseCalc._gmxerrhdnl(text)
+        
+        notes = BaseCalc._notes(text)
+        
+        if not notes.isspace():
+            print(notes[:-1])
     
     @staticmethod
-    def _errorHandle(text, dont_raise=False):
-        
-        BaseCalc.log += text
-        
+    def _gmxerrhdnl(text, dont_raise=False):
         if 'Halting program' in text or 'Fatal error' in text or 'Error in user input' in text:
             
             pattern = re.compile("^-+$")
@@ -136,8 +153,7 @@ class BaseCalc:
         
         return notes
     
-    @staticmethod
-    def gmx(cmd, **kwargs):
+    def gmx(self, cmd, **kwargs):
         
         if _global.gmx is None or _global.gmx.strip() == '':
             raise Exception('Gromacs executable not set!')
@@ -156,7 +172,16 @@ class BaseCalc:
         else:
             onlycmd = False
         
-        cmd = f"{gmx_ex} {cmd}"
+        if 'dirc' in kwargs:
+            dirc = kwargs['dirc']
+            del kwargs['dirc']
+        else:
+            dirc = ''
+        
+        if cmd == 'mdrun': mdrun = True
+        else: mdrun = False
+        
+        cmd = f"{gmx_ex} -quiet {cmd}"
         
         stdin = None
         
@@ -171,17 +196,10 @@ class BaseCalc:
         elif not nonverbose:
             print(f"Running {cmd}..")
         
-        text = _global.host.run(cmd, stdin=stdin, errorHandle=BaseCalc._errorHandle, query_rate = 3)
-            
-        notes = BaseCalc._notes(text)
-        
-        if notes != '' and not nonverbose:
-            print('\n'+notes)
-        
-        return text
+        if mdrun: _global.host.runbg(cmd, hook=self._gmxhook, dirc=dirc)
+        else: _global.host.run(cmd, stdin=stdin, hook=self._gmxhook, dirc=dirc)
     
-    @staticmethod
-    def cpmd(inp, out, onlycmd=False, noverbose=False):
+    def cpmd(self, inp, out, onlycmd=False, noverbose=False, dirc=''):
         if _global.cpmd is None or _global.cpmd.strip() == '':
             raise Exception('CPMD executable not set!')
         
@@ -194,6 +212,4 @@ class BaseCalc:
         
         if not noverbose: print(cmd)
         
-        text = _global.host.run(cmd)
-        
-        return text
+        _global.host.runbg(cmd, dirc=dirc)
