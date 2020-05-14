@@ -1,10 +1,13 @@
+from os.path import expanduser
 import time
-#import re
 
 class Shell:
-    def __init__(self, name, config):
+    def __init__(self, name, config=None):
         
         self.name = name
+        
+        if config == None:
+            config = expanduser("~")+'/.ssh/config'
         
         self.config = config
         
@@ -23,20 +26,16 @@ class Shell:
             self.ssh =  self._getssh(name)
             
         self.sftp = self.ssh.open_sftp()
-        self.shell = self.ssh.invoke_shell()
-        self.stdout = ''
-        self.dir = '.'
-        self.parallel = False
-        self.errorHandle = None
-        self.stdout_source = '_std'
-        self.nohup = False
         self.decoder = 'utf-8'
-    
+        self.is_open = True
+        
+        self.ssh_bg = None
+        
     def _lookup(self, name):
         try:
             import paramiko
         except ImportError:
-            raise Exception("Install paramiko python package to remotely run MiMiC")
+            raise Exception("Install paramiko python package to remotely run commands")
             
         config = paramiko.SSHConfig()
         config.parse(open(self.config))
@@ -48,7 +47,7 @@ class Shell:
         try:
             import paramiko
         except ImportError:
-            raise Exception("Install paramiko python package to remotely run MiMiC")
+            raise Exception("Install paramiko python package to remotely run commands")
             
         conf = self._lookup(name)
     
@@ -61,92 +60,89 @@ class Shell:
         
         return ssh
     
-    def __del__(self): self.ssh.close()
+    def __del__(self):
+        if not hasattr(self, 'is_open'): return
+        if self.is_open:
+            self.is_open = False
+            self.sftp.close()
+            self.ssh.close()
+            if self.ssh_bg: self.ssh_bg.__del__()
+                
+    def runbg(self, cmd, hook=None, dirc='', query_rate=3):
+        if self.ssh_bg == None:
+            self.ssh_bg = _ShellBGRun(self.ssh, self.decoder)
+            
+        self.ssh_bg.run(f'cd {self.pwd()}/{dirc}')
+        self.ssh_bg.run(self.loader_str)
+        self.ssh_bg.run(cmd, hook, query_rate)
+        # do not destory ssh_bg, as this stops the process
+        # kill it in the deconstructor
+    
+    def run(self, cmd, stdin=None, hook=None, fresh=False, dirc=''):
         
+        if not fresh:
+            cmd = self.loader_str + ' ; ' + cmd
+        
+        cmd = f'cd {self.pwd()}/{dirc} ; ' + cmd
+        
+        sin, out, err = self.ssh.exec_command(cmd)
+        
+        if stdin:
+            sin.channel.send(stdin+'\n')
+            sin.channel.shutdown_write()
+        
+        out = out.read().decode(self.decoder) + '\n' + err.read().decode(self.decoder)
+           
+        if not fresh:
+            out = out.replace(self.loader_out, '')
+    
+        if hook: hook(out)
+        
+        return out
+    
+    def __enter__(self): return self
+        
+    def __exit__(self, exc_type, exc_val, exc_tb): self.__del__()
+    
+class _ShellBGRun:
+    
+    def __init__(self, ssh, decoder):
+        self.chan = ssh.invoke_shell()
+        self.stdout = ''
+        self.decoder = decoder
+    
     def queryStdout(self, buff = 1024):
         
-        if self.stdout_source != '_std':
-            try:
-                self.sftp.stat(self.stdout_source)
-            except:
-                self.stdout = ''
-                return
+       while self.chan.recv_ready():
+           self.stdout += self.chan.recv(buff).decode(self.decoder)
+           
+    def run(self, cmd, hook=None, query_rate=0.2):
+        
+        self.queryStdout()
+        
+        startout = self.stdout
+        
+        self.chan.send(cmd+'\n')
             
-            with self.sftp.open(self.stdout_source, 'r') as f:
-                self.stdout = f.read().decode(self.decoder)
-        else:        
-            while self.shell.recv_ready():
-                self.stdout += self.shell.recv(buff).decode(self.decoder)
+        prev = startout
         
-    def redirectStdout(self, fname):
-        self.stdout_source = fname
-    
-    def run(self, cmd, stdin=None, errorHandle=None, onNewChan=None, query_rate=0.3):
-        
-        if errorHandle is None: errorHandle = self.errorHandle
-        
-        if onNewChan:
-            sin, out, err = self.ssh.exec_command(cmd)
-            
-            if err.read().decode(self.decoder).strip() != '':
-                if errorHandle:
-                    errorHandle(err.read().decode(self.decoder).strip())
-                else:
-                    raise Exception(f'Error! {err.read().decode(self.decoder)} {out.read().decode(self.decoder)}')
+        while True:
+            time.sleep(query_rate)
                 
-            return out.read().decode(self.decoder)
-        
-        else:
             self.queryStdout()
-        
-            startout = self.stdout
-            
-            if stdin is None:
-                self.shell.send(cmd+'\n')
-            else:
-                self.shell.send(f'printf "{stdin}" | {cmd}\n')
                 
-            #if 'mdrun' in cmd: log = True
-            #else: log = False
-        
-            prev = startout
-            while not self.parallel:
-                if query_rate > 0:    
-                    time.sleep(query_rate)
+            if prev != self.stdout:
+                text = self.stdout.replace(prev, '')
+                    
+                prev = self.stdout
+                    
+                if hook: hook(text)
                 
-                self.queryStdout()
-                
-                if prev != self.stdout:
-                    text = self.stdout.replace(prev, '')
-                    
-                    prev = self.stdout
-                    
-                    #if log:
-                        #x = re.compile(r"^\s*(Step\s*Time)\n(.+)",\
-                        #               re.MULTILINE)
-                        #res = x.findall(text)
-                        #if res:
-                        #    for r in res: print(f'Step: {r[1].split()[0]}   |   Time: {r[1].split()[1]}')
-                    
-                    if errorHandle != None:
-                        errorHandle(text)
-                    else:
-                        if 'ERROR' in text.upper():
-                            for line in self.stdout.splitlines()[::-1]:
-                                if 'ERROR' in line.upper():
-                                    raise Exception(line)
-                else:
-                    break
+            else: break
         
-            lines = self.stdout.replace(startout, '').splitlines()[1:-1]
+        lines = self.stdout.replace(startout, '').splitlines()[1:-1]
         
-            return '\n'.join(lines)
+        return '\n'.join(lines)
     
-    def clearStdout(self):
-        self.stdout = ''
-    
-    def __enter__(self):
-        return self
-        
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.ssh.close()
+    def __del__(self):
+        self.chan.close()
