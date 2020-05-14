@@ -103,7 +103,7 @@ class NonStdLigand:
     @staticmethod    
     def gaussFromSDF(mol, nc, pH=7, parallel=False):
         
-        print(f"Running _global.gaussian Calculation on ligand..")
+        print(f"Running Gaussian calculation on ligand..")
         
         print(f"Converting to PDB..")
         
@@ -111,7 +111,7 @@ class NonStdLigand:
         
         _global.host.write(pdb, f(name,'.pdb'))
         
-        print("Generating _global.gaussian input file using AmberTools Antechamber..")
+        print("Generating Gaussian input file using AmberTools Antechamber..")
         
         _global.host.run(f("antechamber -i ",name,".pdb -fi pdb -o ",name,".com -fo gcrt -nc ",nc))
         
@@ -121,9 +121,11 @@ class NonStdLigand:
         if _global.gauss is None:
             raise Exception("No _global.gaussian executable given!")
         
-        out = _global.host.run(f(_global.gauss,' ',name,'.com ',name,'.out'))
+        _global.host.runbg(f(_global.gauss,' ',name,'.com ',name,'.out'), query_rate=0)
         
-        return out
+        print("Gaussian run submitted as a background job..\n"
+              "Do not close host and/or this script untill the run is complete!!\n"
+              f"Please check {name}.out for status..")
     
     @staticmethod
     def getPrepGauss(mol):
