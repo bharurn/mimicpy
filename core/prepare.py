@@ -1,14 +1,15 @@
-from ..utils import handlePDB as hpdb
+from ..system import _hndlpdb as hpdb
 from ..utils.scripts import mdp
 from .base import BaseCalc
 from .simulate import MD
 import mimicpy._global as _global
-from . import _qmhelper
-from ._constants import bohr_rad
+from . import _qmhelper, _mpt_helper
+from ._constants import hartree_to_ps
 from ..utils.scripts import cpmd
 from collections import defaultdict
 import pandas as pd
 import pickle
+import numpy as np
 
 class MM(BaseCalc):
     
@@ -147,29 +148,13 @@ class QM(MD):
         
         mpt = self.getcurrent('mpt')
         print(f"Reading topology from {mpt}..")
-        df_f = _global.host.vi(self.getcurrent('mpt'), 'rb')
+        df_f = _global.host.vi(mpt, 'rb')
         self.df = pickle.load(df_f)
+        
         coords = self.getcurrent('gro') # TO DO: check if latest run is trr or gro, and if trr convert
-        
         print(f"Combining with latest coordinates data from {coords}..")
-        gro_splt = _global.host.read(coords).splitlines() # don't load full file into memory
-        x = []
-        y = []
-        z = []
+        self.df, self._mm_box = _mpt_helper.combine(self.df, coords)
         
-        for i, gro in enumerate(gro_splt[2:]):
-            if i>=len(self.df): break
-            coords = gro[20:].split()
-            x.append(coords[0])
-            y.append(coords[1])
-            z.append(coords[2])
-
-        self.df['x'] = pd.Series(x, index=self.df.index)
-        self.df['y'] = pd.Series(y, index=self.df.index)
-        self.df['z'] = pd.Series(z, index=self.df.index)
-        
-        self._mm_box = [float(v)/bohr_rad for v in gro_splt[-1].split()]
-    
         self.inp = cpmd.Input()
         
         self.qmatoms = None
@@ -195,40 +180,55 @@ class QM(MD):
         dirc = self.dir
         self.setcurrent(key='prepQM')
         
+        print("Changing Gromacs integrator to MiMiC..")
         mdp.integrator = 'mimic'
-        mdp.nsteps = 10000 # dummy value
-        mdp.dt = 0.0001 #dummy value
-        mdp.QMMM_grps = 'QMatoms'
         
+        print(f"Writing atoms in QM region to {self.index}..")
+        mdp.QMMM_grps = 'QMatoms'
         _global.host.write(_qmhelper.index(self.qmatoms.index), f'{dirc}/{self.index}')
+        
         print("Generating Gromacs tpr file for MiMiC run..")
         self.grompp(mdp, f'{self.mdp_tpr}', pp=self.preprc, n=self.index, dirc=dirc)
         
         unk_lst = self.qmatoms[self.qmatoms['element'].apply(lambda x: False if x.strip() != '' else True)]['name'].to_list()
         
-        if unk_lst != []:
-            print("Reading force field data to fill in missing atomic symbol information..")
-            conv = _qmhelper.pptop(unk_lst, _global.host.read(f'{dirc}/{self.preprc}') )
-            self.qmatoms['element'] = self.qmatoms[['name', 'element']].apply(\
-                                        lambda x: x[1] if x[1].strip() != '' else conv[x[0]], axis=1)
+        print("Reading force field data to fill in charges and missing atomic symbol information..")
+        # the full processed.top file is loaded into memory for fast manipulation, may not be feasible for large files
+        conv, q_conv = _qmhelper.pptop(unk_lst, self.qmatoms['name'].to_list(), \
+                                       _global.host.read(f'{dirc}/{self.preprc}') ) # read element conv and charge conv
+       
+        # iterate through df to combine name & element, get charges for each name also
+        elems, q = zip(*self.qmatoms[['name', 'element']].apply(\
+                       lambda x: (x[1], q_conv[x[0]]) if x[1].strip() != '' else (conv[x[0]], q_conv[x[0]]), axis=1))
+
+        qm_df = self.qmatoms.assign(element=elems)
+        self.qmatoms = qm_df # reassign it to original df
         
         self.qmatoms = self.qmatoms.sort_values(by=['link', 'element']).reset_index()
         
-        print("Creating CPMD input file object..")
+        print("Creating CPMD input script..")
         inp.mimic = cpmd.Section()
-        inp.mimic.paths = "1\n---" #set path in run function
+        inp.mimic.paths = "1\n---" #path will be set in MiMiC run function
         inp.mimic.box = '  '.join([str(s) for s in self._mm_box])
         
         inp = _qmhelper.getOverlaps_Atoms(self.qmatoms, inp)
+        
+        inp.system.charge = round(sum(q), 1) # system section already created in getQverlap_Atoms()
         
         if not inp.checkSection('cpmd'): inp.cpmd = cpmd.Section()
         inp.cpmd.mimic = ''
         inp.cpmd.parallel__constraints = ''
         
+        # set no of steps from mdp file
+        if not mdp.hasparam('nsteps'): mdp.nsteps = 1000
+        inp.cpmd.maxsteps = mdp.nsteps
+        
+        # set timestep from mdp file
+        if not mdp.hasparam('dt'): mdp.dt = 0.0001
+        inp.cpmd.timestep = round(mdp.dt/hartree_to_ps)
+        
         self.inp = inp
         
-        print("Done..")
-        
-        self.saveToYaml()
+        self.toYaml()
         
         return inp
