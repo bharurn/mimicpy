@@ -86,8 +86,8 @@ class BaseCalc:
         
         notes = BaseCalc._notes(text)
         
-        if not notes.isspace():
-            print(notes[:-1])
+        if not notes.isspace() and notes.strip() != '':
+            print(notes)
     
     @staticmethod
     def _gmxerrhdnl(text, dont_raise=False):
@@ -136,7 +136,7 @@ class BaseCalc:
                 else:
                     notes += line + '\n'
         
-        return notes
+        return ''.join(filter(lambda x: not re.match(r'^\s*$', x), notes)) # remove blank lines
     
     def gmx(self, cmd, **kwargs):
         
@@ -181,6 +181,7 @@ class BaseCalc:
         elif not nonverbose:
             print(f"Running {cmd}..")
         
+        self.log += "============Executing {cmd}============\n"
         if mdrun: _global.host.runbg(cmd, hook=self._gmxhook, dirc=dirc)
         else: _global.host.run(cmd, stdin=stdin, hook=self._gmxhook, dirc=dirc)
     
@@ -197,4 +198,5 @@ class BaseCalc:
         
         if not noverbose: print(cmd)
         
+        self.log += "============Executing {cmd}============\n"
         _global.host.runbg(cmd, dirc=dirc)
