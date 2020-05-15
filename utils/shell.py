@@ -2,6 +2,7 @@ from . import _local as local, _remote as remote
 import os
 from stat import S_ISDIR, S_ISREG
 from shutil import copyfile
+import re
 
 class Base():
     
@@ -67,18 +68,12 @@ class Base():
         def _sbatch_err(txt):
             if 'error' in txt.lower():
                 raise Exception(txt) 
-            
+        
         out = self.run(f'sbatch {job.name}.sh', hook=_sbatch_err, dirc=dirc, fresh=True)
         
-        splt = out.split()
-        
-        if len(splt) < 3:
-            raise Exception(out)
-        
-        if splt[3].isnumber():
-            return int(splt[3])
-        else:
-            raise Exception(out)
+        match = re.search(r'Submitted batch job (\w*)', out)
+        if match: return match.groups()[0]
+        else: raise Exception(out)
     
     def scancel(self, jobid):
         return self.run(f'scancel {jobid}', fresh=True)
@@ -86,12 +81,12 @@ class Base():
 class Local(Base):
     
     def __init__(self, directory, shell_path, *loaders):
-        super().__init__(directory, *loaders)
         self.name = 'localhost'
         if shell_path:
             self.shell_path = shell_path
         else:
             self.shell_path = os.environ['SHELL'] # check env vars and get shell exec, works only for UNIX
+        super().__init__(directory, *loaders)
     
     def hndl(self): return os
     
@@ -104,7 +99,7 @@ class Local(Base):
             raise Exception(f"{file} not found!")
     
     def fileExists(self, file):
-        local.fileExists(file)
+        return os.path.isfile(file) or os.path.isdir(file)
     
     def read(self, file):
         with open(file, 'r') as f:
@@ -121,7 +116,7 @@ class Local(Base):
         if not fresh:
             cmd = self.loader_str + ' ; ' + cmd
             replace = self.loader_out
-        if not dirc != '': cmd = f'cd {dirc} ; ' + cmd
+        if dirc != '': cmd = f'cd {dirc} ; ' + cmd
         return local.run(cmd, self.shell_path, replace, stdin=stdin, hook=hook)
     
     def runbg(self, cmd, hook=None, fresh=False, dirc='', query_rate=1):
