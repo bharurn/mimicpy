@@ -5,7 +5,7 @@ from ._constants import bohr_rad
 from ..utils.scripts import cpmd
 
 def parse_selec(selection, df):
-        #selection eg., resName is SER and number < 25 and chainID not B
+    #selection eg., resName is SER and number < 25 and chainID not B
     ev = ''
     i = 0
     for s in selection.split():
@@ -42,15 +42,16 @@ def index(qmids):
         
     return index
     
-def pptop(unk_lst, top):
+def pptop(unk_lst, all_names, top):
     atm_names_to_symb = dict((el,None) for el in unk_lst)
+    atm_names_to_q = dict((a,None) for a in all_names)
     
     atm_types_to_symb = {}
     start1 = False
     start2 = False
     
     for line in top.splitlines():
-        if '[ atomtypes ]' in line:
+        if '[ atomtypes ]' in line and atm_types_to_symb == {}: # read only first atomtypes
             start1 = True
         elif start1:
             if '[' and ']' in line:
@@ -67,12 +68,16 @@ def pptop(unk_lst, top):
             elif not line.startswith(';') and line.strip() != '':
                 atm_name = line.split()[4]
                 atm_type = line.split()[1]
+                q = line.split()[6]
                 
-                if atm_name in atm_names_to_symb.keys():
-                    if atm_names_to_symb[atm_name] == None:
+                if atm_name in atm_names_to_q.keys():
+                    if atm_names_to_q[atm_name] == None:
+                        atm_names_to_q[atm_name] = float(q)
+                    
+                    if atm_name in atm_names_to_symb.keys() and atm_names_to_symb[atm_name] == None:
                         atm_names_to_symb[atm_name] = atm_types_to_symb[atm_type]
         
-    return atm_names_to_symb
+    return atm_names_to_symb, atm_names_to_q
 
 def getOverlaps_Atoms(qmatoms, inp):
     inp.atoms = OrderedDict()
