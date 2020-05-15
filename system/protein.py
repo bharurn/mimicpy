@@ -108,7 +108,7 @@ class Protein:
        
        if howToreturn == 0:
            prt = cls(pdb_, pdbid)
-           prt.addLigands(ligs.values())
+           prt.addLigands(lig.NonStdigand(ligs.values()))
            print("Returned as Protein with Ligands added..")
            return prt
        else:
