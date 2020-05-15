@@ -27,12 +27,6 @@ def runbg(self, cmd, shell_ex, remove_from_out, hook=None):
     subprocess.Popen(cmd, shell=True, executable=shell_ex, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     # add communication till output not changes like remote
 
-def fileExists(file):
-    if os.path.isfile(file) or os.path.isdir(file):
-        return True
-    else:
-        return False
-
 def ls(dirc, file_eval, dir_eval):
         
     files = []
@@ -43,9 +37,9 @@ def ls(dirc, file_eval, dir_eval):
         dirs = os.listdir()
         
     for file in dirs:
-        if os.path.isfile(file) and dir_eval(file):
-            files.append(file)
-        elif os.path.isdir(file) and file_eval(file):
+        if os.path.isdir(file):
+            if dir_eval(file): files.append(file)
+        elif file_eval(file):
             files.append(file)
             
     return files
