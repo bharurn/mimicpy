@@ -1,8 +1,5 @@
-#rom ..utils.shell import Remote
-#from collections import defaultdict
 import re
 import yaml
-#from yaml.representer import Representer
 import mimicpy._global as _global
 
 class BaseCalc:
@@ -56,13 +53,13 @@ class BaseCalc:
         
         return cls(status=session._status)
     
-    def saveToYaml(self):
+    def toYaml(self):
         print(f"Saving status to _status.yaml..")
         y = yaml.dump(self._status)
         _global.host.write(y, '_status.yaml')
     
     @classmethod
-    def continueFromYaml(cls):
+    def fromYaml(cls):
        print(f"Loading session from _status.yaml..")
        txt = _global.host.read('_status.yaml')
        _status = yaml.safe_load(txt)
@@ -77,20 +74,8 @@ class BaseCalc:
         elif dirc not in self._status['run']:
             self._status['run'].append(dirc)
     
-    #def moveMDResults(self, old, new):
-    #    ls = self.ls(file_eval=lambda a: True if a.startswith(f"{old}.") or\
-    #                 a.startswith(f"{old}_prev") else False, dir_eval = lambda a: False)
-        
-    #    for l in ls:
-    #        a = l.split('.')
-    #        n = a[0].replace(old, new)
-            
-    #        print(f"Renaming {l} to {n}.{a[-1]}")
-    #        _global.host.cmd.rename(f"{l}", f"{n}.{a[-1]}")
-    
     def dump(self, log_file):
-        print(f"Dumping standard output from all MiMiC/MD runs so far to {log_file}..")
-        
+        print(f"Dumping standard output data to {log_file}..")
         _global.host.write(self.log, log_file)
     
     def _gmxhook(self, text):

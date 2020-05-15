@@ -11,7 +11,7 @@ class MD(BaseCalc):
     def setSlurmSettings(self, settings):
         print(f"Setting Slurm job settings from jobscript {settings.name}..")
         self.jobscript = settings
-        if _global.host.loaders.strip() != '':
+        if _global.host.loaders != []:
             print(f"Transferring loader commands from host to job script..")
             self.jobscript.addMany(_global.host.loaders)
         
@@ -109,26 +109,6 @@ class MD(BaseCalc):
         
         return out
         
-    #def em(self, **kwargs):
-    #    em_mdp = mdp.MDP.defaultEM()
-    #   em_mdp.edit(**kwargs)
-    #    return self.run(em_mdp)
-    
-    #def nvt(self, **kwargs):
-    #    nvt_mdp = mdp.MDP.defaultNVT()
-    #    nvt_mdp.edit(**kwargs)
-    #    return self.run(nvt_mdp, r = self.getcurrent('coords'))
-    
-    #def npt(self, **kwargs):
-    #    npt_mdp = mdp.MDP.defaultNPT()
-    #    npt_mdp.edit(**kwargs)
-    #    return self.run(npt_mdp, r = self.getcurrent('coords'))
-    
-    #def prd(self, **kwargs):
-    #    prd_mdp = mdp.MDP.defaultPRD()
-    #    prd_mdp.edit(**kwargs)
-    #    return self.run(prd_mdp, r = self.getcurrent('coords'))
-            
 class MiMiC(MD):
     
     def setGMXSettings(self, **kwargs): self.gmx_opt = kwargs
