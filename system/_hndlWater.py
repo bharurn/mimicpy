@@ -1,5 +1,5 @@
 import numpy as np
-from ..utils import handlePDB as hpdb
+from . import _hndlpdb as hpdb
 
 def _getSphere(coords):
     center = coords.mean(0)

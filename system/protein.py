@@ -1,5 +1,5 @@
 from . import ligand as lig, _hndlWater
-from ..utils import handlePDB as hpdb
+from . import _hndlpdb as hpdb
 import mimicpy._global as _global
 import requests
 from collections import defaultdict, OrderedDict
@@ -62,7 +62,7 @@ class Protein:
       self.water = _global.host.run(f'grep {command}', stdin=self.water)
     
    @classmethod
-   def loadFromRCSB(cls, pdbid, chains=None, howToreturn=0):
+   def fromRCSB(cls, pdbid, chains=None, howToreturn=0):
        print(f"Accessing PDB {pdbid} from RCSB database..")
        print("Downloading PDB file..")
            

@@ -1,4 +1,4 @@
-from ..utils import handlePDB
+from . import _hndlpdb as hpdb
 import mimicpy._global as _global
 import re
 
@@ -67,7 +67,7 @@ def _multChains(pdb):
     print("Assigning correct chain IDs..")
     
     for line in pdb.splitlines():
-        splt = handlePDB.readLine(line)
+        splt = hpdb.readLine(line)
         
         if splt['record'] == "COMPND":
             n_chains += 1
@@ -75,12 +75,12 @@ def _multChains(pdb):
             
         if splt['record'] == "HETATM" or splt['record'] == "ATOM":
             
-            line = handlePDB.editLine(line, chainID=chr(ord('A')+n_chains-1), resSeq=str(n_chains))
+            line = hpdb.editLine(line, chainID=chr(ord('A')+n_chains-1), resSeq=str(n_chains))
             if splt['element'] == 'H':
                 if n_chains == 1:
-                    stack.append(handlePDB.readLine(line)['name'])
+                    stack.append(hpdb.readLine(line)['name'])
                 else:
-                    line = handlePDB.editLine(line, name=stack[stack_idx])
+                    line = hpdb.editLine(line, name=stack[stack_idx])
                     stack_idx += 1
             
         pdb_str += line + '\n'
