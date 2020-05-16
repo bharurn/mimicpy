@@ -8,14 +8,16 @@ def _cleanPdb(sdf, pdb):
     #####Read sdf file#####
     l_cnt = 0
     start = False
+    no = -1
     resname = ""
     atm_names = [] # store atoms names
     elems = [] # store element list for MiMiC
     for line in sdf.splitlines():
-        if l_cnt > 3 and not start: # read coordinates
-            elems.append(line.split()[3]) #4th value if the element symbol
-            l_cnt += 1
-        if "A    1" in line: # start reading atom names
+        if l_cnt == 3:
+            no = int(line.split()[0])
+        elif no != -1 and l_cnt < no+3: # read coordinates
+            elems.append(line.split()[3]) #4th value is the element symbol
+        elif "A    1" in line: # start reading atom names
             start = True
             val = line.split()
             if len(val) == 1:
@@ -34,7 +36,9 @@ def _cleanPdb(sdf, pdb):
         elif resname == "start":
             resname = line.strip()
         elif '$$$$' in line:
-            l_cnt = 0 # reset l_cnt to read elements again
+            l_cnt = -1 # reset value to zero for next chain
+            no = -1
+        l_cnt += 1
             
 
     #####END#####
@@ -46,17 +50,19 @@ def _cleanPdb(sdf, pdb):
     for line in pdb.splitlines():
         header = line.split()[0]
         if header == "HETATM":
-            line = handlePDB.editLine(line, name=atm_names[atm_i], resName=resname)
+            line = hpdb.editLine(line, name=atm_names[atm_i], resName=resname)
             atm_i += 1
         elif header == "ATOM":
         #ATOM is hydrogen atom, so add H1, H2...
             hstr = "H" + str(h_i) # create hydrogen atom name
-            line = handlePDB.editLine(line, name=hstr, resName=resname) # add the res name also
+            line = hpdb.editLine(line, name=hstr, resName=resname) # add the res name also
             h_i += 1
         
         pdb_str += line + '\n'
 
     return pdb_str, resname, elems
+
+
 
 def _multChains(pdb):
     pdb_str = ""
@@ -86,31 +92,41 @@ def _multChains(pdb):
         pdb_str += line + '\n'
 
     return pdb_str, n_chains
+
+def _common(sdf, pdb):
+    pdb, resname, elems = _cleanPdb(sdf, pdb)
+    pdb, chains = _multChains(pdb)
+    pdb = '\n'.join(re.findall(r"^(ATOM.*|HETATM.*)", pdb, re.MULTILINE))
+    return pdb, chains, resname, elems
+
+def _ob(cmd, stdin):
+    pdb = _global.host.run(cmd, stdin=stdin)
+    reg = re.compile(r"^(COMPND (.*\n)*)", re.MULTILINE) # separate out and err
+    
+    if reg == None:
+        raise Exception(f"Error {reg}")
+    
+    out = reg.search(pdb).groups()[0]
+    err = pdb.replace(out, '')
+    
+    return out, err
+
+def clean_sdf(sdf):
+    print(f"Cleaning sdf..")
+    return re.sub(r'/A    1/(\n.*?)*?/M  END/', '', sdf, flags=re.MULTILINE)
     
 def do(sdf, pH):
-    print(f"Cleaning sdf..")
-    sdf_text = re.sub(r'/A    1/(\n.*?)*?/M  END/', '', sdf, flags=re.MULTILINE)
+    sdf_text = clean_sdf(sdf)
     print("Converting to pdb using Openbabel")
-    pdb = _global.host.run(f'{_global.obabel} -isdf -opdb', stdin=sdf_text)
+    pdb, log1 = _ob(f'{_global.obabel} -isdf -opdb', sdf_text)
     print(f'Adding hydrogens at pH={pH}')
-    pdb = _global.host.run(f'{_global.obabel} -ipdb -p {pH} -opdb', stdin=pdb)
+    pdb, log2 = _ob(f'{_global.obabel} -ipdb -p {pH} -opdb', stdin=pdb)
     
-    pdb, resname, elems = _cleanPdb(sdf, pdb)
-    pdb, chains = _multChains(pdb)
-    
-    pdb = _global.host.run('grep HETATM\|ATOM', stdin=pdb)
-    
-    return pdb, resname, chains, elems
+    return (*_common(sdf, pdb), log1+'\n'+log2)
 
 def donoH(sdf):
-    print(f"Cleaning sdf..")
-    sdf_text = re.sub(r'/A    1/(\n.*?)*?/M  END/', '', sdf, flags=re.MULTILINE)
+    sdf_text = clean_sdf(sdf)
     print("Converting to pdb using Openbabel")
+    pdb, log = _ob(f'{_global.obabel} -isdf -opdb', stdin=sdf_text)
     
-    pdb = _global.host.run(f'{_global.obabel} -isdf -opdb', stdin=sdf_text)
-    
-    pdb, resname, elems = _cleanPdb(sdf, pdb)
-    pdb, chains = _multChains(pdb)
-    
-    pdb = _global.host.run('grep HETATM\|ATOM', stdin=pdb)
-    return pdb, resname, chains, elems
+    return (*_common(sdf, pdb), log)
