@@ -3,8 +3,8 @@ import mimicpy._global as _global
 
 class Slurm(Script):
     def __init__(self, name='jobscript', shebang='/bin/bash', cmd_hdr='srun', cmds = [], **kwargs):
-        if kwargs is None:
-            kwargs = {'nodes':2, 'ntasks': 16, 'cpus_per_task': 3, 'mem_per_cpus': 3, 'export': 'NONE', 'time': '00:10:00'}
+        #if kwargs is None:
+        #    kwargs = {'nodes':2, 'ntasks': 16, 'cpus_per_task': 3, 'mem_per_cpus': 3, 'export': 'NONE', 'time': '00:10:00'}
             
         super().__init__(**kwargs)
         

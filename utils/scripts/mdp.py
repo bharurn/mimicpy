@@ -5,7 +5,7 @@ class MDP(Script):
         
         super().__init__(**kwargs)
         
-        if self.name is None:
+        if not self.hasparam('name'):
             self.name = 'MD Run'
     
     def edit(self, **kwargs):
