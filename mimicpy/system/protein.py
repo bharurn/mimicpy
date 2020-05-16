@@ -1,7 +1,7 @@
 from . import ligand as lig, _hndlWater
 from . import _hndlpdb as hpdb
-import mimicpy._global as _global
-import requests
+from .._global import _Global as _global
+import urllib.request as req
 from collections import defaultdict, OrderedDict
 
 class Protein:
@@ -66,10 +66,10 @@ class Protein:
        print(f"Accessing PDB {pdbid} from RCSB database..")
        print("Downloading PDB file..")
            
-       response = requests.get(f'http://files.rcsb.org/view/{pdbid}.pdb')
-       response.raise_for_status()
+       response = req.urlopen(f'http://files.rcsb.org/view/{pdbid}.pdb')
+       #response.raise_for_status()
        
-       pdb = response.text
+       pdb = response.read().decode('utf-8')
        
        ligs = defaultdict(str)
        
@@ -89,11 +89,10 @@ class Protein:
                 
                 print(f"Downloading ligands {v[0]}, chain {v[1]}")
         
-                resp = requests.get(f"https://files.rcsb.org/cci/download/{pdbid}_{query}_NO_H.sdf")
-                resp.raise_for_status()
+                resp = req.urlopen(f"https://files.rcsb.org/cci/download/{pdbid}_{query}_NO_H.sdf")
+                #resp.raise_for_status()
 
-        
-                ligs[v[0]] += resp.text
+                ligs[v[0]] += resp.read().decode('utf-8')
                 
             elif vals['record'] == 'HETNAM': break
             
@@ -101,14 +100,15 @@ class Protein:
        
        for line in pdb.splitlines():
             vals = hpdb.readLine(line)
-        
+            
             if vals['record'] == 'ATOM' or vals['record'] == 'HETATM':
-                if vals['chainID'] in chains:
+                if chains is None or vals['chainID'] in chains:
                     pdb_ += line + '\n'
        
        if howToreturn == 0:
            prt = cls(pdb_, pdbid)
-           prt.addLigands(lig.NonStdigand(ligs.values()))
+           for v in ligs.values():
+               prt.addLigands(lig.NonStdLigand(v))
            print("Returned as Protein with Ligands added..")
            return prt
        else:
