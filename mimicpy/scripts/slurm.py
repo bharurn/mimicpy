@@ -1,5 +1,5 @@
 from .base import Script
-import mimicpy._global as _global
+from .._global import _Global as _global
 
 class Slurm(Script):
     def __init__(self, name='jobscript', shebang='/bin/bash', cmd_hdr='srun', cmds = [], **kwargs):

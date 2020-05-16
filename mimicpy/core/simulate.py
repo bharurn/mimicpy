@@ -1,5 +1,5 @@
 from .base import BaseHandle
-import mimicpy._global as _global
+from .._global import _Global as _global
 from collections import defaultdict
 
 class MD(BaseHandle):

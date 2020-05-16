@@ -1,6 +1,6 @@
 from . import _addH, _getItp, _hndlpdb as hpdb
 from .._misc import f
-import mimicpy._global as _global
+from .._global import _Global as _global
 
 class NonStdLigand: 
     

@@ -2,7 +2,7 @@ from ..system import _hndlpdb as hpdb
 from ..scripts import mdp
 from .base import BaseHandle
 from .simulate import MD
-import mimicpy._global as _global
+from .._global import _Global as _global
 from . import _qmhelper, _mpt_helper
 from ._constants import hartree_to_ps
 from ..scripts import cpmd

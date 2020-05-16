@@ -1,4 +1,4 @@
-import mimicpy._global as _global
+from .._global import _Global as _global
 
 def _cleanprep(mol, prep_to_pdb):
     prep = _global.host.read(f'{mol}.prep')

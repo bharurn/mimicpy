@@ -3,7 +3,7 @@ from .system.protein import Protein
 from .core import prepare, simulate
 from .shell import shell
 import scripts
-import mimicpy._global as _global
+from ._global import _Global as _global
 
 def setHost(dirc='.', *args, path=None):
     closeHost()

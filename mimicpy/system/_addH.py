@@ -1,5 +1,5 @@
 from . import _hndlpdb as hpdb
-import mimicpy._global as _global
+from .._global import _Global as _global
 import re
 
 def _cleanPdb(sdf, pdb):
