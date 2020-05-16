@@ -1,5 +1,5 @@
 from ..system import _hndlpdb as hpdb
-from ..utils.scripts import mdp
+from ..scripts import mdp
 from .base import BaseHandle
 from .simulate import MD
 import mimicpy._global as _global

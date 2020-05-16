@@ -1,8 +1,8 @@
 from ._constants import  element_names
-from ..utils.scripts.cpmd import Atom
+from ..scripts.cpmd import Atom
 from collections import OrderedDict 
 from ._constants import bohr_rad
-from ..utils.scripts import cpmd
+from ..scripts import cpmd
 
 def parse_selec(selection, df):
     #selection eg., resName is SER and number < 25 and chainID not B

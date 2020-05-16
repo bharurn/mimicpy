@@ -1,6 +1,6 @@
-from . import utils
+from . import shell
 
-host = utils.shell.Local('.', None)
+host = shell.Local('.', None)
 gmx = 'gmx'
 cpmd = 'cpmd.x'
 cpmd_pp = None
