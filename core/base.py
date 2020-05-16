@@ -37,10 +37,11 @@ class BaseHandle:
         lst = _global.host.ls(dirc=dirc, file_eval=lambda a: True if a.endswith(ext) else False, dir_eval=lambda a: False)
         
         if ext == 'cpt':
-            lst = [l for l in lst if '_prev' not in l]
+            lst = [l for l in lst if '_prev' or '_step' not in l]
         
         if lst == []: return None
-        elif len(lst) > 1: raise Exception("More than one file!")
+        elif len(lst) > 1: raise Exception(f"More than one current file found with extension {ext}!"
+                                        f"\nFiles found: {','.join(lst)}")
         
         return dirc+'/'+lst[0]
     
