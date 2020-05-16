@@ -59,7 +59,7 @@ def _getposre(hvy):
     posre = "[ position_restraints ]\n" + '\n'.join([f"  {i}   1  1000 1000 1000" for i in hvy])
     return posre
 
-def do(mol, conv, tleap_dump=False):
+def do(mol, conv):
     print("Generating topology for the ligand..")
     
     prep = f"{mol}.prep"
@@ -77,7 +77,7 @@ def do(mol, conv, tleap_dump=False):
         
     print(f"Running AmberTools parmchk on {prep}..")
     
-    _global.host.run(f'{_global.parmchk} -i {prep} -f prepi -o params.frcmod')
+    log = _global.host.run(f'{_global.parmchk} -i {prep} -f prepi -o params.frcmod')
     
     print("Output saved to params.frcmod..")
     
@@ -93,11 +93,7 @@ def do(mol, conv, tleap_dump=False):
     print("Running AmberTools LEaP..")
     output = _global.host.run(f'{_global.tleap} -f -', stdin=tleap_in)
     
-    if tleap_dump:
-        print("Dumping LEaP input script used:\n\n")
-        print(tleap_in)
-        print("Dumping LEaP output:\n\n")
-        print(output)
+    log += '\n'+ tleap_in + '\n' + output + '\n'
     
     if _global.host.fileExists(f'{mol}.prmtop') == False or _global.host.fileExists(f'{mol}.inpcrd') == False:
         raise Exception(f'LEaP error!\n{output}')
@@ -106,6 +102,8 @@ def do(mol, conv, tleap_dump=False):
     
     print("Converting to Gromacs topology using Acpype..")
     output = _global.host.run(f'{_global.acpype} -p {mol}.prmtop -x {mol}.inpcrd')
+    
+    log += output + '\n'
     
     if _global.host.fileExists(f'{mol}_GMX.gro') == False or _global.host.fileExists(f'{mol}_GMX.top') == False:
         raise Exception(f'Acpype error!\n{output}')
@@ -123,6 +121,6 @@ def do(mol, conv, tleap_dump=False):
     
     itp += f'\n; Include Position restraint file\n#ifdef POSRES\n#include "posre_{mol}.itp"\n#endif'
     
-    return itp, posre
+    return itp, posre, log
 
     

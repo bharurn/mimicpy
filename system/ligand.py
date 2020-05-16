@@ -4,13 +4,14 @@ import mimicpy._global as _global
 
 class NonStdLigand: 
     
-    def __init__(self, pdb, itp, posre, chains, name, elems):
+    def __init__(self, pdb, itp, posre, chains, name, elems, log):
         self.pdb = pdb
         self.itp = itp
         self.posre = posre
         self.chains = chains
         self.name = name
         self.elems = elems # for MiMiC
+        self.log = log # log of obable, tleap, etc for debugging
     
     def splitItp(self):
         start = False
@@ -72,32 +73,32 @@ class NonStdLigand:
         self.pdb = _global.host.run('sort -nk2', stdin=self.pdb)
     
     @classmethod
-    def _load(cls, mol, pH, prep2pdb, tleap_dump):
-        pdb, mol_name, chains, elems = _addH.do(mol, pH)
+    def _load(cls, mol, pH, prep2pdb):
+        pdb, chains, mol_name, elems, log1 = _addH.do(mol, pH)
         
-        itp, posre = _getItp.do(mol_name, prep2pdb, tleap_dump)
+        itp, posre, log2 = _getItp.do(mol_name, prep2pdb)
         
-        lig = cls(pdb, itp, posre, chains, mol_name, elems)
+        lig = cls(pdb, itp, posre, chains, mol_name, elems, log1+'\n'+log2)
         
         lig._matchpdb2itp()
         
         return lig
     
     @classmethod    
-    def fromBlock(cls, mol, pH=7, prep2pdb={}, tleap_dump=False):
+    def fromBlock(cls, mol, pH=7, prep2pdb={}):
         print(f"Creating non standard ligand from SDF data..")
         
-        return cls._load(mol, pH, prep2pdb, tleap_dump)
+        return cls._load(mol, pH, prep2pdb)
     
     @classmethod    
-    def fromFile(cls, file, pH=7, prep2pdb={}, tleap_dump=False):
+    def fromFile(cls, file, pH=7, prep2pdb={}):
         _global.host.checkFile(f'{file}.sdf')
         
         mol = _global.host.read(file)
         
         print(f"Creating non standard ligand from {file}..")
         
-        return cls._load(mol, pH, prep2pdb, tleap_dump)
+        return cls._load(mol, pH, prep2pdb)
     
     @staticmethod    
     def gaussFromSDF(mol, nc, pH=7, parallel=False):
@@ -131,7 +132,7 @@ class NonStdLigand:
         print(f"Converting _global.gaussian output file to Amber prep..")
         _global.host.checkFile(f(mol,".out"))
         print('Running AmberTools antechamber..')
-        out = _global.host.run(f"antechamber -i {mol}.out -fi gout -o {mol}.prep -fo prepi -c resp -rn {mol}")
+        out = _global.host.run(f"{_global.antechamber} -i {mol}.out -fi gout -o {mol}.prep -fo prepi -c resp -rn {mol}")
         print(f"Antechamber output dumped...\nResidue {mol} created in {mol}.prep..")
         
         return out
@@ -141,8 +142,9 @@ class StdLigand(NonStdLigand):
     def fromBlock(cls, mol):
         print(f"Creating standard ligand from SDF block..")
         
-        pdb, chains, mol_name, elems = _addH.donoH(mol)
-        return cls(pdb, "", "", 1, mol_name, elems)
+        pdb, chains, mol_name, elems, log = _addH.donoH(mol)
+        
+        return cls(pdb, "", "", chains, mol_name, elems, log)
     
     @classmethod 
     def fromFile(cls, file):
@@ -152,6 +154,7 @@ class StdLigand(NonStdLigand):
         
         print(f"Creating standard ligand from {file}..")
         
-        pdb, chains, mol_name, elems = _addH.donoH(mol)
-        return cls(pdb, "", "", 1, mol_name, elems)
+        pdb, chains, mol_name, elems, log = _addH.donoH(mol)
+        
+        return cls(pdb, "", "", chains, mol_name, elems, log)
     
