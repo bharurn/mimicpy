@@ -9,7 +9,6 @@ from ..utils.scripts import cpmd
 from collections import defaultdict
 import pandas as pd
 import pickle
-import numpy as np
 
 class MM(BaseCalc):
     
@@ -45,16 +44,16 @@ class MM(BaseCalc):
         
         print('Preparing protein topology..')
         
-        print(f"Writing {self.protein.name} to confin.pdb..")
+        print(f"Writing {protein.name} to confin.pdb..")
         
         _global.host.write(protein.pdb+protein.water, f'{self.dir}/{self.confin}')
         
         if self.his_str == '':
             print("Letting Gromacs calculate histidine protonantion states..")
-            BaseCalc.gmx('pdb2gmx', f = self.confin, o = self.conf, dirc=self.dir, **self._topol_kwargs)
+            self.gmx('pdb2gmx', f = self.confin, o = self.conf, dirc=self.dir, **self._topol_kwargs)
         else:
             print("Reading histidine protonation states from list..")
-            BaseCalc.gmx('pdb2gmx', f = self.confin, o = self.conf, dirc=self.dir, **self._topol_kwargs, stdin=self.his_str)
+            self.gmx('pdb2gmx', f = self.confin, o = self.conf, dirc=self.dir, **self._topol_kwargs, stdin=self.his_str)
         
         conf = f'{self.dir}/{self.conf}'
         
@@ -83,17 +82,17 @@ class MM(BaseCalc):
         pickle.dump(df, f)
 
         print("Adding non-standard residues to structure..")
-        conf_pdb = '\n'.join(splt[:len(splt)-i]) + '\n' + self.protein.ligand_pdb + '\n'.join(lines[::-1])
+        conf_pdb = '\n'.join(splt[:len(splt)-i]) + '\n' + protein.ligand_pdb + '\n'.join(lines[::-1])
         
         _global.host.write(conf_pdb, conf)
         
-        top1 = (f"; Topology data for all non-standard resiudes in {self.protein.name} created by MiMiCPy\n"
+        top1 = (f"; Topology data for all non-standard resiudes in {protein.name} created by MiMiCPy\n"
             "; AmberTools was used to generate topolgy parameter for Amber Force Field, conversion to GMX done using Acpype"
                     "\n\n[ atomtypes ]\n")
         top2 = ''
         
         print("Combining ligands topology into single file ligands.itp..")
-        for ligname, lig in self.protein.ligands.items():
+        for ligname, lig in protein.ligands.items():
             t1, t2 = lig.splitItp()
 	
             top1 += t1
@@ -111,7 +110,7 @@ class MM(BaseCalc):
         
         _global.host.run(r'sed -i -r "/^#include \".+.ff\/forcefield.itp\"/a #include \"ligands.itp\"" '+topol)
         _global.host.run('grep -v SOL topol.top > topol_.top && mv topol_.top '+topol)
-        _global.host.run(f'echo SOL {self.protein.hoh_mols} >> '+topol)
+        _global.host.run(f'echo SOL {protein.hoh_mols} >> '+topol)
         print("ligands.itp added to topol.top")
         
         print('Topology prepared..')
@@ -181,10 +180,10 @@ class QM(MD):
         self.setcurrent(key='prepQM')
         
         print("Changing Gromacs integrator to MiMiC..")
-        mdp.integrator = 'mimic'
+        #mdp.integrator = 'mimic'
         
         print(f"Writing atoms in QM region to {self.index}..")
-        mdp.QMMM_grps = 'QMatoms'
+        #mdp.QMMM_grps = 'QMatoms'
         _global.host.write(_qmhelper.index(self.qmatoms.index), f'{dirc}/{self.index}')
         
         print("Generating Gromacs tpr file for MiMiC run..")

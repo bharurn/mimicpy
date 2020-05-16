@@ -40,6 +40,14 @@ class Base():
     def rm(self, a): self.hndl().remove(a)
     def pwd(self): return self.hndl().getcwd()
     
+    def checkFile(self, file, throw=False):
+        ret = self.fileExists(file)
+        
+        if ret == True:
+            print(f"{file} found!")
+        elif throw:
+            raise Exception(f"{file} not found!")
+    
     def mkdir(self, directory):
         if not self.fileExists(directory):
             self.hndl().mkdir(directory)
@@ -60,20 +68,46 @@ class Base():
             self.hndl().chdir(directory+'/')
             return 0
     
+    def run(self, cmd, stdin=None, hook=None, fresh=False, dirc='', combine=False):
+        
+        if not fresh:
+            cmd = self.loader_str + ' ; ' + cmd
+        
+        out, err = self._run(cmd, stdin=stdin, dirc=dirc)
+           
+        if not fresh:
+            out = out.replace(self.loader_out, '')
+            out = out.replace(self.loader_err, '')
+            
+            err = err.replace(self.loader_err, '')
+            err = err.replace(self.loader_out, '')
+    
+        if hook: hook(err+'\n'+out)
+        
+        if combine:
+            return err+'\n'+out
+        else:
+            return out, err
+    
     def sbatch(self, job, dirc=''):
         if job.noCommands(): raise Exception("No commands in jobscript!")
         
         self.write(str(job), f'{dirc}/{job.name}.sh')
         
+        jid = 0
         def _sbatch_err(txt):
             if 'error' in txt.lower():
-                raise Exception(txt) 
+                raise Exception(txt)
+            else:
+                match = re.search(r'Submitted batch job (\w*)', txt)
+                if match:
+                    global jid
+                    jid = match.groups()[0]
+                else: raise Exception(txt)
         
-        out = self.run(f'sbatch {job.name}.sh', hook=_sbatch_err, dirc=dirc, fresh=True)
+        self.run(f'sbatch {job.name}.sh', hook=_sbatch_err, dirc=dirc, fresh=True)
         
-        match = re.search(r'Submitted batch job (\w*)', out)
-        if match: return match.groups()[0]
-        else: raise Exception(out)
+        return jid
     
     def scancel(self, jobid):
         return self.run(f'scancel {jobid}', fresh=True)
@@ -89,14 +123,6 @@ class Local(Base):
         super().__init__(directory, *loaders)
     
     def hndl(self): return os
-    
-    def checkFile(self, file, throw=False):
-        ret = local.fileExists(file)
-        
-        if ret == True:
-            print(f"{file} found!")
-        elif throw:
-            raise Exception(f"{file} not found!")
     
     def fileExists(self, file):
         return os.path.isfile(file) or os.path.isdir(file)
@@ -154,16 +180,6 @@ class Remote(remote.Shell, Base):
         Base.__init__(self, dir_, *loaders)
     
     def hndl(self): return self.sftp
-    
-    def checkFile(self, file, throw=False):
-        ret = self.fileExists(file)
-        
-        if ret == True:
-            print(f"{file} found!")
-        elif throw:
-            raise Exception(f"{file} not found!")
-        else:
-            return False
     
     def read(self, file):
         with self.vi(file, 'r') as f:

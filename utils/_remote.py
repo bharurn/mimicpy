@@ -85,20 +85,34 @@ class Shell:
         
         cmd = f'cd {self.pwd()}/{dirc} ; ' + cmd
         
-        sin, out, err = self.ssh.exec_command(cmd)
+        #sin, _out, _err = self.ssh.exec_command(cmd)
+        
+        #if stdin:
+        #    sin.channel.send(stdin+'\n')
+        #    sin.channel.shutdown_write()
+        
+        #out = _out.read().decode(self.decoder)
+        
+        tran = self.ssh.get_transport()
+        chan = tran.open_session()
+        chan.get_pty()
+        stdout = chan.makefile('rb')
+        chan.exec_command(cmd)
         
         if stdin:
+            sin = chan.makefile('wb')
             sin.channel.send(stdin+'\n')
             sin.channel.shutdown_write()
         
-        out = out.read().decode(self.decoder) + '\n' + err.read().decode(self.decoder)
-           
+        out = stdout.read().decode(self.decoder)
+        
         if not fresh:
             out = out.replace(self.loader_out, '')
     
         if hook: hook(out)
         
         return out
+        
     
     def __enter__(self): return self
         
