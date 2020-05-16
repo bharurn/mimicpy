@@ -2,7 +2,7 @@ import re
 import yaml
 import mimicpy._global as _global
 
-class BaseCalc:
+class BaseHandle:
     
     def __init__(self, status=None):
         if not status:
@@ -15,14 +15,14 @@ class BaseCalc:
         _dir = _global.host.pwd()+'/'
         
         if ext == 'top' or ext == 'mpt' or ext == 'mimic-tpr':
-            return _dir+BaseCalc._getFile(self._status['prepMM'], ext)
+            return _dir+BaseHandle._getFile(self._status['prepMM'], ext)
         elif ext == 'mimic-tpr':
-            return _dir+BaseCalc._getFile(self._status['prepQM'], ext)
+            return _dir+BaseHandle._getFile(self._status['prepQM'], ext)
         
         run = self._status['run']
         
         for i,d in enumerate(run[::-1]):
-            ret = BaseCalc._getFile(d, ext)
+            ret = BaseHandle._getFile(d, ext)
             
             if ret != None:
                 if level: return(i, _dir+ret)
@@ -60,7 +60,7 @@ class BaseCalc:
     
     @classmethod
     def fromYaml(cls):
-       print(f"Loading session from _status.yaml..")
+       print(f"Loading status from _status.yaml..")
        txt = _global.host.read('_status.yaml')
        _status = yaml.safe_load(txt)
        return cls(status=_status)
@@ -82,9 +82,9 @@ class BaseCalc:
         
         self.log += text
         
-        BaseCalc._gmxerrhdnl(text)
+        BaseHandle._gmxerrhdnl(text)
         
-        notes = BaseCalc._notes(text)
+        notes = BaseHandle._notes(text)
         
         if not notes.isspace() and notes.strip() != '':
             print(notes)

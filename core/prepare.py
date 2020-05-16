@@ -1,6 +1,6 @@
 from ..system import _hndlpdb as hpdb
 from ..utils.scripts import mdp
-from .base import BaseCalc
+from .base import BaseHandle
 from .simulate import MD
 import mimicpy._global as _global
 from . import _qmhelper, _mpt_helper
@@ -10,7 +10,7 @@ from collections import defaultdict
 import pandas as pd
 import pickle
 
-class MM(BaseCalc):
+class MM(BaseHandle):
     
     def __init__(self, status=[]):
         self._ion_kwargs = {'pname': 'NA', 'nname': 'CL', 'neutral': ''}
@@ -125,16 +125,16 @@ class MM(BaseCalc):
         print("Preparing system box..")
         print("Solavting protein..")
         
-        BaseCalc.gmx('editconf', f = self.conf, o = self.conf1, dirc=self.dir, **self._box_kwargs)
+        self.gmx('editconf', f = self.conf, o = self.conf1, dirc=self.dir, **self._box_kwargs)
         
-        BaseCalc.gmx('solvate', cp = self.conf1, o = self.conf2, p = self.topol, dirc=self.dir, **self._solavte_kwargs)
+        self.gmx('solvate', cp = self.conf1, o = self.conf2, p = self.topol, dirc=self.dir, **self._solavte_kwargs)
         
         _global.host.write(str(genion_mdp), f'{self.dir}/{self.ions_mdp}')
         
         print("Adding ions to neutralize charge..")
-        BaseCalc.gmx('grompp', f = self.ions_mdp, c = self.conf2, p = self.topol, o = self.ions_tpr, dirc=self.dir)
+        self.gmx('grompp', f = self.ions_mdp, c = self.conf2, p = self.topol, o = self.ions_tpr, dirc=self.dir)
         
-        BaseCalc.gmx('genion', s = self.ions_tpr, o = self.conf3, p = self.topol, dirc=self.dir, **self._ion_kwargs, stdin="SOL")
+        self.gmx('genion', s = self.ions_tpr, o = self.conf3, p = self.topol, dirc=self.dir, **self._ion_kwargs, stdin="SOL")
         
         print('Simulation box prepared..')
         

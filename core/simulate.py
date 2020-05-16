@@ -1,8 +1,8 @@
-from .base import BaseCalc
+from .base import BaseHandle
 import mimicpy._global as _global
 from collections import defaultdict
 
-class MD(BaseCalc):
+class MD(BaseHandle):
     def __init__(self, status=defaultdict(list), settings=None):
         super().__init__(status)
         self.jobscript = None
@@ -70,6 +70,7 @@ class MD(BaseCalc):
         
         
     def grompp(self, mdp, new, **kwargs):
+        new = new.lower().replace(' ', '_')
         if 'dirc' in kwargs:
             mdp_file = f'{kwargs["dirc"]}/{new}.mdp'
         else:
@@ -132,7 +133,7 @@ class MiMiC(MD):
             if not hasattr(self, 'cpmd_opt'): self.cpmd_opt = {}
             
             self.jobscript.add(self.gmx('mdrun', deffnm=f'gmx/mimic', onlycmd=True, dirc='new'), **self.gmx_opt)
-            self.jobscript.add(BaseCalc.cpmd(f"cpmd/{new}.inp", f"cpmd/{new}.out", onlycmd=True, dirc='new'), **self.cpmd_opt)
+            self.jobscript.add(self.cpmd(f"cpmd/{new}.inp", f"cpmd/{new}.out", onlycmd=True, dirc='new'), **self.cpmd_opt)
             jid = _global.host.sbatch(self.jobscript, dirc=dirc)
             print("MiMiC run submmitted as a Slurm job "
                  f"{self.jobscript.name}.sh with the job ID {jid}.."
