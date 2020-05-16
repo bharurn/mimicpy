@@ -1,10 +1,8 @@
 from .system.ligand import NonStdLigand, StdLigand
 from .system.protein import Protein
 from .core import prepare, simulate
-from . import analysis
-from .analysis import dashboard
-from .utils import shell
-from .utils import scripts
+from .shell import shell
+import scripts
 import mimicpy._global as _global
 
 def setHost(dirc='.', *args, path=None):
