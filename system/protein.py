@@ -51,7 +51,7 @@ class Protein:
        for ligand in ligand_list:  self.addLigand(ligand)
        
    def stripWater(self, *args):
-       
+       # args: list of ['lig_name', 'chain', dist] eg. ['AKG', 'A', 3], ['AKG', 'B', 3]
       ids = [ r for (res, chain, dist) in args\
                              for r in _hndlWater.coordsWithin(self.ligands[res].pdb, chain, self.water, dist) ]
      
