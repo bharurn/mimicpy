@@ -5,7 +5,7 @@ from .simulate import MD
 import mimicpy._global as _global
 from . import _qmhelper, _mpt_helper
 from ._constants import hartree_to_ps
-from ..utils.scripts import cpmd
+from ..scripts import cpmd
 from collections import defaultdict
 import pandas as pd
 import pickle

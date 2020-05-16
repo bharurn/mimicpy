@@ -1,5 +1,5 @@
 from . import _addH, _getItp, _hndlpdb as hpdb
-from ..utils._misc import f
+from .._misc import f
 import mimicpy._global as _global
 
 class NonStdLigand: 
