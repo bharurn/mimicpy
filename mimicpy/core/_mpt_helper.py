@@ -15,7 +15,7 @@ def _do_combine(line, x, y, z):
 def _combine_remote(no, gro):
     # head always gives better performance than python, esp on remote server
     txt = _global.host.run(f'head -n {no} {gro}') # requires UNIX shell
-    lines = (x.group(0) for x in re.finditer(r"^(.*?)\n", txt, re.MULTILINE)) # find \n; faster splitlines
+    lines = (x.group(0) for x in re.finditer(r"^(.*?)\n", txt, re.MULTILINE)) # find \n faster than splitlines
     
     x = []
     y = []

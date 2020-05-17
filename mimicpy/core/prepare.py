@@ -180,10 +180,10 @@ class QM(MD):
         self.setcurrent(key='prepQM')
         
         print("Changing Gromacs integrator to MiMiC..")
-        #mdp.integrator = 'mimic'
+        mdp.integrator = 'mimic'
         
         print(f"Writing atoms in QM region to {self.index}..")
-        #mdp.QMMM_grps = 'QMatoms'
+        mdp.QMMM_grps = 'QMatoms'
         _global.host.write(_qmhelper.index(self.qmatoms.index), f'{dirc}/{self.index}')
         
         print("Generating Gromacs tpr file for MiMiC run..")

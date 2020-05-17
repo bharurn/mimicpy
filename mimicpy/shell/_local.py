@@ -1,5 +1,6 @@
 import subprocess
 import os
+from ..utils.errors import MiMiCPyError
 
 decoder = 'utf-8'
 
@@ -20,6 +21,8 @@ def run(cmd, shell_ex, remove_from_out, stdin=None, hook=None):
     out = out.replace(remove_from_out, '')
             
     if hook: hook(out)
+    
+    if 'error' in out.lower(): raise MiMiCPyError(out)
     
     return out
 

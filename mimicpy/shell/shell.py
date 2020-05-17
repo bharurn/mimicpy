@@ -3,6 +3,7 @@ import os
 from stat import S_ISDIR, S_ISREG
 from shutil import copyfile
 import re
+from ..utils import SlurmError
 
 class Base():
     
@@ -46,7 +47,7 @@ class Base():
         if ret == True:
             print(f"{file} found!")
         elif throw:
-            raise Exception(f"{file} not found!")
+            raise FileNotFoundError(f"{file} not found!")
     
     def mkdir(self, directory):
         if not self.fileExists(directory):
@@ -63,7 +64,7 @@ class Base():
                 self.hndl().mkdir(directory)
                 return 1
              else:
-                 raise Exception(f'Directory {directory} not found')
+                 raise FileNotFoundError(f'Directory {directory} not found')
         else:
             self.hndl().chdir(directory+'/')
             return 0
@@ -90,20 +91,20 @@ class Base():
             return out, err
     
     def sbatch(self, job, dirc=''):
-        if job.noCommands(): raise Exception("No commands in jobscript!")
+        if job.noCommands(): raise SlurmError("No commands in jobscript!")
         
         self.write(str(job), f'{dirc}/{job.name}.sh')
         
         jid = 0
         def _sbatch_err(txt):
             if 'error' in txt.lower():
-                raise Exception(txt)
+                raise SlurmError(txt)
             else:
                 match = re.search(r'Submitted batch job (\w*)', txt)
                 if match:
                     global jid
                     jid = match.groups()[0]
-                else: raise Exception(txt)
+                else: raise SlurmError(txt)
         
         self.run(f'sbatch {job.name}.sh', hook=_sbatch_err, dirc=dirc, fresh=True)
         
@@ -135,6 +136,7 @@ class Local(Base):
         with open(file, 'w') as f: f.write(content)
     
     def vi(self, file, mode):
+        self.checkFile(file, throw=True)
         return open(file, mode)
         
     def run(self, cmd, stdin=None, hook=None, fresh=False, dirc=''):
@@ -213,6 +215,7 @@ class Remote(remote.Shell, Base):
         return files
     
     def vi(self, name, s, prefetch=True):
+        self.checkFile(name, throw=True)
         file = self.sftp.open(name, s)
         if prefetch: file.prefetch()
         return file

@@ -1,6 +1,7 @@
 import re
 import yaml
 from .._global import _Global as _global
+from ..utils.errors import GromacsError, MiMiCPyError, EnvNotSetError
 
 class BaseHandle:
     
@@ -28,7 +29,7 @@ class BaseHandle:
                 if level: return(i, _dir+ret)
                 else: return _dir+ret
         
-        if exp: raise Exception(f"Cannot find file type: {ext}")
+        if exp: raise FileNotFoundError(f"Cannot find file with extension {ext}")
     
     def __del__(self): self.saveToYaml()
         
@@ -40,7 +41,7 @@ class BaseHandle:
             lst = [l for l in lst if '_prev' or '_step' not in l]
         
         if lst == []: return None
-        elif len(lst) > 1: raise Exception(f"More than one current file found with extension {ext}!"
+        elif len(lst) > 1: raise MiMiCPyError(f"More than one current file found with extension {ext}!"
                                         f"\nFiles found: {','.join(lst)}")
         
         return dirc+'/'+lst[0]
@@ -50,7 +51,7 @@ class BaseHandle:
     @classmethod
     def continueFrom(cls, session):
         if not hasattr(session, '_status'):
-            raise Exception("Does not contain simulation status variables!")
+            raise MiMiCPyError("No simulation status variables were found for session!")
         
         return cls(status=session._status)
     
@@ -113,7 +114,7 @@ class BaseHandle:
             if dont_raise:
                 err += f"Error running Gromacs!\n{err}"
             else:
-                raise Exception(f"Error running Gromacs!\n{err}")
+                raise GromacsError(err)
         
         if dont_raise:
             return err
@@ -142,7 +143,7 @@ class BaseHandle:
     def gmx(self, cmd, **kwargs):
         
         if _global.gmx is None or _global.gmx.strip() == '':
-            raise Exception('Gromacs executable not set!')
+            raise EnvNotSetError('Gromacs executable not set!')
             
         gmx_ex = _global.gmx.strip()
         
@@ -188,10 +189,10 @@ class BaseHandle:
     
     def cpmd(self, inp, out, onlycmd=False, noverbose=False, dirc=''):
         if _global.cpmd is None or _global.cpmd.strip() == '':
-            raise Exception('CPMD executable not set!')
+            raise EnvNotSetError('CPMD executable not set!')
         
         if _global.cpmd_pp is None or _global.cpmd_pp.strip() == '':
-            raise Exception('CPMD pseudopotential path not set!')
+            raise EnvNotSetError('CPMD pseudopotential path not set!')
         
         cmd = f"{_global.cpmd} {inp} {_global.cpmd_pp} > {out}"
         

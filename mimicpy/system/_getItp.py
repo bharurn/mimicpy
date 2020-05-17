@@ -1,4 +1,5 @@
 from .._global import _Global as _global
+from ..utils.errors import AcpypeError, LEaPError
 
 def _cleanprep(mol, prep_to_pdb):
     prep = _global.host.read(f'{mol}.prep')
@@ -96,7 +97,7 @@ def do(mol, conv):
     log += '\n'+ tleap_in + '\n' + output + '\n'
     
     if _global.host.fileExists(f'{mol}.prmtop') == False or _global.host.fileExists(f'{mol}.inpcrd') == False:
-        raise Exception(f'LEaP error!\n{output}')
+        raise LEaPError('output')
     
     print(f"Output saved to {mol}.prmtop and {mol}.inpcrd..")
     
@@ -106,7 +107,7 @@ def do(mol, conv):
     log += output + '\n'
     
     if _global.host.fileExists(f'{mol}_GMX.gro') == False or _global.host.fileExists(f'{mol}_GMX.top') == False:
-        raise Exception(f'Acpype error!\n{output}')
+        raise AcpypeError(output)
         
     print(f"Output saved to {mol}_GMX.gro and {mol}_GMX.top..")
     

@@ -1,5 +1,6 @@
 from os.path import expanduser
 import time
+from ..utils.errors import MiMiCPyError, RemoteShellError
 
 class Shell:
     def __init__(self, name, config=None):
@@ -35,10 +36,16 @@ class Shell:
         try:
             import paramiko
         except ImportError:
-            raise Exception("Install paramiko python package to remotely run commands")
+            raise MiMiCPyError("Paramiko python package not installed! Install it to remotely run commands")
             
         config = paramiko.SSHConfig()
-        config.parse(open(self.config))
+        try:
+            f = open(self.config)
+        except FileNotFoundError:
+            raise RemoteShellError(f"No SSH config file found in {self.config}")
+            
+        config.parse(f.read())
+        f.close()
         conf = config.lookup(name)
         
         return conf
@@ -47,10 +54,15 @@ class Shell:
         try:
             import paramiko
         except ImportError:
-            raise Exception("Install paramiko python package to remotely run commands")
+            raise MiMiCPyError("Paramiko python package not installed! Install it to remotely run commands")
             
         conf = self._lookup(name)
-    
+        
+        if 'hostname' not in conf:
+            raise RemoteShellError(f"Hostname not found for {name} in SSH config file")
+        if 'user' not in conf:
+            raise RemoteShellError(f"Username not found for {name} in SSH config file")
+        
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         if sock is None:
@@ -74,7 +86,11 @@ class Shell:
             
         self.ssh_bg.run(f'cd {self.pwd()}/{dirc}')
         self.ssh_bg.run(self.loader_str)
-        self.ssh_bg.run(cmd, hook, query_rate)
+        out = self.ssh_bg.run(cmd, hook, query_rate)
+        
+        if 'error' in out.lower(): raise MiMiCPyError(out)
+            
+        return out
         # do not destory ssh_bg, as this stops the process
         # kill it in the deconstructor
     
@@ -84,14 +100,6 @@ class Shell:
             cmd = self.loader_str + ' ; ' + cmd
         
         cmd = f'cd {self.pwd()}/{dirc} ; ' + cmd
-        
-        #sin, _out, _err = self.ssh.exec_command(cmd)
-        
-        #if stdin:
-        #    sin.channel.send(stdin+'\n')
-        #    sin.channel.shutdown_write()
-        
-        #out = _out.read().decode(self.decoder)
         
         tran = self.ssh.get_transport()
         chan = tran.open_session()
@@ -110,6 +118,8 @@ class Shell:
             out = out.replace(self.loader_out, '')
     
         if hook: hook(out)
+        
+        if 'error' in out.lower(): raise MiMiCPyError(out)
         
         return out
         

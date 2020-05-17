@@ -1,6 +1,7 @@
 from . import _addH, _getItp, _hndlpdb as hpdb
 from .._misc import f
 from .._global import _Global as _global
+from ..utils.errors import EnvNotSetError
 
 class NonStdLigand: 
     
@@ -119,7 +120,7 @@ class NonStdLigand:
         _global.host.redirectStdout(f(name,'.out')) # add this to local _global.host
         
         if _global.gauss is None:
-            raise Exception("No _global.gaussian executable given!")
+            raise EnvNotSetError("No _global.gaussian executable given!")
         
         _global.host.runbg(f(_global.gauss,' ',name,'.com ',name,'.out'), query_rate=0)
         

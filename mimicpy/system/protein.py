@@ -31,7 +31,7 @@ class Protein:
    def addLigand(self, ligand):
         
        if not isinstance(ligand, lig.NonStdLigand):
-           raise Exception(f"Cannot add {type(ligand)} as ligand")
+           raise TypeError(f"Cannot add {type(ligand)} as ligand")
        
        if not isinstance(ligand, lig.StdLigand):
            print(f"Adding non standard ligand {ligand.name} to {self.name}..") 

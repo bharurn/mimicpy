@@ -97,7 +97,7 @@ def getOverlaps_Atoms(qmatoms, inp):
         
         if elem not in inp.atoms.keys():
             if elem != 'H' or elem !='H*': inp.atoms[elem] = Atom(coords=[], lmax='p')
-            else: inp.atoms[elem] = Atom(coords=[])
+            else: inp.atoms[elem] = Atom(coords=[], lmax='s')
         inp.atoms[elem].coords.append([float(v)/bohr_rad for v in coords])
         
         for i, coord in enumerate(coords):

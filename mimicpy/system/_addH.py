@@ -1,6 +1,7 @@
 from . import _hndlpdb as hpdb
 from .._global import _Global as _global
 import re
+from ..utils.errors import OpenBabelError
 
 def _cleanPdb(sdf, pdb):
     print("Assigning correct atom names..")
@@ -104,7 +105,7 @@ def _ob(cmd, stdin):
     reg = re.compile(r"^(COMPND (.*\n)*)", re.MULTILINE) # separate out and err
     
     if reg == None:
-        raise Exception(f"Error {reg}")
+        raise OpenBabelError(reg)
     
     out = reg.search(pdb).groups()[0]
     err = pdb.replace(out, '')

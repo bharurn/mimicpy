@@ -1,4 +1,5 @@
 from collections import OrderedDict 
+from ..utils.errors import ScriptError
 
 class Script(object):
     def __init__(self, **kwargs):
@@ -17,6 +18,9 @@ class Script(object):
         if key.startswith('_') or key == 'hasparams' or key == 'params':
             return self.__getattribute__('__dict__')[key]
         else:
+            if key not in self.__getattribute__('__orddict__'):
+                raise ScriptError(f"{key} not a paramater of script")
+                
             return self.__getattribute__('__orddict__')[key]
     
     def hasparam(self, key):
