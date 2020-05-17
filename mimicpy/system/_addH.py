@@ -1,10 +1,10 @@
 from . import _hndlpdb as hpdb
 from .._global import _Global as _global
 import re
-from ..utils.errors import OpenBabelError
+from ..utils.errors import ExecutionError
 
 def _cleanPdb(sdf, pdb):
-    print("Assigning correct atom names..")
+    _global.logger.write('debug', "Assigning correct atom names..")
     
     #####Read sdf file#####
     l_cnt = 0
@@ -71,7 +71,7 @@ def _multChains(pdb):
     stack = []
     stack_idx = 0
     
-    print("Assigning correct chain IDs..")
+    _global.logger.write('debug', "Assigning correct chain IDs..")
     
     for line in pdb.splitlines():
         splt = hpdb.readLine(line)
@@ -105,29 +105,31 @@ def _ob(cmd, stdin):
     reg = re.compile(r"^(COMPND (.*\n)*)", re.MULTILINE) # separate out and err
     
     if reg == None:
-        raise OpenBabelError(reg)
+        raise ExecutionError(cmd, reg)
     
     out = reg.search(pdb).groups()[0]
     err = pdb.replace(out, '')
     
-    return out, err
+    _global.logger.write('debug2', f"Running {cmd}..\n"+err)
+    
+    return out
 
 def clean_sdf(sdf):
-    print(f"Cleaning sdf..")
+    _global.logger.write('debug', f"Cleaning sdf..")
     return re.sub(r'/A    1/(\n.*?)*?/M  END/', '', sdf, flags=re.MULTILINE)
     
 def do(sdf, pH):
     sdf_text = clean_sdf(sdf)
-    print("Converting to pdb using Openbabel")
-    pdb, log1 = _ob(f'{_global.obabel} -isdf -opdb', sdf_text)
-    print(f'Adding hydrogens at pH={pH}')
-    pdb, log2 = _ob(f'{_global.obabel} -ipdb -p {pH} -opdb', stdin=pdb)
+    _global.logger.write('info', "Converting to pdb using Openbabel")
+    pdb = _ob(f'{_global.obabel} -isdf -opdb', sdf_text)
+    _global.logger.write('info', 'Adding hydrogens at pH={pH}')
+    pdb = _ob(f'{_global.obabel} -ipdb -p {pH} -opdb', stdin=pdb)
     
-    return (*_common(sdf, pdb), log1+'\n'+log2)
+    return _common(sdf, pdb)
 
 def donoH(sdf):
     sdf_text = clean_sdf(sdf)
-    print("Converting to pdb using Openbabel")
-    pdb, log = _ob(f'{_global.obabel} -isdf -opdb', stdin=sdf_text)
+    _global.logger.write('info', "Converting to pdb using Openbabel")
+    pdb = _ob(f'{_global.obabel} -isdf -opdb', stdin=sdf_text)
     
-    return (*_common(sdf, pdb), log)
+    return _common(sdf, pdb)

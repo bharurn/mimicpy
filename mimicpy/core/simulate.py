@@ -1,6 +1,7 @@
 from .base import BaseHandle
 from .._global import _Global as _global
 from collections import defaultdict
+from ..utils.errors import MiMiCPyError
 
 class MD(BaseHandle):
     def __init__(self, status=defaultdict(list), settings=None):
@@ -9,10 +10,10 @@ class MD(BaseHandle):
         if settings: self.setSlurmSettings()
     
     def setSlurmSettings(self, settings):
-        print(f"Setting Slurm job settings from jobscript {settings.name}..")
+        _global.logger.write('debug', f"Setting Slurm job settings from jobscript {settings.name}..")
         self.jobscript = settings
         if _global.host.loaders != []:
-            print(f"Transferring loader commands from host to job script..")
+            _global.logger.write('debug', f"Transferring loader commands from host to job script..")
             self.jobscript.addMany(_global.host.loaders)
         
         return self.jobscript
@@ -41,14 +42,14 @@ class MD(BaseHandle):
                 dirc = ''
                     
             jid = _global.host.sbatch(self.jobscript, dirc=dirc)
-            print("Gromacs simulations submmitted as a Slurm job "
+            _global.logger.write('info', "Gromacs simulations submmitted as a Slurm job "
                  f"{self.jobscript.name}.sh with the job ID {jid}.."
                  f"\nThe host and/or this script can be safely closed..")
             return jid
         else:
-            print("Gromacs simulation is now running as a background job..")
+            _global.logger.write('info', "Gromacs simulation is now running as a background job..")
             if _global.host.name != 'localhost':
-                print("Please do not close remote host until the job is done!")
+                _global.logger.write('info', "Please do not close remote host until the job is done!")
     
     def restart(self, new, until=0, extend=0, fromcrash=False, noappend=True):
         
@@ -81,7 +82,7 @@ class MD(BaseHandle):
         trr = self.getcurrent('trr', level=True, exp=False)
         
         if gro == None and trr ==  None:
-            raise Exception("No coordinate data (gro/trr file) was found..")
+            raise MiMiCPyError("No coordinate data (gro/trr file) was found..")
         
         if trr != None:
             if gro[0] < trr[0]:
@@ -98,9 +99,9 @@ class MD(BaseHandle):
         new = mdp.name.lower().replace(' ', '_')
         self.setcurrent(new)
         
-        print(f"Starting classical MD calculation: {new}..")
+        _global.logger.write('info', f"Starting classical MD calculation: {new}..")
         
-        print(f"All files will be saved to the directory {new}..")
+        _global.logger.write('debug', f"All files will be saved to the directory {new}..")
         
         self.grompp(mdp, f'{new}', dirc=new, **kwargs)
         
@@ -122,6 +123,7 @@ class MiMiC(MD):
         _global.host.mkdir(f"{new}/gmx")
         
         inp.mimic.paths = f"1\n{_global.host.pwd()+new}/gmx"
+        _global.logger.write('debug2', "Set PATH in MIMIC section as {inp.mimic.paths}")
         _global.host.write(str(inp), f"{new}/cpmd/{new}.inp")
         
         if tpr is None: tpr = self.getcurrent('mimic-tpr')
@@ -135,17 +137,17 @@ class MiMiC(MD):
             self.jobscript.add(self.gmx('mdrun', deffnm=f'gmx/mimic', onlycmd=True, dirc='new'), **self.gmx_opt)
             self.jobscript.add(self.cpmd(f"cpmd/{new}.inp", f"cpmd/{new}.out", onlycmd=True, dirc='new'), **self.cpmd_opt)
             jid = _global.host.sbatch(self.jobscript, dirc=dirc)
-            print("MiMiC run submmitted as a Slurm job "
+            _global.logger.write('info', "MiMiC run submmitted as a Slurm job "
                  f"{self.jobscript.name}.sh with the job ID {jid}.."
                  f"\nThe host and/or this script can be safely closed..")
             return jid
         else:
             self.gmx('mdrun', deffnm=f'gmx/mimic', dirc='new')
             self.cpmd(f"cpmd/{new}.inp", f"cpmd/{new}.out", dirc='new')
-            print("MiMiC simulation is now running in the background..")
+            _global.logger.write('info', "MiMiC simulation is now running in the background..")
             
             if _global.host.name != 'localhost':
-                print("Please do not close remote host until the job is done!")
+                _global.logger.write('info', "Please do not close remote host until the job is done!")
             
         self.saveToYaml()
         

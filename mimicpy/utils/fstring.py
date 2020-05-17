@@ -5,8 +5,3 @@ def f(s):
     v = dict(**frame.f_globals)
     v.update(**frame.f_locals)
     return s.format(s, **v)
-#def f(*args):
-#    s = ''
-#    for a in args:
-#        s += str(a)
-#    return s

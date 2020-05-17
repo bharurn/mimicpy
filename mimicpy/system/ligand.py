@@ -1,18 +1,17 @@
 from . import _addH, _getItp, _hndlpdb as hpdb
-from .._misc import f
+from ..utils.fstring import f
 from .._global import _Global as _global
 from ..utils.errors import EnvNotSetError
 
 class NonStdLigand: 
     
-    def __init__(self, pdb, itp, posre, chains, name, elems, log):
+    def __init__(self, pdb, itp, posre, chains, name, elems):
         self.pdb = pdb
         self.itp = itp
         self.posre = posre
         self.chains = chains
         self.name = name
         self.elems = elems # for MiMiC
-        self.log = log # log of obable, tleap, etc for debugging
     
     def splitItp(self):
         start = False
@@ -75,11 +74,11 @@ class NonStdLigand:
     
     @classmethod
     def _load(cls, mol, pH, prep2pdb):
-        pdb, chains, mol_name, elems, log1 = _addH.do(mol, pH)
+        pdb, chains, mol_name, elems = _addH.do(mol, pH)
         
-        itp, posre, log2 = _getItp.do(mol_name, prep2pdb)
+        itp, posre = _getItp.do(mol_name, prep2pdb)
         
-        lig = cls(pdb, itp, posre, chains, mol_name, elems, log1+'\n'+log2)
+        lig = cls(pdb, itp, posre, chains, mol_name, elems)
         
         lig._matchpdb2itp()
         
@@ -114,7 +113,7 @@ class NonStdLigand:
         
         print("Generating Gaussian input file using AmberTools Antechamber..")
         
-        _global.host.run(f("antechamber -i ",name,".pdb -fi pdb -o ",name,".com -fo gcrt -nc ",nc))
+        _global.host.run(f("antechamber -i {name}.pdb -fi pdb -o {name}.com -fo gcrt -nc {nc}"))
         
         _global.host.query_rate = 30
         _global.host.redirectStdout(f(name,'.out')) # add this to local _global.host
@@ -122,7 +121,7 @@ class NonStdLigand:
         if _global.gauss is None:
             raise EnvNotSetError("No _global.gaussian executable given!")
         
-        _global.host.runbg(f(_global.gauss,' ',name,'.com ',name,'.out'), query_rate=0)
+        _global.host.runbg(f("{_global.gauss} {name}.com {name}.out"), query_rate=0)
         
         print("Gaussian run submitted as a background job..\n"
               "Do not close host and/or this script untill the run is complete!!\n"
@@ -143,9 +142,9 @@ class StdLigand(NonStdLigand):
     def fromBlock(cls, mol):
         print(f"Creating standard ligand from SDF block..")
         
-        pdb, chains, mol_name, elems, log = _addH.donoH(mol)
+        pdb, chains, mol_name, elems = _addH.donoH(mol)
         
-        return cls(pdb, "", "", chains, mol_name, elems, log)
+        return cls(pdb, "", "", chains, mol_name, elems)
     
     @classmethod 
     def fromFile(cls, file):
@@ -155,7 +154,7 @@ class StdLigand(NonStdLigand):
         
         print(f"Creating standard ligand from {file}..")
         
-        pdb, chains, mol_name, elems, log = _addH.donoH(mol)
+        pdb, chains, mol_name, elems = _addH.donoH(mol)
         
-        return cls(pdb, "", "", chains, mol_name, elems, log)
+        return cls(pdb, "", "", chains, mol_name, elems)
     

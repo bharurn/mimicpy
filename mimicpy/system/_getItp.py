@@ -1,5 +1,5 @@
 from .._global import _Global as _global
-from ..utils.errors import AcpypeError, LEaPError
+from ..utils.errors import ExecutionError
 
 def _cleanprep(mol, prep_to_pdb):
     prep = _global.host.read(f'{mol}.prep')
@@ -61,26 +61,28 @@ def _getposre(hvy):
     return posre
 
 def do(mol, conv):
-    print("Generating topology for the ligand..")
+    _global.logger.write('info', "Generating topology for the ligand..")
     
     prep = f"{mol}.prep"
     
     _global.host.checkFile(prep)
     
     if conv != {}:
-        print(f"Mapping prep of {mol}.prep atom names to that of pdb using dictionary provided..")
+        _global.logger.write('info', f"Mapping prep of {mol}.prep atom names to that of pdb using dictionary provided..")
         
         _global.host.write(_cleanprep(mol, conv), "params.prep")
         
-        print("Ouput saved to params.prep")
+        _global.logger.write('debug', "Ouput saved to params.prep")
         
         prep = "params.prep"
         
-    print(f"Running AmberTools parmchk on {prep}..")
+    _global.logger.write('info', f"Running AmberTools parmchk on {prep}..")
     
-    log = _global.host.run(f'{_global.parmchk} -i {prep} -f prepi -o params.frcmod')
+    log = _global.host.run(f'Running {_global.parmchk} -i {prep} -f prepi -o params.frcmod..')
     
-    print("Output saved to params.frcmod..")
+    _global.logger.write('debug2', log)
+    
+    _global.logger.write('debug', "Output saved to params.frcmod..")
     
     tleap_in = "source leaprc.gaff\n"
     tleap_in += f"loadamberprep {prep}\n"
@@ -91,37 +93,41 @@ def do(mol, conv):
     
     tleap_in += f"saveamberparm {mol} {mol}.prmtop {mol}.inpcrd\nquit"
     
-    print("Running AmberTools LEaP..")
-    output = _global.host.run(f'{_global.tleap} -f -', stdin=tleap_in)
+    _global.logger.write('info', "Running AmberTools LEaP..")
+    cmd = f'{_global.tleap} -f -'
+    output = _global.host.run(cmd, stdin=tleap_in)
     
-    log += '\n'+ tleap_in + '\n' + output + '\n'
+    log = '\n Running'+ tleap_in + '..\n' + output + '\n'
+    _global.logger.write('debug2', log)
     
     if _global.host.fileExists(f'{mol}.prmtop') == False or _global.host.fileExists(f'{mol}.inpcrd') == False:
-        raise LEaPError('output')
+        raise ExecutionError(cmd, output)
     
-    print(f"Output saved to {mol}.prmtop and {mol}.inpcrd..")
+    _global.logger.write('debug', f"Output saved to {mol}.prmtop and {mol}.inpcrd..")
     
-    print("Converting to Gromacs topology using Acpype..")
-    output = _global.host.run(f'{_global.acpype} -p {mol}.prmtop -x {mol}.inpcrd')
+    _global.logger.write('info', "Converting to Gromacs topology using Acpype..")
+    cmd = f'{_global.acpype} -p {mol}.prmtop -x {mol}.inpcrd'
+    output = _global.host.run(cmd)
     
-    log += output + '\n'
+    log = f"Running {cmd}..\n" + output + '\n'
+    _global.logger.write('debug2', log)
     
     if _global.host.fileExists(f'{mol}_GMX.gro') == False or _global.host.fileExists(f'{mol}_GMX.top') == False:
-        raise AcpypeError(output)
+        raise ExecutionError(cmd, output)
         
-    print(f"Output saved to {mol}_GMX.gro and {mol}_GMX.top..")
+    _global.logger.write('debug', f"Output saved to {mol}_GMX.gro and {mol}_GMX.top..")
     
-    print("Cleaning Acpype output..")
+    _global.logger.write('info', "Cleaning Acpype output..")
     itp = _global.host.read(f'{mol}_GMX.top')
     
-    print("Renaming atoms to avoid conflict..")
+    _global.logger.write('debug', "Renaming atoms to avoid conflict..")
     itp, hvy = _cleanItp(itp, mol) # rename atoms, remove uneeded sections, get list of heavy atoms for posre
     
-    print("Writing position restraint data..")
+    _global.logger.write('debug', "Writing position restraint data..")
     posre = _getposre(hvy)
     
     itp += f'\n; Include Position restraint file\n#ifdef POSRES\n#include "posre_{mol}.itp"\n#endif'
     
-    return itp, posre, log
+    return itp, posre
 
     

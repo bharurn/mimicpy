@@ -19,6 +19,7 @@ class MM(BaseHandle):
         self._topol_kwargs = {'water': 'tip3p', 'ff': 'amber99sb-ildn'}
         self.his_str = ''
         super().__init__(status)
+        _global.logger.write('debug', 'Set handle directory as prepareMM..')
         self.dir = 'prepareMM'
         
         self.confin = "confin.pdb"
@@ -42,22 +43,26 @@ class MM(BaseHandle):
     def getTopology(self, protein):
         self.setcurrent(key='prepMM')
         
-        print('Preparing protein topology..')
+        _global.logger.write('info', 'Preparing protein topology..')
         
-        print(f"Writing {protein.name} to confin.pdb..")
+        _global.logger.write('debug2', f"Writing {protein.name} to {self.confin}..")
         
         _global.host.write(protein.pdb+protein.water, f'{self.dir}/{self.confin}')
         
+        _global.logger.write('info', 'Calculating protein topology')
+                             
         if self.his_str == '':
-            print("Letting Gromacs calculate histidine protonantion states..")
+            _global.logger.write('debug', "Letting Gromacs calculate histidine protonantion states..")
             self.gmx('pdb2gmx', f = self.confin, o = self.conf, dirc=self.dir, **self._topol_kwargs)
         else:
-            print("Reading histidine protonation states from list..")
+            _global.logger.write('debug', "Reading histidine protonation states from list..")
             self.gmx('pdb2gmx', f = self.confin, o = self.conf, dirc=self.dir, **self._topol_kwargs, stdin=self.his_str)
         
         conf = f'{self.dir}/{self.conf}'
         
         pdb = _global.host.read(conf)
+        
+        _global.logger.write('debug2',  f"Output of pdb2gmx saved in {self.conf}")
         
         lines = []
         df_lst = []
@@ -77,11 +82,11 @@ class MM(BaseHandle):
         df = df.drop(['serial','record','altLoc','resSeq','iCode','occupancy','x','y','z','tempFactor','charge'], axis=1)
         df = df.set_index(['number'])
         
-        print("Saving topology data as pickled dataframe..")
+        _global.logger.write('debug', "Saving topology data as pickled dataframe topol.mpt..")
         f = _global.host.vi(f'{self.dir}/topol.mpt', 'wb')
         pickle.dump(df, f)
 
-        print("Adding non-standard residues to structure..")
+        _global.logger.write('info', "Combining ligand structure and topology with protein..")
         conf_pdb = '\n'.join(splt[:len(splt)-i]) + '\n' + protein.ligand_pdb + '\n'.join(lines[::-1])
         
         _global.host.write(conf_pdb, conf)
@@ -91,14 +96,14 @@ class MM(BaseHandle):
                     "\n\n[ atomtypes ]\n")
         top2 = ''
         
-        print("Combining ligands topology into single file ligands.itp..")
+        _global.logger.write('debug2', "Combining ligands topology into single file ligands.itp..")
         for ligname, lig in protein.ligands.items():
             t1, t2 = lig.splitItp()
 	
             top1 += t1
             top2 += t2 
             
-            print(f"Writing position restraint file for {lig.name}")
+            _global.logger.write('debug2', f"Writing position restraint file for {lig.name}")
             
             _global.host.write(lig.posre, f"{self.dir}/posre_{lig.name}.itp")
             
@@ -111,9 +116,9 @@ class MM(BaseHandle):
         _global.host.run(r'sed -i -r "/^#include \".+.ff\/forcefield.itp\"/a #include \"ligands.itp\"" '+topol)
         _global.host.run('grep -v SOL topol.top > topol_.top && mv topol_.top '+topol)
         _global.host.run(f'echo SOL {protein.hoh_mols} >> '+topol)
-        print("ligands.itp added to topol.top")
+        _global.logger.write('debug', "ligands.itp added to topol.top")
         
-        print('Topology prepared..')
+        _global.logger.write('info', 'Topology prepared..')
         
         self.saveToYaml()
         
@@ -122,11 +127,11 @@ class MM(BaseHandle):
     def solvateParams(self, **kwargs): self._solavte_kwargs = kwargs
     
     def getBox(self, genion_mdp = mdp.MDP.defaultGenion()):
-        print("Preparing system box..")
-        print("Solavting protein..")
+        _global.logger.write('info', "Preparing system box..")
         
         self.gmx('editconf', f = self.conf, o = self.conf1, dirc=self.dir, **self._box_kwargs)
         
+        _global.logger.write('info', "Solvating box..")
         self.gmx('solvate', cp = self.conf1, o = self.conf2, p = self.topol, dirc=self.dir, **self._solavte_kwargs)
         
         _global.host.write(str(genion_mdp), f'{self.dir}/{self.ions_mdp}')
@@ -146,12 +151,12 @@ class QM(MD):
         super().__init__(status)
         
         mpt = self.getcurrent('mpt')
-        print(f"Reading topology from {mpt}..")
+        _global.logger.write('debug', f"Reading topology from {mpt}..")
         df_f = _global.host.vi(mpt, 'rb')
         self.df = pickle.load(df_f)
         
         coords = self.getcurrent('gro') # TO DO: check if latest run is trr or gro, and if trr convert
-        print(f"Combining with latest coordinates data from {coords}..")
+        _global.logger.write('info', f"Combining with latest coordinates data from {coords}..")
         self.df, self._mm_box = _mpt_helper.combine(self.df, coords)
         
         self.inp = cpmd.Input()
@@ -179,19 +184,19 @@ class QM(MD):
         dirc = self.dir
         self.setcurrent(key='prepQM')
         
-        print("Changing Gromacs integrator to MiMiC..")
+        _global.logger.write('debug2', "Changing Gromacs integrator to MiMiC..")
         mdp.integrator = 'mimic'
         
-        print(f"Writing atoms in QM region to {self.index}..")
+        _global.logger.write('debug', f"Writing atoms in QM region to {self.index}..")
         mdp.QMMM_grps = 'QMatoms'
         _global.host.write(_qmhelper.index(self.qmatoms.index), f'{dirc}/{self.index}')
         
-        print("Generating Gromacs tpr file for MiMiC run..")
+        _global.logger.write('info', "Generating Gromacs tpr file for MiMiC run..")
         self.grompp(mdp, f'{self.mdp_tpr}', pp=self.preprc, n=self.index, dirc=dirc)
         
         unk_lst = self.qmatoms[self.qmatoms['element'].apply(lambda x: False if x.strip() != '' else True)]['name'].to_list()
         
-        print("Reading force field data to fill in charges and missing atomic symbol information..")
+        _global.logger.write('debug', "Reading force field data to fill in charges and missing atomic symbol information..")
         # the full processed.top file is loaded into memory for fast manipulation, may not be feasible for large files
         conv, q_conv = _qmhelper.pptop(unk_lst, self.qmatoms['name'].to_list(), \
                                        _global.host.read(f'{dirc}/{self.preprc}') ) # read element conv and charge conv
@@ -205,7 +210,7 @@ class QM(MD):
         
         self.qmatoms = self.qmatoms.sort_values(by=['link', 'element']).reset_index()
         
-        print("Creating CPMD input script..")
+        _global.logger.write('info', "Creating CPMD input script..")
         inp.mimic = cpmd.Section()
         inp.mimic.paths = "1\n---" #path will be set in MiMiC run function
         inp.mimic.box = '  '.join([str(s) for s in self._mm_box])

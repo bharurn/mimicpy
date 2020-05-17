@@ -1,6 +1,6 @@
 from os.path import expanduser
 import time
-from ..utils.errors import MiMiCPyError, RemoteShellError
+from ..utils.errors import MiMiCPyError, ExecutionError
 
 class Shell:
     def __init__(self, name, config=None):
@@ -37,15 +37,14 @@ class Shell:
             import paramiko
         except ImportError:
             raise MiMiCPyError("Paramiko python package not installed! Install it to remotely run commands")
-            
+        
         config = paramiko.SSHConfig()
         try:
             f = open(self.config)
         except FileNotFoundError:
-            raise RemoteShellError(f"No SSH config file found in {self.config}")
+            raise FileNotFoundError(f"No SSH config file found in {self.config}")
             
-        config.parse(f.read())
-        f.close()
+        config.parse(f)
         conf = config.lookup(name)
         
         return conf
@@ -54,14 +53,14 @@ class Shell:
         try:
             import paramiko
         except ImportError:
-            raise MiMiCPyError("Paramiko python package not installed! Install it to remotely run commands")
+            raise MiMiCPyError("Paramiko python package not installed! Install it to remote host")
             
         conf = self._lookup(name)
-        
+    
         if 'hostname' not in conf:
-            raise RemoteShellError(f"Hostname not found for {name} in SSH config file")
+            raise MiMiCPyError(f"Hostname not found for {name} in SSH config file")
         if 'user' not in conf:
-            raise RemoteShellError(f"Username not found for {name} in SSH config file")
+            raise MiMiCPyError(f"Username not found for {name} in SSH config file")
         
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -88,7 +87,7 @@ class Shell:
         self.ssh_bg.run(self.loader_str)
         out = self.ssh_bg.run(cmd, hook, query_rate)
         
-        if 'error' in out.lower(): raise MiMiCPyError(out)
+        if 'error' in out.lower(): raise ExecutionError(cmd.split(';')[-1], out)
             
         return out
         # do not destory ssh_bg, as this stops the process
@@ -119,7 +118,7 @@ class Shell:
     
         if hook: hook(out)
         
-        if 'error' in out.lower(): raise MiMiCPyError(out)
+        if 'error' in out.lower(): raise ExecutionError(cmd.split(';')[-1], out)
         
         return out
         

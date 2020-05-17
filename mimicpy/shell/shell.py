@@ -3,7 +3,9 @@ import os
 from stat import S_ISDIR, S_ISREG
 from shutil import copyfile
 import re
-from ..utils import SlurmError
+from ..utils.errors import SlurmBatchError
+from ..utils.fstring import f
+import mimicpy._global._Global as _gbl
 
 class Base():
     
@@ -18,9 +20,9 @@ class Base():
             pass
         else:
             if ret == 1:
-                print(f"{directory} not found, creating new directory..")
+                _gbl.logger.write('debug', f"{directory} not found, creating new directory..")
             
-            print(f"Setting current directory to {directory}..")
+            _gbl.logger.write('debug', f"Setting current directory to {directory}..")
         
         self.loaders = []
         self.loader_str = ''
@@ -45,10 +47,21 @@ class Base():
         ret = self.fileExists(file)
         
         if ret == True:
-            print(f"{file} found!")
+            _gbl.logger.write('debug', f"{file} found!")
         elif throw:
             raise FileNotFoundError(f"{file} not found!")
     
+    def read(self, file):
+        with self.open(file, 'r') as f:
+            out = f.read()
+            try:
+                return out.decode()
+            except (UnicodeDecodeError, AttributeError):
+                return out
+    
+    def write(self, content, file):
+        with open(file, 'w') as f: f.write(content)
+        
     def mkdir(self, directory):
         if not self.fileExists(directory):
             self.hndl().mkdir(directory)
@@ -91,20 +104,23 @@ class Base():
             return out, err
     
     def sbatch(self, job, dirc=''):
-        if job.noCommands(): raise SlurmError("No commands in jobscript!")
+        jbs = f'{dirc}/{job.name}.sh'
         
-        self.write(str(job), f'{dirc}/{job.name}.sh')
+        self.write(str(job), jbs)
+        
+        if job.noCommands():
+            raise SlurmBatchError(jbs, "No commands found!")
         
         jid = 0
         def _sbatch_err(txt):
             if 'error' in txt.lower():
-                raise SlurmError(txt)
+                raise SlurmBatchError(jbs, txt)
             else:
                 match = re.search(r'Submitted batch job (\w*)', txt)
                 if match:
                     global jid
                     jid = match.groups()[0]
-                else: raise SlurmError(txt)
+                else: raise SlurmBatchError(jbs, txt)
         
         self.run(f'sbatch {job.name}.sh', hook=_sbatch_err, dirc=dirc, fresh=True)
         
@@ -128,15 +144,8 @@ class Local(Base):
     def fileExists(self, file):
         return os.path.isfile(file) or os.path.isdir(file)
     
-    def read(self, file):
-        with open(file, 'r') as f:
-                return f.read()
-    
-    def write(self, content, file):
-        with open(file, 'w') as f: f.write(content)
-    
-    def vi(self, file, mode):
-        self.checkFile(file, throw=True)
+    def open(self, file, mode):
+        if 'r' in mode: self.checkFile(file, throw=True)
         return open(file, mode)
         
     def run(self, cmd, stdin=None, hook=None, fresh=False, dirc=''):
@@ -175,20 +184,13 @@ class Remote(remote.Shell, Base):
             server = work_dir
             dir_ = '.'
             
-        print(f"Setting remote machine {r[0]} as host..")
+        _gbl.logger.write('debug', f("Setting remote machine {r[0]} as host.."))
         
         remote.Shell.__init__(self, server, ssh_config)
         
         Base.__init__(self, dir_, *loaders)
     
     def hndl(self): return self.sftp
-    
-    def read(self, file):
-        with self.vi(file, 'r') as f:
-            return f.read().decode('utf-8')
-    
-    def write(self, content, file):
-        with self.vi(file, 'w') as f: f.write(content)
         
     def fileExists(self, file):
         try:
@@ -214,10 +216,10 @@ class Remote(remote.Shell, Base):
             
         return files
     
-    def vi(self, name, s, prefetch=True):
-        self.checkFile(name, throw=True)
+    def open(self, name, s, prefetch=True):
+        if 'r' in s: self.checkFile(name, throw=True)
         file = self.sftp.open(name, s)
-        if prefetch: file.prefetch()
+        if 'w' not in s and prefetch: file.prefetch()
         return file
     
     def cp(self, f1, f2): self.run(f"cp {f1} {f2}")

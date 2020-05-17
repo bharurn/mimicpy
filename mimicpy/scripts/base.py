@@ -19,7 +19,7 @@ class Script(object):
             return self.__getattribute__('__dict__')[key]
         else:
             if key not in self.__getattribute__('__orddict__'):
-                raise ScriptError(f"{key} not a paramater of script")
+                raise ScriptError(key)
                 
             return self.__getattribute__('__orddict__')[key]
     
