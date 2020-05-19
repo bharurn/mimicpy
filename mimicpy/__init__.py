@@ -2,9 +2,8 @@ from .system.ligand import NonStdLigand, StdLigand
 from .system.protein import Protein
 from .core import prepare, simulate
 from .shell import shell
-import scripts
 from ._global import _Global as gbl
-import sys.stdout
+from .utils.logger import Logger, StdOut
 from .utils.errors import MiMiCPyError
 
 def setHost(dirc='.', *args, path=None):
@@ -24,7 +23,7 @@ def setEnv(**kwargs):
         else:
             raise MiMiCPyError(f"{k} is not an enviornment executable/path!")
 
-def setLogger(level, redirect=sys.stdout):
+def setLogger(level, redirect=StdOut):
     if level == 0:
         gbl.logger.info = None
         gbl.logger.debug = None
@@ -43,3 +42,6 @@ def setLogger(level, redirect=sys.stdout):
         gbl.logger.debug2 = redirect
         
 def closeHost(): gbl.host.__del__()
+
+gbl.host = shell.Local('.', None)
+gbl.logger = Logger(info=StdOut(), debug=StdOut(), debug2=None)

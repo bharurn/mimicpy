@@ -1,6 +1,6 @@
 from os.path import expanduser
 import time
-from ..utils.errors import MiMiCPyError, ExecutionError
+from ..utils.errors import MiMiCPyError, defaultHook
 
 class Shell:
     def __init__(self, name, config=None):
@@ -78,17 +78,18 @@ class Shell:
             self.sftp.close()
             self.ssh.close()
             if self.ssh_bg: self.ssh_bg.__del__()
-                
+          
     def runbg(self, cmd, hook=None, dirc='', query_rate=3):
         if self.ssh_bg == None:
             self.ssh_bg = _ShellBGRun(self.ssh, self.decoder)
             
         self.ssh_bg.run(f'cd {self.pwd()}/{dirc}')
         self.ssh_bg.run(self.loader_str)
+        if not hook:
+            hook = Shell.defaulthook
+            
         out = self.ssh_bg.run(cmd, hook, query_rate)
         
-        if 'error' in out.lower(): raise ExecutionError(cmd.split(';')[-1], out)
-            
         return out
         # do not destory ssh_bg, as this stops the process
         # kill it in the deconstructor
@@ -116,9 +117,10 @@ class Shell:
         if not fresh:
             out = out.replace(self.loader_out, '')
     
-        if hook: hook(out)
+        if not hook:
+            hook = defaultHook
         
-        if 'error' in out.lower(): raise ExecutionError(cmd.split(';')[-1], out)
+        hook(cmd, out)
         
         return out
         
@@ -159,7 +161,7 @@ class _ShellBGRun:
                     
                 prev = self.stdout
                     
-                if hook: hook(text)
+                if hook: hook(cmd, text)
                 
             else: break
         

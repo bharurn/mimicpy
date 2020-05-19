@@ -1,11 +1,7 @@
-from . import shell
-from .utils.logger import Logger
-import sys
-
 class _Global:
-    host = shell.Local('.', None)
-    logger = Logger(info=sys.stdout, debug=sys.stdout, debug2=None)
-    gmx = 'gmx'
+    host = None
+    logger = None
+    gmx = None
     cpmd = 'cpmd.x'
     cpmd_pp = None
     gauss = 'g09'

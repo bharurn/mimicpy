@@ -5,7 +5,7 @@ from shutil import copyfile
 import re
 from ..utils.errors import SlurmBatchError
 from ..utils.fstring import f
-import mimicpy._global._Global as _gbl
+from .._global import _Global as _gbl
 
 class Base():
     
@@ -37,7 +37,10 @@ class Base():
              self.loader_str += ' ; '.join(loader)
          else:
              self.loader_str = ' ; '.join(loader)
-         self.loader_out = self.run(self.loader_str, fresh=True)
+        
+         print_hook = lambda cmd,out: _gbl.logger.write('debug2', f'Running {cmd}..\n{out}')
+        
+         self.loader_out = self.run(self.loader_str, hook = print_hook, fresh=True)
          
     def rename(self, a, b): self.hndl().rename(a, b)
     def rm(self, a): self.hndl().remove(a)
@@ -60,7 +63,7 @@ class Base():
                 return out
     
     def write(self, content, file):
-        with open(file, 'w') as f: f.write(content)
+        with self.open(file, 'w') as f: f.write(content)
         
     def mkdir(self, directory):
         if not self.fileExists(directory):

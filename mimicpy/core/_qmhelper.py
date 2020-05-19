@@ -3,9 +3,16 @@ from ..scripts.cpmd import Atom
 from collections import OrderedDict 
 from ._constants import bohr_rad
 from ..scripts import cpmd
+from .._global import _Global as gbl
 
 def parse_selec(selection, df):
-    #selection eg., resName is SER and number < 25 and chainID not B
+    # selection is a lambda func, then just call and return it
+    LAMBDA = lambda:0
+    if isinstance(selection, type(LAMBDA)):
+        return df[selection(df)]
+            
+    # below code translates selection langauge to pandas boolean
+    # selection eg., resName is SER and number < 25 and chainID not B
     ev = ''
     i = 0
     for s in selection.split():
@@ -33,6 +40,7 @@ def parse_selec(selection, df):
 
     ev = f"df.loc[{ev}]"
     ev = ev.replace("df['number']","df.index")
+    gbl.logger.write('debug2', f'Selection command translated to: {ev}')
     return eval(ev)
 
 def index(qmids):

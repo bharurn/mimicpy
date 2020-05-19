@@ -1,9 +1,5 @@
-from .._global import _Global
-
 class MiMiCPyError(Exception):
-   """Base class for other exceptions"""
-   def __init__(self, msg):
-       _Global.logger.close()
+   """Generic exception from MiMiCPy"""
 
 class ExecutionError(MiMiCPyError):
     
@@ -13,7 +9,7 @@ class ExecutionError(MiMiCPyError):
         self.msg = msg
         
     def __str__(self):
-        return f"Command attempted {self.cmd}\nself.msg"
+        return f"Command attempted {self.cmd}\n{self.msg}"
 
 class GromacsError(ExecutionError):
     pass
@@ -37,3 +33,6 @@ class ScriptError(MiMiCPyError):
         
      def __str__(self):
         return f"{self.msg} not a paramater of the script"
+
+def defaultHook(cmd, out):
+    if 'error' in out.lower(): raise ExecutionError(cmd.split(';')[-1], out)

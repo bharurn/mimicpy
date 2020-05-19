@@ -1,9 +1,8 @@
 import re
 import yaml
 from .._global import _Global as _global
-from ..utils.errors import GromacsError, MiMiCPyError, EnvNotSetError
-from ..utils.logger import Logger
-from io import StringIO
+from ..utils.errors import GromacsError, MiMiCPyError, EnvNotSetError, defaultHook
+from ..utils.logger import Logger, LogString
 import sys
 
 class BaseHandle:
@@ -12,8 +11,8 @@ class BaseHandle:
         if not status:
             status = {'prepMM': '', 'prepQM': '', 'run': ['']}
         self._status = status
-        self.log = StringIO()
-        self.logger = Logger(log=self.log, notes=sys.stdout)
+        self.log = LogString()
+        self.logger = Logger(log=_global.host.open('gmx.log', 'w'), notes=sys.stdout)
         self.current_cmd = 'gmx'
     
     def getcurrent(self, ext, level=False, exp=True):
@@ -25,7 +24,7 @@ class BaseHandle:
         elif ext == 'mimic-tpr':
             return _dir+BaseHandle._getFile(self._status['prepQM'], ext)
         
-        run = self._status['run']
+        run =  [self._status['prepMM'], self._status['prepQM']] + self._status['run']
         
         for i,d in enumerate(run[::-1]):
             ret = BaseHandle._getFile(d, ext)
@@ -38,7 +37,7 @@ class BaseHandle:
     
     def __del__(self):
         self.logger.close()
-        self.saveToYaml()
+        self.toYaml()
         
     @staticmethod
     def _getFile(dirc, ext):
@@ -84,12 +83,13 @@ class BaseHandle:
         elif dirc not in self._status['run']:
             self._status['run'].append(dirc)
     
-    def _gmxhook(self, text):
+    def _gmxhook(self, cmd, text):
+        defaultHook(cmd, text)
         
-        self.logger.write('stdout', "============Running {self.current_cmd}============\n")
-        self.logger.write('stdout', text)
+        self.logger.write('log', f"============Running {cmd}============\n")
+        self.logger.write('log', text)
         
-        BaseHandle._gmxerrhdnl(BaseHandle.current_cmd, text)
+        self._gmxerrhdnl(cmd, text)
         
         notes = BaseHandle._notes(text)
         
@@ -147,7 +147,7 @@ class BaseHandle:
         return ''.join(filter(lambda x: not re.match(r'^\s*$', x), notes)) # remove blank lines
     
      
-    def gmx(cmd, **kwargs):
+    def gmx(self, cmd, **kwargs):
         
         if _global.gmx is None or _global.gmx.strip() == '':
             raise EnvNotSetError('Gromacs executable', 'gmx')
@@ -182,13 +182,13 @@ class BaseHandle:
         if onlycmd:
             return cmd
         
-        _global.logger.write('debug', "Running {cmd}..")
+        _global.logger.write('debug', f"Running {cmd}..")
         
-        BaseHandle.current_gmx = cmd
-        if mdrun: _global.host.runbg(cmd, hook=BaseHandle._gmxhook, dirc=dirc)
-        else: _global.host.run(cmd, stdin=stdin, hook=BaseHandle._gmxhook, dirc=dirc)
+        self.current_gmx = cmd
+        if mdrun: _global.host.runbg(cmd, hook=self._gmxhook, dirc=dirc)
+        else: _global.host.run(cmd, stdin=stdin, hook=self._gmxhook, dirc=dirc)
     
-    def cpmd(inp, out, onlycmd=False, noverbose=False, dirc=''):
+    def cpmd(self, inp, out, onlycmd=False, noverbose=False, dirc=''):
         if _global.cpmd is None or _global.cpmd.strip() == '':
             raise EnvNotSetError('CPMD executable', 'cpmd')
         

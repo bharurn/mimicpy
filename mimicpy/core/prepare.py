@@ -7,12 +7,10 @@ from . import _qmhelper, _mpt_helper
 from ._constants import hartree_to_ps
 from ..scripts import cpmd
 from collections import defaultdict
-import pandas as pd
-import pickle
 
 class MM(BaseHandle):
     
-    def __init__(self, status=[]):
+    def __init__(self, status=[], protein=None):
         self._ion_kwargs = {'pname': 'NA', 'nname': 'CL', 'neutral': ''}
         self._box_kwargs = {'c': '', 'd': 1.9, 'bt': 'cubic'}
         self._solavte_kwargs = {'cs': 'spc216.gro'}
@@ -27,9 +25,14 @@ class MM(BaseHandle):
         self.conf1 = 'conf1.gro'
         self.conf2 = 'conf2.gro'
         self.conf3 = 'conf3.gro'
-        self.topol = f"topol.top"
-        self.ions_mdp = f"ions.mdp"
-        self.ions_tpr = f"ions.tpr"
+        self.topol = "topol.top"
+        self.mpt = "topol.mpt"
+        self.ions_mdp = "ions.mdp"
+        self.ions_tpr = "ions.tpr"
+        
+        if protein:
+            self.getTopology(protein)
+            self.getBox()
     
     def topolParams(self, **kwargs):
         if 'his' in kwargs:
@@ -65,7 +68,7 @@ class MM(BaseHandle):
         _global.logger.write('debug2',  f"Output of pdb2gmx saved in {self.conf}")
         
         lines = []
-        df_lst = []
+        mpt = _mpt_helper.MPTWriter()
         splt = pdb.splitlines()
         for i, line in enumerate(splt[::-1]):
             vals = hpdb.readLine(line)
@@ -75,16 +78,15 @@ class MM(BaseHandle):
                 if vals['resName'] == 'HOH': lines.append(line)
                 else:
                     #create topology dataframe
-                    vals.update({'number':i+1})
-                    df_lst.append(vals)
+                    mpt.write_row(vals)
         
-        df = pd.DataFrame(df_lst)
-        df = df.drop(['serial','record','altLoc','iCode','occupancy','x','y','z','tempFactor','charge'], axis=1)
-        df = df.set_index(['number'])
+        # read ligand pdb data and put into mpt
+        for l in protein.ligand_pdb.splitlines():
+            #TO DO: edit resno of ligand to match rest of pdb
+            # not imp for gromacs but imp when saving as mpt
+            mpt.write_row(hpdb.readLine(line))
         
-        _global.logger.write('debug', "Saving topology data as pickled dataframe topol.mpt..")
-        f = _global.host.vi(f'{self.dir}/topol.mpt', 'wb')
-        pickle.dump(df, f)
+        mpt.write(self.mpt, self.dir)
 
         _global.logger.write('info', "Combining ligand structure and topology with protein..")
         conf_pdb = '\n'.join(splt[:len(splt)-i]) + '\n' + protein.ligand_pdb + '\n'.join(lines[::-1])
@@ -136,28 +138,39 @@ class MM(BaseHandle):
         
         _global.host.write(str(genion_mdp), f'{self.dir}/{self.ions_mdp}')
         
-        print("Adding ions to neutralize charge..")
+        _global.logger.write('info', "Adding ions to neutralize charge..")
         self.gmx('grompp', f = self.ions_mdp, c = self.conf2, p = self.topol, o = self.ions_tpr, dirc=self.dir)
         
         self.gmx('genion', s = self.ions_tpr, o = self.conf3, p = self.topol, dirc=self.dir, **self._ion_kwargs, stdin="SOL")
         
-        print('Simulation box prepared..')
+        _global.logger.write('info', 'Simulation box prepared..')
         
         self.saveToYaml()
+    
+    def getMPT(self, pdb_file=None, mpt=None):
+        # assume pdb has protein and ligand info
+        if pdb_file == None: pdb_file = self.getcurrent('pdb')
+        pdb = _global.host.read(pdb_file)
+        
+        mpt = _mpt_helper.MPTWriter()
+        splt = pdb.splitlines()
+        for line in splt:
+            vals = hpdb.readLine(line)
+            if vals['record'] == 'HETATM' or vals['record'] == 'ATOM':
+                if vals['resName'] == 'HOH' or vals['resName'] == 'SOL': break
+                else: mpt.write_row(vals)
+        
+        if mpt == None: mpt = self.mpt
+        
+        mpt.write(self.mpt, self.dir)
         
 class QM(MD):
     
     def __init__(self, status=defaultdict(list)):
         super().__init__(status)
         
-        mpt = self.getcurrent('mpt')
-        _global.logger.write('debug', f"Reading topology from {mpt}..")
-        df_f = _global.host.vi(mpt, 'rb')
-        self.df = pickle.load(df_f)
-        
-        coords = self.getcurrent('gro') # TO DO: check if latest run is trr or gro, and if trr convert
-        _global.logger.write('info', f"Combining with latest coordinates data from {coords}..")
-        self.df, self._mm_box = _mpt_helper.combine(self.df, coords)
+        # TO DO: check if latest run is trr or gro, and if trr convert
+        self.df, self._mm_box = _mpt_helper.read(self.getcurrent('mpt'), self.getcurrent('gro'))
         
         self.inp = cpmd.Input()
         
@@ -170,15 +183,20 @@ class QM(MD):
         self.mdp_tpr = 'mimic'
         
     def add(self, selection, link=False):
-        if isinstance(selection, str):
-            qdf = _qmhelper.parse_selec(selection, self.df)
-        else:
-            qdf = self.df[selection(self.df)]
+        qdf = _qmhelper.parse_selec(selection, self.df)
+            
         qdf.insert(2, 'link', [int(link)]*len(qdf))
         if self.qmatoms is None:
             self.qmatoms = qdf
         else:
             self.qmatoms = self.qmatoms.append(qdf)
+    
+    def delete(self, selection):
+        remove = _qmhelper.parse_selec(selection, self.df)
+        self.qmatoms = self.qmatoms.drop(remove.index, errors='ignore')
+    
+    def clear(self):
+        self.qmatoms = None
     
     def getInp(self, mdp, inp=cpmd.Input()):
         dirc = self.dir
