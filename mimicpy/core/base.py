@@ -10,10 +10,10 @@ class BaseHandle:
     
     def __init__(self, status=None):
         if not status:
-            status = {'prepMM': '', 'prepQM': '', 'run': []}
+            status = {'prepMM': '', 'prepQM': '', 'run': ['']}
         self._status = status
-        self.stdout = StringIO()
-        self.logger = Logger(stdout=self.stdout, notes=sys.stdout)
+        self.log = StringIO()
+        self.logger = Logger(log=self.log, notes=sys.stdout)
         self.current_cmd = 'gmx'
     
     def getcurrent(self, ext, level=False, exp=True):
@@ -50,8 +50,9 @@ class BaseHandle:
         if lst == []: return None
         elif len(lst) > 1: raise MiMiCPyError(f"More than one current file found with extension {ext}!"
                                         f"\nFiles found: {','.join(lst)}")
-        
-        return dirc+'/'+lst[0]
+        if dirc.strip() != '': dirc += '/'
+            
+        return dirc+lst[0]
     
     def getStatus(self): return self._status
     

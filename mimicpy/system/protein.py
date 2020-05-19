@@ -1,6 +1,6 @@
 from . import ligand as lig, _hndlWater
 from . import _hndlpdb as hpdb
-from .._global import _Global as _global
+from .._global import _Global as gbl
 import urllib.request as req
 from collections import defaultdict, OrderedDict
 
@@ -9,18 +9,18 @@ class Protein:
    def __init__(self, pdb, name):
         self.name = name
         
-        _global.logger.write('debug', f"Creating protein {name}..")
+        gbl.logger.write('debug', f"Creating protein {name}..")
         
         self.pdb = pdb
         
-        _global.logger.write('debug', "Extracting water..")
+        gbl.logger.write('debug', "Extracting water..")
         
-        self.water = _global.host.run('grep ^HETATM', stdin=self.pdb)
-        self.water = _global.host.run('grep HOH', stdin=self.water)
+        self.water = gbl.host.run('grep ^HETATM', stdin=self.pdb)
+        self.water = gbl.host.run('grep HOH', stdin=self.water)
         
-        _global.logger.write('debug', "Extracting amino acid residues..")
+        gbl.logger.write('debug', "Extracting amino acid residues..")
         
-        self.pdb  = f"TITLE     {self.name}\n" + _global.host.run('grep ^ATOM', stdin=self.pdb)
+        self.pdb  = f"TITLE     {self.name}\n" + gbl.host.run('grep ^ATOM', stdin=self.pdb)
         
         self.ligands=OrderedDict()
         
@@ -34,7 +34,7 @@ class Protein:
            raise TypeError(f"Cannot add {type(ligand)} as ligand")
        
        if not isinstance(ligand, lig.StdLigand):
-           _global.logger.write('debug', f"Adding non standard ligand {ligand.name} to {self.name}..") 
+           gbl.logger.write('debug', f"Adding non standard ligand {ligand.name} to {self.name}..") 
            
            self.ligands.update({ligand.name:ligand})
            
@@ -43,7 +43,7 @@ class Protein:
            self._lig_elems.extend(ligand.elems) # for MiMiC
            
        else:
-           _global.logger.write('debug', f"Adding standard ligand {ligand.name} to {self.name}..") 
+           gbl.logger.write('debug', f"Adding standard ligand {ligand.name} to {self.name}..") 
            
            self.pdb += ligand.pdb
     
@@ -59,15 +59,15 @@ class Protein:
       
       command = '\|'.join(ids)
     
-      self.water = _global.host.run(f'grep {command}', stdin=self.water)
+      self.water = gbl.host.run(f'grep {command}', stdin=self.water)
     
    @classmethod
    def fromRCSB(cls, pdbid, chains=None, howToreturn=0):
-       _global.logger.write('info', f"Accessing PDB {pdbid} from RCSB database..")
-       _global.logger.write('debug', "Downloading PDB file..")
+       gbl.logger.write('info', f"Accessing PDB {pdbid} from RCSB database..")
+       gbl.logger.write('debug', "Downloading PDB file..")
           
        url = f'http://files.rcsb.org/view/{pdbid}.pdb'
-       _global.logger.write('debug', f"Openeing {url}..")
+       gbl.logger.write('debug', f"Openeing {url}..")
        response = req.urlopen(url)
        #response.raise_for_status()
        
@@ -75,7 +75,7 @@ class Protein:
        
        ligs = defaultdict(str)
        
-       _global.logger.write('info', "Downloading ligands..")
+       gbl.logger.write('info', "Downloading ligands..")
        
        for l in pdb.splitlines():
             vals = hpdb.readLine(l)
@@ -89,10 +89,10 @@ class Protein:
         
                 query = '_'.join(v)
                 
-                _global.logger.write('debug', f"Downloading ligands {v[0]}, chain {v[1]}")
+                gbl.logger.write('debug', f"Downloading ligands {v[0]}, chain {v[1]}")
         
                 url = f"https://files.rcsb.org/cci/download/{pdbid}_{query}_NO_H.sdf"
-                _global.logger.write('debug', f"Openeing {url}..")
+                gbl.logger.write('debug', f"Openeing {url}..")
                 resp = req.urlopen(url)
                 #resp.raise_for_status()
 
@@ -113,14 +113,14 @@ class Protein:
            prt = cls(pdb_, pdbid)
            for v in ligs.values():
                prt.addLigands(lig.NonStdLigand(v))
-           _global.logger.write('info', "Returned as protein object with ligands added..")
+           gbl.logger.write('info', "Returned as protein object with ligands added..")
            return prt
        else:
-           _global.logger.write('info', "Returned as raw data..")
+           gbl.logger.write('info', "Returned as raw data..")
            return pdb_, ligs
        
    @classmethod
    def fromFile(cls, pdb):
-        _global.host.checkFile(pdb)
-        f = _global.host.read(pdb)
+        gbl.host.checkFile(pdb)
+        f = gbl.host.read(pdb)
         return cls(f, pdb.split('.')[0])

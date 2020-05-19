@@ -79,7 +79,7 @@ class MM(BaseHandle):
                     df_lst.append(vals)
         
         df = pd.DataFrame(df_lst)
-        df = df.drop(['serial','record','altLoc','resSeq','iCode','occupancy','x','y','z','tempFactor','charge'], axis=1)
+        df = df.drop(['serial','record','altLoc','iCode','occupancy','x','y','z','tempFactor','charge'], axis=1)
         df = df.set_index(['number'])
         
         _global.logger.write('debug', "Saving topology data as pickled dataframe topol.mpt..")
