@@ -153,7 +153,7 @@ class Local(Base):
         
     def run(self, cmd, stdin=None, hook=None, fresh=False, dirc=''):
         replace = ''
-        if not fresh:
+        if not fresh and self.loader_str:
             cmd = self.loader_str + ' ; ' + cmd
             replace = self.loader_out
         if dirc != '': cmd = f'cd {dirc} ; ' + cmd

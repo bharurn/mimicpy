@@ -96,7 +96,7 @@ class Shell:
     
     def run(self, cmd, stdin=None, hook=None, fresh=False, dirc=''):
         
-        if not fresh:
+        if not fresh and self.loader_str:
             cmd = self.loader_str + ' ; ' + cmd
         
         cmd = f'cd {self.pwd()}/{dirc} ; ' + cmd
