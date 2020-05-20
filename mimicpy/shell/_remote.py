@@ -65,9 +65,9 @@ class Shell:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         if sock is None:
-            ssh.connect(hostname=conf['hostname'], username=conf['user'])
+            ssh.connect(hostname=conf['hostname'], username=conf['user'], look_for_keys=False)
         else:
-            ssh.connect(hostname=conf['hostname'], username=conf['user'], sock=sock)
+            ssh.connect(hostname=conf['hostname'], username=conf['user'], look_for_keys=False, sock=sock)
         
         return ssh
     
