@@ -39,6 +39,11 @@ class BaseHandle:
         self.logger.close()
         self.toYaml()
         
+    def getcurrentNone(self, file, ext, level=False, exp=True):
+        if file:
+            return file
+        else:
+            return self.getcurrent(ext, level, exp)
     @staticmethod
     def _getFile(dirc, ext):
         lst = _global.host.ls(dirc=dirc, file_eval=lambda a: True if a.endswith(ext) else False, dir_eval=lambda a: False)

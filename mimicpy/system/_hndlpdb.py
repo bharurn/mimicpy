@@ -1,3 +1,8 @@
+from ..utils.errors import ParserError
+
+keys = ['record', 'serial', 'name', 'altLoc', 'resName', 'chainID', 'resSeq', 'iCode', 'x', 'y', 'z',\
+        'occupancy', 'tempFactor', 'element', 'charge']
+
 def _getSpaces(s, n):
     return (n - len(s))*' '
 
@@ -97,4 +102,14 @@ def matchLine(line, **kwargs):
         else: flg = False
     
     return flg
+
+def checkLine(line, no=None):
+    if isinstance(line, str):
+        vals = readLine(line)
+    elif isinstance(line, dict):
+        vals = line
+    else:
+        raise TypeError(f"Line{no} is of unknown type")
     
+    if set(vals.keys()) == keys:
+        raise ParserError('PDB', no=no)

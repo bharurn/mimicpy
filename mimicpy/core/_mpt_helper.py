@@ -3,6 +3,8 @@ import re
 import pandas as pd
 from ._constants import bohr_rad
 import pickle
+from ..utils.errors import ParserError, asserter
+from ..system import _hndlpdb as hpdb
 
 def _do_combine(line, x, y, z):
     if line.strip() == '': return False
@@ -76,6 +78,7 @@ class MPTWriter:
     
     def write_row(self, vals):
         self.i += 1
+        
         vals.update({'number':self.i})
         vals.update({'resNo': int(vals['resSeq'])})
         vals.update({'charge': 0})
@@ -84,7 +87,10 @@ class MPTWriter:
         
     def write(self, name, dirc):
         df = pd.DataFrame(self.df_lst)
-        df = df.drop(['serial','record','altLoc','resSeq','iCode','occupancy','x','y','z','tempFactor'], axis=1)
+        lst = ['serial','record','altLoc','resSeq','iCode','occupancy','x','y','z','tempFactor']
+        asserter(set(lst) <= set(df.columns), ParserError, "PDB")
+        
+        df = df.drop(lst, axis=1)
         df = df.set_index(['number'])
         
         MPTWriter.dump(df, name, dirc)

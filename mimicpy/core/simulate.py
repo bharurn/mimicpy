@@ -78,8 +78,15 @@ class MD(BaseHandle):
             mdp_file = f'{new}.mdp'
         _global.host.write(str(mdp), mdp_file)
         
-        gro = self.getcurrent('gro', level=True, exp=False)
-        trr = self.getcurrent('trr', level=True, exp=False)
+        if 'gro' in kwargs:
+            gro_file = kwargs['gro']
+            del kwargs['gro']
+        elif 'trr' in kwargs:
+            trr_file = kwargs['trr']
+            del kwargs['trr']
+        
+        gro = self.getcurrentNone(gro_file, 'gro', level=True, exp=False)
+        trr = self.getcurrentNone(trr_file, 'trr', level=True, exp=False)
         
         if gro == None and trr ==  None:
             raise MiMiCPyError("No coordinate data (gro/trr file) was found..")
@@ -97,15 +104,21 @@ class MD(BaseHandle):
         
     def run(self, mdp, **kwargs):
         new = mdp.name.lower().replace(' ', '_')
-        self.setcurrent(new)
+        
+        if 'dir' in kwargs: # dir is an argument for the directory, if dir = None, then use cwd
+            if kwargs['dir'] == None: kwargs['dir'] = ''
+            _dir = kwargs['dir']
+        else:   
+            _dir = new
+        self.setcurrent(_dir)
         
         _global.logger.write('info', f"Starting classical MD calculation: {new}..")
         
-        _global.logger.write('debug', f"All files will be saved to the directory {new}..")
+        _global.logger.write('debug', f"All files will be saved to the directory {_dir}..")
         
-        self.grompp(mdp, f'{new}', dirc=new, **kwargs)
+        self.grompp(mdp, f'{new}', dirc=_dir, **kwargs)
         
-        out = self.mdrun(f'{new}', dirc=new)
+        out = self.mdrun(f'{new}', dirc=_dir)
         
         self.saveToYaml()
         
@@ -126,7 +139,7 @@ class MiMiC(MD):
         _global.logger.write('debug2', "Set PATH in MIMIC section as {inp.mimic.paths}")
         _global.host.write(str(inp), f"{new}/cpmd/{new}.inp")
         
-        if tpr is None: tpr = self.getcurrent('mimic-tpr')
+        tpr = self.getcurrentNone('mimic-tpr')
         
         _global.host.cp(tpr, f'{new}/gmx/mimic.tpr')
         

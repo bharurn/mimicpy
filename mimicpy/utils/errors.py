@@ -1,10 +1,26 @@
 class MiMiCPyError(Exception):
    """Generic exception from MiMiCPy"""
 
+class ParserError(MiMiCPyError):
+    def __init__(self, ftype, file=None, no=None):
+        if file is None: file = 'data block'
+        else: file = 'file ' + file
+        self.file = file
+        self.ftype = ftype
+        self.no = no
+        
+    def __str__(self):
+        s = f"{self.file} cannot be parsed as {self.ftype}"
+        if self.no:
+            s = f"Line number {self.no} in "+s
+        else:
+            s = s[0].upper() + s[1:] # make data/file --> Data/File if it is first letter
+            
+        return s
+
 class ExecutionError(MiMiCPyError):
     
     def __init__(self, cmd, msg):
-        super().__init__(msg)
         self.cmd = cmd
         self.msg = msg
         
@@ -20,7 +36,6 @@ class SlurmBatchError(ExecutionError):
 
 class EnvNotSetError(MiMiCPyError):
     def __init__(self, cmd, msg):
-        super().__init__(msg)
         self.msg = msg
         
     def __str__(self):
@@ -28,7 +43,6 @@ class EnvNotSetError(MiMiCPyError):
 
 class ScriptError(MiMiCPyError):
      def __init__(self, cmd, msg):
-        super().__init__(msg)
         self.msg = msg
         
      def __str__(self):
@@ -36,3 +50,6 @@ class ScriptError(MiMiCPyError):
 
 def defaultHook(cmd, out):
     if 'error' in out.lower(): raise ExecutionError(cmd.split(';')[-1], out)
+    
+def asserter(boolean, error, *args, **kwargs):
+    if not boolean: raise error(*args, **kwargs)

@@ -147,13 +147,13 @@ class MM(BaseHandle):
         
         self.saveToYaml()
     
-    def getMPT(self, pdb_file=None, mpt=None):
+    def getMPT(self, pdb=None, mpt=None):
         # assume pdb has protein and ligand info
-        if pdb_file == None: pdb_file = self.getcurrent('pdb')
-        pdb = _global.host.read(pdb_file)
+        pdb = self.getcurrentNone(pdb, 'pdb')
+        pdb_data = _global.host.read(pdb)
         
         mpt = _mpt_helper.MPTWriter()
-        splt = pdb.splitlines()
+        splt = pdb_data.splitlines()
         for line in splt:
             vals = hpdb.readLine(line)
             if vals['record'] == 'HETATM' or vals['record'] == 'ATOM':
@@ -166,11 +166,11 @@ class MM(BaseHandle):
         
 class QM(MD):
     
-    def __init__(self, status=defaultdict(list)):
+    def __init__(self, status=defaultdict(list), mpt=None, coords=None):
         super().__init__(status)
         
         # TO DO: check if latest run is trr or gro, and if trr convert
-        self.df, self._mm_box = _mpt_helper.read(self.getcurrent('mpt'), self.getcurrent('gro'))
+        self.df, self._mm_box = _mpt_helper.read(self.getcurrentNone(mpt, 'mpt'), self.getcurrentNone(coords, 'gro'))
         
         self.inp = cpmd.Input()
         
