@@ -88,7 +88,7 @@ class Shell:
         if not hook:
             hook = Shell.defaulthook
             
-        out = self.ssh_bg.run(cmd, hook, query_rate)
+        out = self.ssh_bg.run(cmd.split(';')[-1], hook, query_rate)
         
         return out
         # do not destory ssh_bg, as this stops the process
@@ -120,7 +120,7 @@ class Shell:
         if not hook:
             hook = defaultHook
         
-        hook(cmd, out)
+        hook(cmd.split(';')[-1], out)
         
         return out
         

@@ -1,6 +1,6 @@
 import subprocess
 import os
-from ..utils.errors import ExecutionError
+from ..utils.errors import defaultHook
 
 decoder = 'utf-8'
 
@@ -19,10 +19,10 @@ def run(cmd, shell_ex, remove_from_out, stdin=None, hook=None):
         out = p.communicate(input=inp)[0].decode()
     
     out = out.replace(remove_from_out, '')
-            
-    if hook: hook(out)
     
-    if 'error' in out.lower(): raise ExecutionError(cmd.split(';')[-1], out)
+    if not hook: hook = defaultHook
+    
+    if hook: hook(cmd.split(';')[-1], out)
     
     return out
 

@@ -38,7 +38,7 @@ class Base():
          else:
              self.loader_str = ' ; '.join(loader)
         
-         print_hook = lambda cmd,out: _gbl.logger.write('debug2', f'Running {cmd}..\n{out}')
+         print_hook = lambda cmd,out: _gbl.logger.write('debug2', f'Running loader {cmd}..\n{out}')
         
          self.loader_out = self.run(self.loader_str, hook = print_hook, fresh=True)
          
