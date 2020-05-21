@@ -35,6 +35,9 @@ class LogString:
     def flush(self):
         pass
     
+    def close():
+        pass
+    
     def __str__(self):
         return self.val
     
