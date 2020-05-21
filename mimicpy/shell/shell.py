@@ -85,27 +85,6 @@ class Base():
             self.hndl().chdir(directory+'/')
             return 0
     
-    def run(self, cmd, stdin=None, hook=None, fresh=False, dirc='', combine=False):
-        
-        if not fresh:
-            cmd = self.loader_str + ' ; ' + cmd
-        
-        out, err = self._run(cmd, stdin=stdin, dirc=dirc)
-           
-        if not fresh:
-            out = out.replace(self.loader_out, '')
-            out = out.replace(self.loader_err, '')
-            
-            err = err.replace(self.loader_err, '')
-            err = err.replace(self.loader_out, '')
-    
-        if hook: hook(err+'\n'+out)
-        
-        if combine:
-            return err+'\n'+out
-        else:
-            return out, err
-    
     def sbatch(self, job, dirc=''):
         jbs = f'{dirc}/{job.name}.sh'
         
