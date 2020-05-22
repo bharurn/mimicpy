@@ -8,7 +8,7 @@ to handle proteins
 """
 
 from . import ligand as lig, _hndlWater
-from . import _hndlpdb as hpdb
+from ..parser import pdb as hpdb
 from .._global import _Global as gbl
 import urllib.request as req
 from collections import defaultdict, OrderedDict

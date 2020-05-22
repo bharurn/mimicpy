@@ -6,7 +6,7 @@ This module contains NonStdLigand and StdLigand classes to load ligands and prot
 
 """
 
-from . import _addH, _getItp, _hndlpdb as hpdb
+from ..parser import pdb as hpdb
 from ..utils.fstring import f
 from .._global import _Global as _global
 from ..utils.errors import EnvNotSetError

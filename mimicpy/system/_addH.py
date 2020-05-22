@@ -7,7 +7,7 @@ module to protonate ligands and convert sdf to pdf
 
 """
 
-from . import _hndlpdb as hpdb
+from ..parser import pdb as hpdb
 from .._global import _Global as _global
 import re
 from ..utils.errors import ExecutionError

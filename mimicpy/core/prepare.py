@@ -7,7 +7,7 @@ MM topology, MPT and QM region/CPMD script
 
 """
 
-from ..system import _hndlpdb as hpdb
+from ..parser import pdb as hpdb
 from ..scripts import mdp
 from .base import BaseHandle
 from .simulate import MD
