@@ -12,10 +12,13 @@ from ..scripts import mdp
 from .base import BaseHandle
 from .simulate import MD
 from .._global import _Global as _global
-from . import _qmhelper, _mpt_helper
+from . import _qmhelper
+from ..parsers.mpt import Reader as MPTReader
 from ..utils.constants import hartree_to_ps
 from ..scripts import cpmd
+from ..utils.viz import PyMol
 from collections import defaultdict
+import pandas as pd
 
 class MM(BaseHandle):
     """
@@ -241,9 +244,8 @@ class QM(MD):
         
         super().__init__(status) # call BaseHandle.__init__() to init status dict
         
-        # combine mpt with coordinate file, and get dataframe, also returns the last line of gro
-        # TO DO: check if latest run is trr or gro, and if trr convert
-        self.df, self._mm_box = _mpt_helper.read(self.getcurrentNone(mpt, 'mpt'), self.getcurrentNone(coords, 'gro'))
+        
+        self.mpt = MPTReader(self.getcurrentNone(mpt, 'mpt'))
         
         # init scripts and paths/files
         self.inp = cpmd.Input()
@@ -252,13 +254,21 @@ class QM(MD):
         self.index = 'index.ndx'
         self.preprc = 'processed.top'
         self.mdp_tpr = 'mimic'
+    
+    @staticmethod
+    def _cleanqdf(qdf):
+        columns = MPTReader.columns       
+        columns.extend(['x','y','z'])
+        lst = [l for l in qdf.columns if l not in columns]
+        return qdf.drop(lst, axis=1).set_index(['id'])
+    
+    def add(self, qdf, link=False):
+        """Add to dataframe to QM region"""
         
-    def add(self, selection, link=False):
-        """Add to QM region using selection langauage"""
-        # call the parse selection function
-        qdf = _qmhelper.parse_selec(selection, self.df)
-            
-        qdf.insert(2, 'link', [int(link)]*len(qdf)) # add a new column link which is integer of link argument
+        qdf = QM._cleanqdf(qdf)
+        
+        # add a new column link which is integer of link argument
+        qdf.insert(2, 'link', [int(link)]*len(qdf))
         
         # add qdf to self.qmatoms, append if already exists
         if self.qmatoms is None:
@@ -266,11 +276,35 @@ class QM(MD):
         else:
             self.qmatoms = self.qmatoms.append(qdf)
     
-    def delete(self, selection):
+    def openPyMol(self, launch=True, host='localhost', port=9123, gro=None, forceLocal=False, downloadTo='temp.gro'):
+        self.pymol = PyMol()
+        self.pymol.connect(launch, host, port)
+        gro = self.getcurrentNone(gro, 'gro')
+        self.pymol.loadCoords(gro, forceLocal, downloadTo)
+    
+    def getPyMolSele(self, pymol):
+        ids = self.pymol.cmd.get_model('sele', 1)
+        pymol_sele = pd.DataFrame(ids['atom']).drop(['q', 'formal_charge', 'flags', 'index', 'ss', 'text_type', 'numeric_type',\
+                             'vdw', 'hetatm'], axis=1)
+        x,y,z = list(zip(*pymol_sele[['coord']].apply(lambda x: x[0], axis=1)))
+        pymol_sele.insert(2, "x", x, True) 
+        pymol_sele.insert(2, "y", y, True) 
+        pymol_sele.insert(2, "z", z, True)
+        pymol_sele = pymol_sele.drop(['coord'], axis=1)
+        pymol_sele = pymol_sele.rename(columns={"name": "pm_name", "symbol": "pm_symbol", "resn": "pm_resn",\
+                               "resi_number": "pm_resi_number"})
+    
+        mpt_sele = self.mpt.selectAtoms(pymol_sele['id'])
+        
+        # TO DO: check if names/resname, etc. are same and issue warnings accordingly
+        
+        return mpt_sele.merge(pymol_sele, left_on='id', right_on='id').set_index(['id'])
+    
+    def delete(self, qdf):
         """Delete from QM region using selection langauage"""
-        remove = _qmhelper.parse_selec(selection, self.df)
+        qdf = QM._cleanqdf(qdf)
         # drop selection, ignore errors to ignore extra residues selected that are not present in self.qmatoms
-        self.qmatoms = self.qmatoms.drop(remove.index, errors='ignore')
+        self.qmatoms = self.qmatoms.drop(qdf.index, errors='ignore')
     
     def clear(self):
         """Empty the QM region to start over"""

@@ -15,6 +15,9 @@ def write(inp, out):
     pickle.dump(ap.mol_df, pkl)
     
 class Reader:
+    
+    columns = ['type	', 'resNo','resName','name','charge','element',	'mass',	'mol']
+    
     def __init__(self, file):
         pkl = gbl.host.open(file, 'rb') # open as bytes
         self.mpt = pickle.load(pkl) # unpickle
