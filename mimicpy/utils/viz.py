@@ -1,0 +1,2 @@
+class PyMol:
+	pass
