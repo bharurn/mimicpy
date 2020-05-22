@@ -51,8 +51,7 @@ class MM(BaseHandle):
         self.topol = "topol.top"
         self.mpt = "topol.mpt"
         self.preproc = "topol.pptop"
-        self.ions_mdp = "ions.mdp"
-        self.ions_tpr = "ions.tpr"
+        self.ions = "ions"
         
         self.protein = protein
     
@@ -159,7 +158,7 @@ class MM(BaseHandle):
         
         # add #include "ligands.itp" after #include "..../forcefield.itp"
         _global.host.run(r'sed -i -r "/^#include \".+.ff\/forcefield.itp\"/a #include \"ligands.itp\"" '+topol)
-        # SOL is in between protien and ligand in [ molecule ]
+        # SOL is in between protein and ligand in [ molecule ]
         # we need to remove that and add it to the end, to match pdb order
         _global.host.run('grep -v SOL topol.top > topol_.top && mv topol_.top '+topol)
         _global.host.run(f'echo SOL {self.protein.hoh_mols} >> '+topol)
@@ -183,20 +182,17 @@ class MM(BaseHandle):
         _global.logger.write('info', "Solvating box..")
         self.gmx('solvate', cp = self.conf1, o = self.conf2, p = self.topol, dirc=self.dir, **self._solavte_kwargs)
         
-        _global.host.write(str(genion_mdp), f'{self.dir}/{self.ions_mdp}')
-        
         _global.logger.write('info', "Adding ions to neutralize charge..")
-        self.gmx('grompp', f = self.ions_mdp, c = self.conf2, p = self.topol, o = self.ions_tpr, dirc=self.dir)
+        self.grompp(genion_mdp, self.ions, gro = self.conf2, pp = self.preproc, dirc=self.dir)
         
         # sent SOL to stdin, so gromacs replaces some SOL molecules with ions 
-        self.gmx('genion', s = self.ions_tpr, o = self.conf3, p = self.topol, pp = self.preproc,\
-                 dirc=self.dir, **self._ion_kwargs, stdin="SOL")
+        self.gmx('genion', s = self.ions_tpr, o = self.conf3, p = self.topol, dirc=self.dir, **self._ion_kwargs, stdin="SOL")
         
         _global.logger.write('info', 'Simulation box prepared..')
         
         self.saveToYaml()
     
-    def getTopology(self, genion_mdp= mdp.MDP.defaultGenion()):
+    def getTopology(self, genion_mdp=mdp.MDP.defaultGenion()):
         self._pdb2gmx()
         self._box(genion_mdp)
         
@@ -208,22 +204,22 @@ class MM(BaseHandle):
         
     
     def getMPT(self, nonstd_atm_types={}, preproc=None, mpt=None):
-        """Get the MPT topology, used in prepare.QM for systems where getTopology() was not run"""
+        """Get the MPT topology, used in prepare.QM"""
         
         # add reading elements from protein ligands
         
         pp = self.getcurrentNone(preproc, 'pptop')
         
-        if mpt == None: mpt = self.mpt # if no mpt file was passed, use default value
+        if mpt == None: mpt = f"{self.dir}/{self.mpt}" # if no mpt file was passed, use default value
         
-        mptwrite(pp, f"{self.dir}/{mpt}", nonstd_atm_types)
+        mptwrite(pp, mpt, nonstd_atm_types)
         
         self.saveToYaml()
         
-class QM(MD):
+class QM(BaseHandle):
     """
     Prepare QM input script, by reading MPT file
-    Allows for usage of human readble selection language to add atoms to QM section
+    Inherits from .core.base.BaseHandle
     
     """
     
@@ -241,7 +237,7 @@ class QM(MD):
         self.dir = 'prepareQM'
         self.index = 'index.ndx'
         self.preprc = 'processed.top'
-        self.mdp_tpr = 'mimic'
+        self.mimic = 'mimic'
     
     def add(self, qdf, link=False):
         """Add dataframe to QM region"""
@@ -314,7 +310,7 @@ class QM(MD):
         _global.host.write(_qmhelper.index(self.qmatoms.index, mdp.QMMM_grps), f'{dirc}/{self.index}')
         
         _global.logger.write('info', "Generating Gromacs tpr file for MiMiC run..")
-        self.grompp(mdp, f'{self.mdp_tpr}', gro=gro, n=self.index, dirc=dirc)
+        self.grompp(mdp, self.mimic, gro=gro, n=self.index, dirc=dirc)
         
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together
