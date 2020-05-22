@@ -1,3 +1,12 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains the helper functions for the ligand
+module to protonate ligands and convert sdf to pdf
+
+"""
+
 from . import _hndlpdb as hpdb
 from .._global import _Global as _global
 import re

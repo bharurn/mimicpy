@@ -1,3 +1,12 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains Shell class to take care of low level
+paramiko code for opening a remote shell and running commands
+
+"""
+
 from os.path import expanduser
 import time
 from ..utils.errors import MiMiCPyError, defaultHook

@@ -1,3 +1,11 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains NonStdLigand and StdLigand classes to load ligands and protnate/get topology
+
+"""
+
 from . import _addH, _getItp, _hndlpdb as hpdb
 from ..utils.fstring import f
 from .._global import _Global as _global

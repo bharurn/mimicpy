@@ -1,3 +1,13 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains the MDP class that
+allows for pythonic creation/manipulation of
+Gromacs MDP script
+
+"""
+
 from .base import Script
 
 class MDP(Script):

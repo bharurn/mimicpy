@@ -1,3 +1,12 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains the Logger, LogString and StdOut
+classes to allow for logging multiple streams and redirection
+
+"""
+
 import sys
 from .errors import MiMiCPyError
 

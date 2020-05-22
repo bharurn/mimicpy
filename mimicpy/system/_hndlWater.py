@@ -1,3 +1,12 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains the helper functions for the protein
+module to strip water molecules within a certain radius
+
+"""
+
 import numpy as np
 from . import _hndlpdb as hpdb
 

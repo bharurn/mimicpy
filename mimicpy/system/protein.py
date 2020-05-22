@@ -1,3 +1,12 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains the Protein class
+to handle proteins
+
+"""
+
 from . import ligand as lig, _hndlWater
 from . import _hndlpdb as hpdb
 from .._global import _Global as gbl

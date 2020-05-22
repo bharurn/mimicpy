@@ -1,3 +1,13 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains the helper functions for the ligand
+module to generate topology and position restratint information
+using the Generalized Amber Force Field (GAFF)
+
+"""
+
 from .._global import _Global as _global
 from ..utils.errors import ExecutionError
 

@@ -1,3 +1,11 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains functions to run commands on local shell
+
+"""
+
 import subprocess
 import os
 from ..utils.errors import defaultHook

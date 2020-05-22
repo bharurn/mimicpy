@@ -1,3 +1,12 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains the f function to simulate
+f-string behavior in python version 3.6-
+
+"""
+
 import inspect
 
 def f(s):

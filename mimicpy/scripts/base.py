@@ -1,3 +1,13 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains the Script class that serves
+as the base class for all other script. It takes care
+of assining parameters with the dot operator.
+
+"""
+
 from collections import OrderedDict 
 from ..utils.errors import ScriptError
 

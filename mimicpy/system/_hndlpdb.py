@@ -1,3 +1,12 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains the helper functions to efficiently
+handle pdb lines by converting them to a dictionary
+
+"""
+
 from ..utils.errors import ParserError
 
 keys = ['record', 'serial', 'name', 'altLoc', 'resName', 'chainID', 'resSeq', 'iCode', 'x', 'y', 'z',\

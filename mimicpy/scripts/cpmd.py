@@ -1,3 +1,12 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains the Section, Atom and Input classes that
+allows for pythonic creation/manipulation of CPMD scripts
+
+"""
+
 from collections import OrderedDict 
 from .base import Script
 

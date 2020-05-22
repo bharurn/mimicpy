@@ -1,3 +1,13 @@
+# This is part of MiMiCPy
+
+"""
+
+This module contains the Slurm class that
+allows for pythonic creation/manipulation of
+Slurm jobscripts
+
+"""
+
 from .base import Script
 from .._global import _Global as _global
 
