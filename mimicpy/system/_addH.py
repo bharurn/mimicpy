@@ -21,7 +21,7 @@ def _cleanPdb(sdf, pdb):
     no = -1
     resname = ""
     atm_names = [] # store atoms names
-    elems = [] # store element list for MiMiC
+    elems = [] # store element list for MPT
     for line in sdf.splitlines():
         if l_cnt == 3:
             no = int(line.split()[0])

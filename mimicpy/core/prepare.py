@@ -50,13 +50,11 @@ class MM(BaseHandle):
         self.conf3 = 'conf3.gro'
         self.topol = "topol.top"
         self.mpt = "topol.mpt"
+        self.preproc = "topol.pptop"
         self.ions_mdp = "ions.mdp"
         self.ions_tpr = "ions.tpr"
         
-        if protein:
-            # if protien was passed, automatically do everything
-            self.getTopology(protein)
-            self.getBox()
+        self.protein = protein
     
     def topolParams(self, **kwargs):
         """
@@ -77,16 +75,16 @@ class MM(BaseHandle):
         
         self._topol_kwargs = kwargs # set custom topol kwargs
         
-    def getTopology(self, protein):
+    def _pdb2gmx(self):
         """Runs gmx pdb2gmx for pure protien, and adds ligands/waters to pdb and .top in the right order"""
         
         self.setcurrent(key='prepMM') # set the current prepMM directory to self.dir in _status dict
         
         _global.logger.write('info', 'Preparing protein topology..')
         
-        _global.logger.write('debug2', f"Writing {protein.name} to {self.confin}..")
+        _global.logger.write('debug2', f"Writing {self.protein.name} to {self.confin}..")
         
-        _global.host.write(protein.pdb+protein.water, f'{self.dir}/{self.confin}')
+        _global.host.write(self.protein.pdb+self.protein.water, f'{self.dir}/{self.confin}')
         
         _global.logger.write('info', 'Calculating protein topology')
         
@@ -120,7 +118,7 @@ class MM(BaseHandle):
         
         _global.logger.write('info', "Combining ligand structure and topology with protein..")
         # combine protein, ligand and water in that order, so that gromacs doesn't complain about order
-        conf_pdb = '\n'.join(splt[:len(splt)-i]) + '\n' + protein.ligand_pdb + '\n'.join(lines[::-1])
+        conf_pdb = '\n'.join(splt[:len(splt)-i]) + '\n' + self.protein.ligand_pdb + '\n'.join(lines[::-1])
         
         _global.host.write(conf_pdb, conf)
         
@@ -136,13 +134,13 @@ class MM(BaseHandle):
         ######
         
         # init atomtypes section of itp
-        top1 = (f"; Topology data for all non-standard resiudes in {protein.name} created by MiMiCPy\n"
+        top1 = (f"; Topology data for all non-standard resiudes in {self.protein.name} created by MiMiCPy\n"
             "; AmberTools was used to generate topolgy parameter for Amber Force Field, conversion to GMX done using Acpype"
                     "\n\n[ atomtypes ]\n")
         top2 = '' # init rest of itp
         
         _global.logger.write('debug2', "Combining ligands topology into single file ligands.itp..")
-        for ligname, lig in protein.ligands.items():
+        for ligname, lig in self.protein.ligands.items():
             t1, t2 = lig.splitItp() # splits ligand itp into contents of [ atomtypes ], and eveything else
 	
             top1 += t1 # update atomtypes section
@@ -164,7 +162,7 @@ class MM(BaseHandle):
         # SOL is in between protien and ligand in [ molecule ]
         # we need to remove that and add it to the end, to match pdb order
         _global.host.run('grep -v SOL topol.top > topol_.top && mv topol_.top '+topol)
-        _global.host.run(f'echo SOL {protein.hoh_mols} >> '+topol)
+        _global.host.run(f'echo SOL {self.protein.hoh_mols} >> '+topol)
         _global.logger.write('debug', "ligands.itp added to topol.top")
         
         _global.logger.write('info', 'Topology prepared..')
@@ -175,7 +173,7 @@ class MM(BaseHandle):
     def boxParams(self, **kwargs): self._box_kwargs = kwargs
     def solvateParams(self, **kwargs): self._solavte_kwargs = kwargs
     
-    def getBox(self, genion_mdp = mdp.MDP.defaultGenion()):
+    def _box(self, genion_mdp):
         """Run gmx editconf, gmx solvate, gmx grompp and gmx genion in that order"""
         
         _global.logger.write('info', "Preparing system box..")
@@ -196,20 +194,31 @@ class MM(BaseHandle):
         
         _global.logger.write('info', 'Simulation box prepared..')
         
-        self.getMPT()
-        
         self.saveToYaml()
     
-    def getMPT(self, preproc=None, mpt=None):
+    def getTopology(self, genion_mdp= mdp.MDP.defaultGenion()):
+        self._pdb2gmx()
+        self._box(genion_mdp)
+        
+        nonstd_atm_types = {}
+        for ligname, lig in self.protein.ligands.items():
+            nonstd_atm_types.update( dict(zip(lig.atm_types, lig.elems)) )
+        
+        self.getMPT(nonstd_atm_types)
+        
+    
+    def getMPT(self, nonstd_atm_types={}, preproc=None, mpt=None):
         """Get the MPT topology, used in prepare.QM for systems where getTopology() was not run"""
         
         # add reading elements from protein ligands
         
-        pp = self.getcurrentNone(preproc, 'preproc')
+        pp = self.getcurrentNone(preproc, 'pptop')
         
         if mpt == None: mpt = self.mpt # if no mpt file was passed, use default value
         
-        mptwrite(pp, f"{self.dir}/{mpt}")
+        mptwrite(pp, f"{self.dir}/{mpt}", nonstd_atm_types)
+        
+        self.saveToYaml()
         
 class QM(MD):
     """

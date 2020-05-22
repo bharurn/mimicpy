@@ -3,15 +3,16 @@ from .._global import _Global as gbl
 from . import _mpt_writer
 import pandas as pd
 
-def write(inp, out):
+def write(inp, out, nonstd_atm_types={}, buff=1000):
     tail = gbl.host.run(f'tail -n 30 {inp}')
     mols = _mpt_writer.molecules(tail)
         
     file = gbl.host.open(inp, 'rb')
-    atm_types_to_symb = _mpt_writer.atomtypes(file)
+    atm_types_to_symb = _mpt_writer.atomtypes(file, buff)
     # extend atm_types_to_symb with nonstdligands
     # should be dict of atom type --> symb
-    ap = _mpt_writer.AtomsParser(file, mols, atm_types_to_symb)
+    atm_types_to_symb.extend(nonstd_atm_types)
+    ap = _mpt_writer.AtomsParser(file, mols, atm_types_to_symb, buff)
     
     pkl = gbl.host.open(out, 'wb')
     pickle.dump(ap.mol_df, pkl)

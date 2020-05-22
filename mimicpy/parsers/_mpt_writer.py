@@ -21,10 +21,10 @@ def molecules(tail):
             
     return OrderedDict(list(_mols.items())[::-1])
     
-def atomtypes(f):
+def atomtypes(f, buff):
     atomtypes = ''
     while True:
-        s = f.read(1000).decode()
+        s = f.read(buff).decode()
         atomtypes += s
         if isSection('bondtypes', s): break
         
@@ -39,7 +39,11 @@ def atomtypes(f):
                 start = False
             elif not line.startswith(';') and line.strip() != '': # ignore comments and null lines
                 e = line.split()[0] # first val is atom type
-                n = int(line.split()[1])-1 # second is element no.
+                _n = line.split()[1]
+                
+                if not _n.isnumeric(): continue # check just in case
+                else: n = int(_n)-1 # second is element no.
+                
                 if n == -1: continue # dummy masses, skip for now
                 atm_types_to_symb[e]  = element_names[n] # fill up at
     
@@ -48,12 +52,12 @@ def atomtypes(f):
 
 class AtomsParser:
 
-    def parseAtoms(self):
+    def parseAtoms(self, buff):
         start = False
         atoms = ''
         end = ['bonds']
         while True:
-            s = self.f.read(1000).decode()
+            s = self.f.read(buff).decode()
             if isSection('moleculetype', s):
                 start = True
             if start:    
@@ -98,10 +102,16 @@ class AtomsParser:
                 df_['resName'].append(res)
                 df_['name'].append(name)
                 df_['charge'].append(float(q))
-                df_['element'].append(self.atm_types_to_symb[_type])
+                
+                if _type in self.atm_types_to_symb:
+                    elem = self.atm_types_to_symb[_type]
+                else:
+                    elem = ''
+                
+                df_['element'].append(elem)
                 df_['mass'].append(mass)
     
-    def __init__(self, f, mols, atm_types_to_symb):
+    def __init__(self, f, mols, atm_types_to_symb, buff):
         self.f = f
         self.atm_types_to_symb = atm_types_to_symb
         # mol_name: (no. of mols, no. of atoms in one mol, no. of atoms before mol, df)
@@ -109,4 +119,4 @@ class AtomsParser:
         self.natms = 0
         
         while any(m[3].empty for k,m in self.mol_df.items()): 
-            self.parseAtoms()
+            self.parseAtoms(buff)
