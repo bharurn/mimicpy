@@ -13,8 +13,9 @@ from .base import BaseHandle
 from .simulate import MD
 from .._global import _Global as _global
 from . import _qmhelper
-from ..parsers.mpt import Reader as MPTReader
-from ..utils.constants import hartree_to_ps
+from ..parsers.mpt import Reader as MPTReader, write as mptwrite
+from ..parsers import gro as GROReader
+from ..utils.constants import hartree_to_ps, bohr_rad
 from ..scripts import cpmd
 from ..utils.viz import PyMol
 from collections import defaultdict
@@ -106,12 +107,9 @@ class MM(BaseHandle):
         ######
         # Followinng section reads output of pdb2gmx, which contains only protein+water residues
         # extracts crystal structure water residues
-        # writes only protein residues to MPT row by row
-        # read ligand pdb and adds that to MPT
         # combine protine residues+ligand+water (IN THAT ORDER!!) are rewrite output of pdb2gmx
         ######
         lines = []
-        mpt = _mpt_helper.MPTWriter()
         splt = pdb.splitlines()
         for i, line in enumerate(splt[::-1]):
             vals = hpdb.readLine(line) # parse PDB using system._hndlpdb functions
@@ -119,18 +117,7 @@ class MM(BaseHandle):
                 lines.append(line) 
             elif vals['record'] == 'HETATM' or vals['record'] == 'ATOM':
                 if vals['resName'] == 'HOH': lines.append(line)
-                else:
-                    #create topology dataframe
-                    mpt.write_row(vals)
         
-        # read ligand pdb data and put into mpt
-        for l in protein.ligand_pdb.splitlines():
-            #TO DO: edit resno of ligand to match rest of pdb
-            # not imp for gromacs but imp when saving as mpt
-            mpt.write_row(hpdb.readLine(line))
-        
-        mpt.write(self.mpt, self.dir)
-
         _global.logger.write('info', "Combining ligand structure and topology with protein..")
         # combine protein, ligand and water in that order, so that gromacs doesn't complain about order
         conf_pdb = '\n'.join(splt[:len(splt)-i]) + '\n' + protein.ligand_pdb + '\n'.join(lines[::-1])
@@ -204,33 +191,25 @@ class MM(BaseHandle):
         self.gmx('grompp', f = self.ions_mdp, c = self.conf2, p = self.topol, o = self.ions_tpr, dirc=self.dir)
         
         # sent SOL to stdin, so gromacs replaces some SOL molecules with ions 
-        self.gmx('genion', s = self.ions_tpr, o = self.conf3, p = self.topol, dirc=self.dir, **self._ion_kwargs, stdin="SOL")
+        self.gmx('genion', s = self.ions_tpr, o = self.conf3, p = self.topol, pp = self.preproc,\
+                 dirc=self.dir, **self._ion_kwargs, stdin="SOL")
         
         _global.logger.write('info', 'Simulation box prepared..')
         
+        self.getMPT()
+        
         self.saveToYaml()
     
-    def getMPT(self, pdb=None, mpt=None):
+    def getMPT(self, preproc=None, mpt=None):
         """Get the MPT topology, used in prepare.QM for systems where getTopology() was not run"""
         
-        # Related to Issue 1: thsi reads whole PDB including water in one shot
-        # very slow, change!!
+        # add reading elements from protein ligands
         
-        # assume pdb has protein and ligand info
-        pdb = self.getcurrentNone(pdb, 'pdb')
-        pdb_data = _global.host.read(pdb)
-        
-        mpt = _mpt_helper.MPTWriter()
-        splt = pdb_data.splitlines()
-        for line in splt:
-            vals = hpdb.readLine(line)
-            if vals['record'] == 'HETATM' or vals['record'] == 'ATOM':
-                if vals['resName'] == 'HOH' or vals['resName'] == 'SOL': break
-                else: mpt.write_row(vals)
+        pp = self.getcurrentNone(preproc, 'preproc')
         
         if mpt == None: mpt = self.mpt # if no mpt file was passed, use default value
         
-        mpt.write(self.mpt, self.dir)
+        mptwrite(pp, f"{self.dir}/{mpt}")
         
 class QM(MD):
     """
@@ -239,7 +218,7 @@ class QM(MD):
     
     """
     
-    def __init__(self, status=defaultdict(list), mpt=None, coords=None):
+    def __init__(self, status=defaultdict(list), mpt=None):
         """Class constructor"""
         
         super().__init__(status) # call BaseHandle.__init__() to init status dict
@@ -255,17 +234,10 @@ class QM(MD):
         self.preprc = 'processed.top'
         self.mdp_tpr = 'mimic'
     
-    @staticmethod
-    def _cleanqdf(qdf):
-        columns = MPTReader.columns       
-        columns.extend(['x','y','z'])
-        lst = [l for l in qdf.columns if l not in columns]
-        return qdf.drop(lst, axis=1).set_index(['id'])
-    
     def add(self, qdf, link=False):
-        """Add to dataframe to QM region"""
+        """Add dataframe to QM region"""
         
-        qdf = QM._cleanqdf(qdf)
+        qdf = _qmhelper._cleanqdf(qdf)
         
         # add a new column link which is integer of link argument
         qdf.insert(2, 'link', [int(link)]*len(qdf))
@@ -276,16 +248,16 @@ class QM(MD):
         else:
             self.qmatoms = self.qmatoms.append(qdf)
     
-    def openPyMol(self, launch=True, host='localhost', port=9123, gro=None, forceLocal=False, downloadTo='temp.gro'):
+    def openPyMol(self, launch=True, host='localhost', port=9123, load=True, gro=None, forceLocal=False, downloadTo='temp.gro'):
         self.pymol = PyMol()
         self.pymol.connect(launch, host, port)
-        gro = self.getcurrentNone(gro, 'gro')
-        self.pymol.loadCoords(gro, forceLocal, downloadTo)
+        if load:
+            gro = self.getcurrentNone(gro, 'gro')
+            self.pymol.loadCoords(gro, forceLocal, downloadTo)
     
-    def getPyMolSele(self, pymol):
+    def getPyMolSele(self):
         ids = self.pymol.cmd.get_model('sele', 1)
-        pymol_sele = pd.DataFrame(ids['atom']).drop(['q', 'formal_charge', 'flags', 'index', 'ss', 'text_type', 'numeric_type',\
-                             'vdw', 'hetatm'], axis=1)
+        pymol_sele = pd.DataFrame(ids['atom'])
         x,y,z = list(zip(*pymol_sele[['coord']].apply(lambda x: x[0], axis=1)))
         pymol_sele.insert(2, "x", x, True) 
         pymol_sele.insert(2, "y", y, True) 
@@ -310,14 +282,15 @@ class QM(MD):
         """Empty the QM region to start over"""
         self.qmatoms = None
     
-    def getInp(self, mdp, inp=cpmd.Input()):
+    def getInp(self, mdp, gro=None, inp=cpmd.Input()):
         """
         Create the QM region from the atoms added
         Steps done:
             Set integrator to mimic, and QMMM_grps to QMatoms in mdp script
             Writes index files of atoms in QM region with name QMatoms
-            Run gmx grompp to get mimic.tpr and processed.top
-            Read processed.top to fill in missing element symbols and all charge info
+            Run gmx grompp to get mimic.tpr
+            Sort self.qmatoms by link and elements
+            Read element symbols and all charge info from self.qmatoms
             Add MIMIC, SYSTEM section of CPMD script
             Add all atoms to CPMD script
         """
@@ -332,28 +305,7 @@ class QM(MD):
         _global.host.write(_qmhelper.index(self.qmatoms.index, mdp.QMMM_grps), f'{dirc}/{self.index}')
         
         _global.logger.write('info', "Generating Gromacs tpr file for MiMiC run..")
-        self.grompp(mdp, f'{self.mdp_tpr}', pp=self.preprc, n=self.index, dirc=dirc)
-        
-        unk_lst = self.qmatoms[self.qmatoms['element'].apply(lambda x: False if x.strip() != '' else True)]['name'].to_list()
-        
-        _global.logger.write('debug', "Reading force field data to fill in charges and missing atomic symbol information..")
-        # the full processed.top file is loaded into memory for fast manipulation, may not be feasible for large files
-        conv, q_conv = _qmhelper.pptop(unk_lst, self.qmatoms['name'].to_list(), \
-                                       _global.host.read(f'{dirc}/{self.preprc}') ) # read element conv and charge conv
-        # element conv: dict of atom names -> element symbols, q cond: dict of atom names -> charge
-       
-        # iterate through df to combine name & element, get charges for each name also
-        # pass lambda to df.apply to run lambda for each row
-        # lambda returns a tuple of (elem_symbol, charge) for each row
-        # which apply returns as a list of tuples, we then use zip() to get it as two sepearte lists
-        # logic of lambda: if element column is empty: then return conv[atom_name] for element name, else just return element name
-        elems, q = zip(*self.qmatoms[['name', 'element']].apply(\
-                       lambda x: (x[1], q_conv[x[0]]) if x[1].strip() != '' else (conv[x[0]], q_conv[x[0]]), axis=1))
-        
-        # we cannot edit self.qmatoms directly, as pandas complains
-        # so do it in round out way, we only assign elements, as only sum(q) is needed
-        qm_df = self.qmatoms.assign(element=elems)
-        self.qmatoms = qm_df # reassign it to original df
+        self.grompp(mdp, f'{self.mdp_tpr}', gro=gro, n=self.index, dirc=dirc)
         
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together
@@ -363,11 +315,12 @@ class QM(MD):
         _global.logger.write('info', "Creating CPMD input script..")
         inp.mimic = cpmd.Section()
         inp.mimic.paths = "1\n---" #path will be set in MiMiC run function
-        inp.mimic.box = '  '.join([str(s) for s in self._mm_box])
+        mm_box = GROReader.getBox(self.getcurrentNone(gro, 'gro'))
+        inp.mimic.box = '  '.join([str(s/bohr_rad) for s in mm_box])
         
         inp = _qmhelper.getOverlaps_Atoms(self.qmatoms, inp) # get the overlaps and add atoms section of inp
         
-        inp.system.charge = round(sum(q), 1) # system section already created in getQverlap_Atoms()
+        inp.system.charge = round(sum(self.qmatoms['charge']), 1) # system section already created in getQverlap_Atoms()
         # TO DO: give option of changing round off precision
         
         # set cpmd section
