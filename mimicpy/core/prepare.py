@@ -201,7 +201,6 @@ class MM(BaseHandle):
             nonstd_atm_types.update( dict(zip(lig.atm_types, lig.elems)) )
         
         self.getMPT(nonstd_atm_types)
-        
     
     def getMPT(self, nonstd_atm_types={}, preproc=None, mpt=None):
         """Get the MPT topology, used in prepare.QM"""
@@ -263,7 +262,8 @@ class QM(BaseHandle):
     def getPyMolSele(self):
         ids = self.pymol.cmd.get_model('sele', 1)
         pymol_sele = pd.DataFrame(ids['atom'])
-        x,y,z = list(zip(*pymol_sele[['coord']].apply(lambda x: x[0], axis=1)))
+        # extract coordinates and covert from ang to nm
+        x,y,z = list(zip(*pymol_sele[['coord']].apply(lambda x: [i/10 for i in x[0]], axis=1)))
         pymol_sele.insert(2, "x", x, True) 
         pymol_sele.insert(2, "y", y, True) 
         pymol_sele.insert(2, "z", z, True)
