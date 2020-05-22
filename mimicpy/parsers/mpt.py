@@ -1,6 +1,7 @@
 import pickle
 from .._global import _Global as gbl
 from . import _mpt_writer
+import pandas as pd
 
 def write(inp, out):
     tail = gbl.host.run(f'tail -n 30 {inp}')
@@ -19,12 +20,29 @@ class Reader:
         self.mpt = pickle.load(pkl) # unpickle
         pkl.close()
     
-    def selectAtom(self, idx, mol=None):
-        if mol:
-            df = self.mpt[mol]
-            return df[idx]
-        else:
+    def selectAtom(self, idx, mol=None, relative=False):
+        orig_id = idx
+        if not mol:
+            mol = ''
             for k,v in self.mpt.items():
-                if idx > v[2]: continue
-                else:
-                    return df[idx]
+                if idx <= v[2]: break
+                else: mol = k 
+        
+        df = self.mpt[mol][3]
+        if not relative:
+            atms_before = self.mpt[mol][2]
+            idx = idx-atms_before
+        
+        natms = self.mpt[mol][1]
+        
+        if idx > natms:
+            idx = idx%natms
+            if idx == 0:
+                idx = natms
+        
+        srs = df.loc[idx]
+        return srs.append(pd.Series({'mol':mol, 'id':orig_id}))
+    
+    def selectAtoms(self, ids):
+        s = [self.selectAtom(i) for i in ids]
+        return pd.concat(s, axis=1).T
