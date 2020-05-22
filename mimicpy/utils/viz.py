@@ -27,7 +27,7 @@ class PyMol:
             print('Cannot connect to PyMol at host {host} and port {port}!')
     
     def loadCoords(self, gro, forceLocal=False, downloadTo='temp.gro'):
-        if not gbl.host.isLocal and not forceLocal:
+        if not gbl.host.isLocal() and not forceLocal:
             gbl.host.sftp.get(gro, downloadTo)
             gro = downloadTo
         

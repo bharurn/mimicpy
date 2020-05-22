@@ -9,6 +9,8 @@ def write(inp, out):
         
     file = gbl.host.open(inp, 'rb')
     atm_types_to_symb = _mpt_writer.atomtypes(file)
+    # extend atm_types_to_symb with nonstdligands
+    # should be dict of atom type --> symb
     ap = _mpt_writer.AtomsParser(file, mols, atm_types_to_symb)
     
     pkl = gbl.host.open(out, 'wb')
