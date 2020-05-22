@@ -7,13 +7,13 @@ MM topology, MPT and QM region/CPMD script
 
 """
 
-from ..parser import pdb as hpdb
+from ..parsers import pdb as hpdb
 from ..scripts import mdp
 from .base import BaseHandle
 from .simulate import MD
 from .._global import _Global as _global
 from . import _qmhelper, _mpt_helper
-from ._constants import hartree_to_ps
+from ..utils.constants import hartree_to_ps
 from ..scripts import cpmd
 from collections import defaultdict
 

@@ -10,7 +10,7 @@ to handle MPT files
 from .._global import _Global as _global
 import re
 import pandas as pd
-from ._constants import bohr_rad
+from ..utils.constants import bohr_rad
 import pickle
 from ..utils.errors import ParserError, asserter
 

@@ -7,10 +7,9 @@ pptop() and getOverlaps_Atoms() adapted from the prepare_qmmm python script by V
 
 """
 
-from ._constants import  element_names
+from ..utils.constants import  element_names, bohr_rad
 from ..scripts.cpmd import Atom
 from collections import OrderedDict 
-from ._constants import bohr_rad
 from ..scripts import cpmd
 from .._global import _Global as gbl
 
