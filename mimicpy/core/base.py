@@ -150,7 +150,7 @@ class BaseHandle:
         defaultHook(cmd, text) # call defaultHook to look for stupid errors
         
         # write log
-        self.logger.write('log', f"============Running {cmd}============\n")
+        self.logger.write('log', f"==>Command Run: {cmd}\n")
         self.logger.write('log', text)
         
         self._gmxerrhdnl(cmd, text) # check for errors
