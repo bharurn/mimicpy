@@ -26,9 +26,9 @@ class BaseHandle:
         if not status:
             status = {'prepMM': '', 'prepQM': '', 'run': ['']}
         self._status = status # init _status
-        self.log = LogString() # log string of standard ouput from all gxm commands
+        self.log = LogString() # log string of standard ouput from all gmx commands
         # init logger with gmx log string, and notes redirected to stdout
-        self.logger = Logger(log=_global.host.open('gmx.log', 'w'), notes=sys.stdout)
+        self.logger = Logger(log=self.log, notes=sys.stdout)
         self.current_cmd = 'gmx'
     
     def getcurrent(self, ext, level=False, exp=True):
@@ -73,7 +73,21 @@ class BaseHandle:
             return file
         else:
             return self.getcurrent(ext, level, exp)
+    
+    def gethistory(self, ext):
+        _dir = _global.host.pwd()+'/' # get cwd
         
+        lst = []
+        run =  [self._status['prepMM'], self._status['prepQM']] + self._status['run']
+        
+        for i,d in enumerate(run[::-1]): # loop in reverse, latests to earliest
+            ret = BaseHandle._getFile(d, ext)
+            
+            if ret != None: # if we got a file, return it, else continue with next directory
+                lst.append(_dir+ret)
+        
+        return lst
+    
     @staticmethod
     def _getFile(dirc, ext):
         """Finds file in dirc folder with extension ext"""
