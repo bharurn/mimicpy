@@ -51,7 +51,7 @@ class LogString:
     def flush(self):
         pass
     
-    def close():
+    def close(self):
         pass
     
     def __str__(self):
@@ -62,7 +62,7 @@ class LogString:
     
 class StdOut:
     def write(self, s):
-        sys.stdout.write(s)
+        print(s, end='')
     
     def flush(self):
         pass
