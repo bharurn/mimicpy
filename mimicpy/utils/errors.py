@@ -62,11 +62,12 @@ class EnvNotSetError(MiMiCPyError):
     Raised when an enviornment path requested by
     MiMiCPy is not set
     """
-    def __init__(self, cmd, msg):
-        self.msg = msg
+    def __init__(self, env, cmd):
+        self.env = env
+        self.cmd = cmd
         
     def __str__(self):
-        return f"{self.cmd} not set! Please set it in host.{self.msg}"
+        return f"{self.env} not set! Please set it with the keyword {self.cmd}."
 
 class ScriptError(MiMiCPyError):
     """
