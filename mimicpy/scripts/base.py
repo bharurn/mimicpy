@@ -40,3 +40,5 @@ class Script(object):
             return False
     
     def params(self): return self.__orddict__
+    
+    def __repr__(self): return self.__str__()

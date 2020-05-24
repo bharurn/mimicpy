@@ -50,6 +50,9 @@ class LogString:
     def __str__(self):
         return self.val
     
+    def __repr__(self):
+        return self.val
+    
 class StdOut:
     def write(self, s):
         sys.stdout.write(s)
