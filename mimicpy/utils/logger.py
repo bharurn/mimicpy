@@ -13,7 +13,14 @@ from .errors import MiMiCPyError
 class Logger:
     def __init__(self, **kwargs):
        
-        self.kwargs = kwargs
+        self.kwargs = list(kwargs.keys())
+        
+        for k,v in kwargs.items():
+            setattr(self, k, v)
+    
+    def add(self, **kwargs):
+       
+        self.kwargs.extend(list(kwargs.keys()))
         
         for k,v in kwargs.items():
             setattr(self, k, v)
