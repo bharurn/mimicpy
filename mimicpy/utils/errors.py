@@ -81,7 +81,8 @@ class ScriptError(MiMiCPyError):
 
 def defaultHook(cmd, out):
     """Default error checking hook called by host"""
-    if 'error' in out.lower() or 'not recognisable' in out.lower(): raise ExecutionError(cmd.split(';')[-1], out)
+    if 'error' in out.lower() or 'not recognisable' in out.lower() or 'not found' in out.lower():
+        raise ExecutionError(cmd.split(';')[-1], out)
     
 def asserter(boolean, error, *args, **kwargs):
     """Custom assert to raise custom errors"""
