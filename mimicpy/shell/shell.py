@@ -36,7 +36,7 @@ class Base():
             if ret == 1: # dir doesn't exist and was created by cd()
                 _gbl.logger.write('debug', f"{directory} not found, creating new directory..")
             # if ret == 0: --> dir already exists
-            _gbl.logger.write('debug', f"Setting current directory to {directory}..")
+            _gbl.logger.write('debug', f"Setting current working directory to {self.pwd()}..")
         
         self.loaders = [] # list of loaders
         self.loader_str = '' # stringified version of loaders list
