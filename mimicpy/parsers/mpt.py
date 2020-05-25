@@ -41,10 +41,14 @@ class Reader:
         
         natms = self.mpt[mol][1]
         
-        if idx > natms:
-            idx = idx%natms
-            if idx == 0:
-                idx = natms
+        if natms > 1:
+            idx -= 1
+            col = idx % natms
+            idx = col+1
+        #if idx > natms:
+        #    idx = idx%natms
+        #    if idx == 0:
+        #        idx = natms
         
         srs = df.loc[idx]
         return srs.append(pd.Series({'mol':mol, 'id':orig_id}))
