@@ -8,7 +8,7 @@ module to strip water molecules within a certain radius
 """
 
 import numpy as np
-from . import _hndlpdb as hpdb
+from ..parsers import pdb as hpdb
 
 def _getSphere(coords):
     center = coords.mean(0)

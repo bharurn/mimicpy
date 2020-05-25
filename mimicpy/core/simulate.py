@@ -93,48 +93,6 @@ class MD(BaseHandle):
         self.saveToYaml()
         return out
         
-        
-    def grompp(self, mdp, new, **kwargs):
-        """
-        Writes mdp to MDP file
-        Finds latest gro/trr, and top
-        Execute gmx grompp
-        """
-        new = new.lower().replace(' ', '_')
-        # write mdp file into folder dirc
-        if 'dirc' in kwargs:
-            mdp_file = f'{kwargs["dirc"]}/{new}.mdp'
-            # don't delete kwargs['dirc'], it should be passed to gmx
-        else:
-            mdp_file = f'{new}.mdp'
-        _global.host.write(str(mdp), mdp_file)
-        
-        # a custom gro/trr file can be passed to grompp
-        if 'gro' in kwargs:
-            gro_file = kwargs['gro']
-            del kwargs['gro']
-        elif 'trr' in kwargs:
-            trr_file = kwargs['trr']
-            del kwargs['trr']
-        
-        # if no custom file is passed, search for it in folders
-        gro = self.getcurrentNone(gro_file, 'gro', level=True, exp=False)
-        trr = self.getcurrentNone(trr_file, 'trr', level=True, exp=False)
-        
-        if gro == None and trr ==  None:
-            raise MiMiCPyError("No coordinate data (gro/trr file) was found..")
-        
-        if trr != None: # if both gro and trr were found
-            if gro[0] < trr[0]: # find the latest one, and run grompp accordingly
-                self.gmx('grompp', f = f'{new}.mdp', c = gro[1],\
-                     p = self.getcurrent('top'), o = f"{new}.tpr", **kwargs)
-            else:
-                self.gmx('grompp', f = f'{new}.mdp', c = gro[1],\
-                     p = self.getcurrent('top'), t=trr[1], o = f"{new}.tpr", **kwargs)
-        else: # otherwise, just use the gro file
-            self.gmx('grompp', f = f'{new}.mdp', c = gro[1],\
-                     p = self.getcurrent('top'), o = f"{new}.tpr", **kwargs)
-        
     def run(self, mdp, **kwargs):
         """
         Wrapper around gromp() and mdrun()

@@ -7,7 +7,7 @@ adapted from the prepare_qmmm python script by Viacheslav Bolnykh
 
 """
 
-bohr_rad = 0.0529177210859 # convert lengths to a.u.
+bohr_rad = 0.0529177210859 # convert nm to a.u.
 
 hartree_to_ps = 2.4188843265857e-5 # convert time to a.u
 

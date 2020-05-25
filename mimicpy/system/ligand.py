@@ -6,20 +6,22 @@ This module contains NonStdLigand and StdLigand classes to load ligands and prot
 
 """
 
-from . import _addH, _getItp, _hndlpdb as hpdb
+from ..parsers import pdb as hpdb
+from . import _addH, _getItp
 from ..utils.fstring import f
 from .._global import _Global as _global
 from ..utils.errors import EnvNotSetError
 
 class NonStdLigand: 
     
-    def __init__(self, pdb, itp, posre, chains, name, elems):
+    def __init__(self, pdb, itp, posre, chains, name, elems, atm_types):
         self.pdb = pdb
         self.itp = itp
         self.posre = posre
         self.chains = chains
         self.name = name
-        self.elems = elems # for MiMiC
+        self.elems = elems # for MPT
+        self.atm_types = atm_types # for MPT
     
     def splitItp(self):
         start = False
@@ -84,9 +86,9 @@ class NonStdLigand:
     def _load(cls, mol, pH, prep2pdb):
         pdb, chains, mol_name, elems = _addH.do(mol, pH)
         
-        itp, posre = _getItp.do(mol_name, prep2pdb)
+        itp, posre, atm_types = _getItp.do(mol_name, prep2pdb)
         
-        lig = cls(pdb, itp, posre, chains, mol_name, elems)
+        lig = cls(pdb, itp, posre, chains, mol_name, elems, atm_types)
         
         lig._matchpdb2itp()
         
@@ -152,7 +154,7 @@ class StdLigand(NonStdLigand):
         
         pdb, chains, mol_name, elems = _addH.donoH(mol)
         
-        return cls(pdb, "", "", chains, mol_name, elems)
+        return cls(pdb, "", "", chains, mol_name, elems, {})
     
     @classmethod 
     def fromFile(cls, file):
@@ -164,5 +166,5 @@ class StdLigand(NonStdLigand):
         
         pdb, chains, mol_name, elems = _addH.donoH(mol)
         
-        return cls(pdb, "", "", chains, mol_name, elems)
+        return cls(pdb, "", "", chains, mol_name, elems, {})
     

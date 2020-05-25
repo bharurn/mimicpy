@@ -29,6 +29,8 @@ def _cleanItp(itp, mol):
     
     hvy = []
     
+    atm_types = [] # store atom types for MPR
+    
     for line in itp.splitlines()[1:]:
     
         if "[ atomtypes ]" in line:
@@ -38,8 +40,9 @@ def _cleanItp(itp, mol):
                 atomtypes = False
             elif not line.strip()[0] == ';': # if line is not comment
                 splt = line.split() # split line
-                #and stich it back together with splt[0] and splt[1], which are the atom names
-                #repalced by $1_atom-names
+                #and stich it back together with splt[0] and splt[1], which are the atom types
+                #repalced by mol_atom-type
+                atm_types.append(mol_ + splt[0])
                 line = ' '+ mol_ + splt[0] + ' '*7 + mol_ + splt[1] + line[12:]
             
         if "[ atoms ]" in line:
@@ -63,7 +66,7 @@ def _cleanItp(itp, mol):
         if notwrite == False:
             itp_str += line+'\n' # collate line into itp_string
  
-    return itp_str, hvy
+    return itp_str, hvy, atm_types
 
 def _getposre(hvy):
     posre = "[ position_restraints ]"
@@ -131,13 +134,13 @@ def do(mol, conv):
     itp = _global.host.read(f'{mol}_GMX.top')
     
     _global.logger.write('debug', "Renaming atoms to avoid conflict..")
-    itp, hvy = _cleanItp(itp, mol) # rename atoms, remove uneeded sections, get list of heavy atoms for posre
+    itp, hvy, atm_types = _cleanItp(itp, mol) # rename atoms, remove uneeded sections, get list of heavy atoms for posre
     
     _global.logger.write('debug', "Writing position restraint data..")
     posre = _getposre(hvy)
     
     itp += f'\n; Include Position restraint file\n#ifdef POSRES\n#include "posre_{mol}.itp"\n#endif'
     
-    return itp, posre
+    return itp, posre, atm_types
 
     

@@ -7,7 +7,7 @@ module to protonate ligands and convert sdf to pdf
 
 """
 
-from . import _hndlpdb as hpdb
+from ..parsers import pdb as hpdb
 from .._global import _Global as _global
 import re
 from ..utils.errors import ExecutionError
@@ -21,7 +21,7 @@ def _cleanPdb(sdf, pdb):
     no = -1
     resname = ""
     atm_names = [] # store atoms names
-    elems = [] # store element list for MiMiC
+    elems = [] # store element list for MPT
     for line in sdf.splitlines():
         if l_cnt == 3:
             no = int(line.split()[0])
