@@ -51,6 +51,9 @@ def atomtypes(f, buff):
 
 
 class AtomsParser:
+    
+    columns = ['number', 'type', 'resid','resname','name', 'charge','element',	'mass']
+    
 
     def parseAtoms(self, buff):
         start = False
@@ -68,7 +71,7 @@ class AtomsParser:
                 if s == '':
                     break
         
-        df_ = {'number':[], 'type':[], 'resNo':[], 'resName':[], 'name':[], 'charge':[], 'element':[], 'mass':[]}
+        df_ = {k:[] for k in AtomsParser.columns}
         start = False
         mol = ''
         end.append('moleculetype')
@@ -96,20 +99,23 @@ class AtomsParser:
                     nr, _type, resnr, res, name, cgnr, q, mass = splt[:8]
                 else:
                     continue
-                df_['number'].append(int(nr))
-                df_['type'].append(_type)
-                df_['resNo'].append(int(resnr))
-                df_['resName'].append(res)
-                df_['name'].append(name)
-                df_['charge'].append(float(q))
+                
+                c = AtomsParser.columns
+                
+                df_[c[0]].append(int(nr))
+                df_[c[1]].append(_type)
+                df_[c[2]].append(int(resnr))
+                df_[c[3]].append(res)
+                df_[c[4]].append(name)
+                df_[c[5]].append(float(q))
                 
                 if _type in self.atm_types_to_symb:
                     elem = self.atm_types_to_symb[_type]
                 else:
                     elem = ''
                 
-                df_['element'].append(elem)
-                df_['mass'].append(mass)
+                df_[c[6]].append(elem)
+                df_[c[7]].append(mass)
     
     def __init__(self, f, mols, atm_types_to_symb, buff):
         self.f = f

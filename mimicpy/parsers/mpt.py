@@ -11,20 +11,44 @@ def write(inp, out, nonstd_atm_types={}, buff=1000):
     atm_types_to_symb = _mpt_writer.atomtypes(file, buff)
     # extend atm_types_to_symb with nonstdligands
     # should be dict of atom type --> symb
-    atm_types_to_symb.extend(nonstd_atm_types)
+    atm_types_to_symb.update(nonstd_atm_types)
     ap = _mpt_writer.AtomsParser(file, mols, atm_types_to_symb, buff)
     
+    df = ap.mol_df
+    
+    # replace repeating dataframes with the string name of prev mol
+    keys = list(df.keys())
+    vals = []
+    for i in range(len(keys)):
+        key_i = keys[i]
+        for j in range(i+1, len(keys)):
+            key_j = keys[j]
+        
+            try:
+                if all(df[key_i][3] == df[key_j][3]): 
+                    vals.append((key_i, key_j))
+            except ValueError:
+                continue
+    
+    for k,v in vals: df[v][3] = k
+    
     pkl = gbl.host.open(out, 'wb')
-    pickle.dump(ap.mol_df, pkl)
+    pickle.dump(df, pkl)
     
 class Reader:
-    
-    columns = ['type	', 'resNo','resName','name','charge','element',	'mass',	'mol']
     
     def __init__(self, file):
         pkl = gbl.host.open(file, 'rb') # open as bytes
         self.mpt = pickle.load(pkl) # unpickle
         pkl.close()
+    
+    def _get_df(self, mol):
+        third_val = self.mpt[mol][3]
+        
+        if isinstance(third_val, str):
+            return self.mpt[third_val][3]
+        else:
+            return third_val
     
     def selectAtom(self, idx, mol=None, relative=False):
         orig_id = idx
@@ -34,7 +58,7 @@ class Reader:
                 if idx <= v[2]: break
                 else: mol = k 
         
-        df = self.mpt[mol][3]
+        df = self._get_df(mol)
         if not relative:
             atms_before = self.mpt[mol][2]
             idx = idx-atms_before
@@ -45,12 +69,9 @@ class Reader:
             idx -= 1
             col = idx % natms
             idx = col+1
-        #if idx > natms:
-        #    idx = idx%natms
-        #    if idx == 0:
-        #        idx = natms
-        
+            
         srs = df.loc[idx]
+        
         return srs.append(pd.Series({'mol':mol, 'id':orig_id}))
     
     def selectAtoms(self, ids):
