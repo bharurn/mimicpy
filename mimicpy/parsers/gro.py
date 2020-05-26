@@ -38,7 +38,19 @@ def do(file, lines):
     
     vals = vals[~np.isnan(vals)]
     
-    coords = vals[:-3]
+    expected_len = no*rows
+    
+    if len(vals) == expected_len:
+        # box vector not been read yet
+        coords = vals
+        box = d.readline().decode()
+    elif len(vals) == expected_len+3:
+        # box vector already read
+        coords = vals[:-3]
+        box = vals[-3:]
+    else:
+        #raise ParserError
+        pass
     
     # check whether forces present or no before reshaping
     if rows == 6: cols = ['x', 'y', 'z', 'force-x', 'force-y', 'force-z']
@@ -46,7 +58,5 @@ def do(file, lines):
     
     coords = pd.DataFrame(coords.reshape(rows, no).T, columns=cols)
     coords['id'] = coords.index.to_numpy()+1
-    
-    box = vals[-3:]
     
     return coords, box.tolist()
