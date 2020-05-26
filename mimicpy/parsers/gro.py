@@ -7,7 +7,7 @@ def getBox(gro):
     tail = gbl.host.run(f'tail -n 1 {gro}')
     return [float(v) for v in tail.split()]
 
-def do(file, lines):
+def read(file, lines):
     d = gbl.open(file, 'rb')
     
     d.readline()
