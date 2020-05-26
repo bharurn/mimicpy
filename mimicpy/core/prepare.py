@@ -9,6 +9,7 @@ MM topology, MPT and QM region/CPMD script
 
 from ..parsers import pdb as hpdb
 from ..scripts import mdp
+from .selector import Selector
 from .base import BaseHandle
 from .._global import _Global as _global
 from . import _qmhelper
@@ -220,7 +221,7 @@ class QM(BaseHandle):
     
     """
     
-    def __init__(self, selector, status=defaultdict(list), mpt=None, gro=None):
+    def __init__(self, status=defaultdict(list), selector=Selector(), mpt=None, gro=None):
         """Class constructor"""
         
         super().__init__(status) # call BaseHandle.__init__() to init status dict
@@ -229,7 +230,9 @@ class QM(BaseHandle):
         self.mpt = MPTReader(self.getcurrentNone(mpt, 'mpt'))
         self.gro = self.getcurrentNone(gro, 'gro')
         self.selector = selector
-        self.selector.loadCoords(self.gro)
+        
+        # load mpt and gro into selector, returns box size in gro
+        self._mm_box = self.selector.load(self.mpt, self.gro)
         
         # init scripts and paths/files
         self.inp = cpmd.Input()
@@ -263,7 +266,7 @@ class QM(BaseHandle):
         """Empty the QM region to start over"""
         self.qmatoms = None
     
-    def getInp(self, mdp, gro=None, inp=cpmd.Input()):
+    def getInp(self, mdp, inp=cpmd.Input()):
         """
         Create the QM region from the atoms added
         Steps done:
@@ -285,8 +288,8 @@ class QM(BaseHandle):
         mdp.QMMM_grps = 'QMatoms'
         _global.host.write(_qmhelper.index(self.qmatoms.index, mdp.QMMM_grps), f'{dirc}/{self.index}')
         
-        #_global.logger.write('info', "Generating Gromacs tpr file for MiMiC run..")
-        #self.grompp(mdp, self.mimic, gro=gro, n=self.index, dirc=dirc)
+        _global.logger.write('info', "Generating Gromacs tpr file for MiMiC run..")
+        self.grompp(mdp, self.mimic, gro=self.gro, n=self.index, dirc=dirc)
         
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together
@@ -296,8 +299,7 @@ class QM(BaseHandle):
         _global.logger.write('info', "Creating CPMD input script..")
         inp.mimic = cpmd.Section()
         inp.mimic.paths = "1\n---" #path will be set in MiMiC run function
-        mm_box = GROReader.getBox(self.getcurrentNone(gro, 'gro'))
-        inp.mimic.box = '  '.join([str(s/bohr_rad) for s in mm_box])
+        inp.mimic.box = '  '.join([str(s/bohr_rad) for s in self._mm_boxx])
         
         inp = _qmhelper.getOverlaps_Atoms(self.qmatoms, inp) # get the overlaps and add atoms section of inp
         

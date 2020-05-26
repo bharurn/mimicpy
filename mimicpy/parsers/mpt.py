@@ -50,7 +50,7 @@ class Reader:
         else:
             return third_val
     
-    def selectAtom(self, idx, mol=None, relative=False):
+    def selectByID(self, idx, mol=None, relative=False):
         orig_id = idx
         if not mol:
             mol = ''
@@ -74,55 +74,12 @@ class Reader:
         
         return srs.append(pd.Series({'mol':mol, 'id':orig_id}))
     
-    def selectAtoms(self, ids):
+    def selectByIDs(self, ids):
         s = [self.selectAtom(i) for i in ids]
         return pd.concat(s, axis=1).T
     
-    # TO DO: make func to merge mpt with gro file
+    # TO DO: add getFull()
     
-    # TO DO: need to rewrite this for current mpt format
-    def parse_selec(selection, df):
-        """Translate selection language string into pandas dataframe selection"""
+    # TO DO: add func to get each column seperately
     
-        # if selection is a lambda func, then just call and return it
-        # this is provided for debuggin puposes
-        LAMBDA = lambda:0
-        if isinstance(selection, type(LAMBDA)):
-            return df[selection(df)]
-            
-        # below code translates selection langauge to pandas boolean
-        # selection eg., resName is SER and number < 25 and chainID not B
-        # will be translated to df['resName'] == 'SER' and df.index == 25 and df['chainID'] != 'B'
-    
-        ev = '' # converted string
-        i = 0 # counter to keep track of word position
-        for s in selection.split():
-            if i == 0: # if starting of set
-                ev += f"(df['{s}']"
-                # if and/or encountered, reset i to -1 (will become 0 due to i+= 1 at end)
-                # so we can start parsing again
-            elif s == 'or':
-                ev += f' | '
-                i = -1
-            elif s == 'and':
-                ev += f' & '
-                i = -1
-            elif s == 'is':
-                ev += '=='
-            elif s == 'not':
-                ev += '!='
-            elif s == '>' or s == '>=' or s == '<' or s == '<=':
-                ev += s
-            else: # parse everything else, meant for the third word
-                if s.isnumeric():
-                    ev += f"{s})"
-                else:
-                    ev += f"'{s}')"
-                
-            i += 1
-
-        ev = f"df.loc[{ev}]" # eg., df.loc[ df['resName'] == 'SER' and df.index == 25 and df['chainID'] != 'B' ]
-        ev = ev.replace("df['number']","df.index") # replace df['number'] to df.index as number is the index of df
-        gbl.logger.write('debug2', f'Selection command translated to: {ev}')
-        
-        return eval(ev) # evaluate string and return the dataframe
+    # TO DO: need to make a selection language for current mpt format

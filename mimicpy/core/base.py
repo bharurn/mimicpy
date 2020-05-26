@@ -109,12 +109,12 @@ class BaseHandle:
     def getStatus(self): return self._status
     
     @classmethod
-    def continueFrom(cls, session):
+    def continueFrom(cls, session, *args, **kwargs):
         """Transfer _status from session to new handle"""
         if not hasattr(session, '_status'):
             raise MiMiCPyError("No simulation status variables were found for session!")
         
-        return cls(status=session._status)
+        return cls(status=session._status, *args, **kwargs)
     
     def toYaml(self):
         """Save _status to yaml"""
@@ -123,12 +123,12 @@ class BaseHandle:
         _global.host.write(y, '_status.yaml')
     
     @classmethod
-    def fromYaml(cls):
+    def fromYaml(cls, *args, **kwargs):
        """Transfer _status from _status.yaml to new handle"""
        _global.logger.write('debug', f"Loading status from _status.yaml..")
        txt = _global.host.read('_status.yaml')
        _status = yaml.safe_load(txt)
-       return cls(status=_status)
+       return cls(status=_status, *args, **kwargs)
    
     def setcurrent(self, dirc=None, key='run'):
         """Add new directory to _status dict"""
