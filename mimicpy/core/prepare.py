@@ -220,13 +220,16 @@ class QM(BaseHandle):
     
     """
     
-    def __init__(self, status=defaultdict(list), mpt=None):
+    def __init__(self, selector, status=defaultdict(list), mpt=None, gro=None):
         """Class constructor"""
         
         super().__init__(status) # call BaseHandle.__init__() to init status dict
         
         
         self.mpt = MPTReader(self.getcurrentNone(mpt, 'mpt'))
+        self.gro = self.getcurrentNone(gro, 'gro')
+        self.selector = selector
+        self.selector.loadCoords(self.gro)
         
         # init scripts and paths/files
         self.inp = cpmd.Input()
@@ -236,10 +239,10 @@ class QM(BaseHandle):
         self.preprc = 'processed.top'
         self.mimic = 'mimic'
     
-    def add(self, qdf, link=False):
+    def add(self, selection=None, link=False):
         """Add dataframe to QM region"""
         
-        qdf = _qmhelper._cleanqdf(qdf)
+        qdf = _qmhelper._cleanqdf( self.selector.select(selection) )
         
         # add a new column link which is integer of link argument
         qdf.insert(2, 'link', [int(link)]*len(qdf))
@@ -250,9 +253,9 @@ class QM(BaseHandle):
         else:
             self.qmatoms = self.qmatoms.append(qdf)
     
-    def delete(self, qdf):
+    def delete(self, selection=None):
         """Delete from QM region using selection langauage"""
-        qdf = QM._cleanqdf(qdf)
+        qdf = QM._cleanqdf( self.selector.select(selection) )
         # drop selection, ignore errors to ignore extra residues selected that are not present in self.qmatoms
         self.qmatoms = self.qmatoms.drop(qdf.index, errors='ignore')
     
