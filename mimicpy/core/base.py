@@ -285,9 +285,14 @@ class BaseHandle:
         if 'gro' in kwargs:
             gro_file = kwargs['gro']
             del kwargs['gro']
-        elif 'trr' in kwargs:
+        else:
+            gro_file = None
+            
+        if 'trr' in kwargs:
             trr_file = kwargs['trr']
             del kwargs['trr']
+        else:
+            trr_file = None
         
         # if no custom file is passed, search for it in folders
         gro = self.getcurrentNone(gro_file, 'gro', level=True, exp=False)
