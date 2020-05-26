@@ -10,14 +10,12 @@ MM topology, MPT and QM region/CPMD script
 from ..parsers import pdb as hpdb
 from ..scripts import mdp
 from .base import BaseHandle
-from .simulate import MD
 from .._global import _Global as _global
 from . import _qmhelper
 from ..parsers.mpt import Reader as MPTReader, write as mptwrite
 from ..parsers import gro as GROReader
 from ..utils.constants import hartree_to_ps, bohr_rad
 from ..scripts import cpmd
-from ..utils.viz import PyMol
 from collections import defaultdict
 import pandas as pd
 
@@ -252,31 +250,6 @@ class QM(BaseHandle):
         else:
             self.qmatoms = self.qmatoms.append(qdf)
     
-    def openPyMol(self, launch=True, host='localhost', port=9123, load=True, gro=None, forceLocal=False, downloadTo='temp.gro'):
-        self.pymol = PyMol()
-        self.pymol.connect(launch, host, port)
-        if load:
-            gro = self.getcurrentNone(gro, 'gro')
-            self.pymol.loadCoords(gro, forceLocal, downloadTo)
-    
-    def getPyMolSele(self):
-        ids = self.pymol.cmd.get_model('sele', 1)
-        pymol_sele = pd.DataFrame(ids['atom'])
-        # extract coordinates and covert from ang to nm
-        x,y,z = list(zip(*pymol_sele[['coord']].apply(lambda x: [i/10 for i in x[0]], axis=1)))
-        pymol_sele.insert(2, "x", x, True) 
-        pymol_sele.insert(2, "y", y, True) 
-        pymol_sele.insert(2, "z", z, True)
-        pymol_sele = pymol_sele.drop(['coord'], axis=1)
-        pymol_sele = pymol_sele.rename(columns={"name": "pm_name", "symbol": "pm_symbol", "resn": "pm_resn",\
-                               "resi_number": "pm_resi_number"})
-    
-        mpt_sele = self.mpt.selectAtoms(pymol_sele['id'])
-        
-        # TO DO: check if names/resname, etc. are same and issue warnings accordingly
-        
-        return mpt_sele.merge(pymol_sele, left_on='id', right_on='id').set_index(['id'])
-    
     def delete(self, qdf):
         """Delete from QM region using selection langauage"""
         qdf = QM._cleanqdf(qdf)
@@ -309,8 +282,8 @@ class QM(BaseHandle):
         mdp.QMMM_grps = 'QMatoms'
         _global.host.write(_qmhelper.index(self.qmatoms.index, mdp.QMMM_grps), f'{dirc}/{self.index}')
         
-        _global.logger.write('info', "Generating Gromacs tpr file for MiMiC run..")
-        self.grompp(mdp, self.mimic, gro=gro, n=self.index, dirc=dirc)
+        #_global.logger.write('info', "Generating Gromacs tpr file for MiMiC run..")
+        #self.grompp(mdp, self.mimic, gro=gro, n=self.index, dirc=dirc)
         
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together
