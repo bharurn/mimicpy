@@ -1,6 +1,52 @@
-from .._global import _Global as _global
+from .._global import _Global as gbl
+import numpy as np
+import pandas as pd
 
 def getBox(gro):
     # fast access of last line, requires UNIX shell
-    tail = _global.host.run(f'tail -n 1 {gro}')
+    tail = gbl.host.run(f'tail -n 1 {gro}')
     return [float(v) for v in tail.split()]
+
+def do(file, lines):
+    d = gbl.open(file, 'rb')
+    
+    d.readline()
+    no = int(d.readline().decode())
+    
+    s = d.readline().decode()
+    buff = len(s)*lines
+    i = 0
+    
+    def mapper(a):
+        if a.isnumeric(): return np.nan
+        try:
+            return float(a)
+        except:
+            return np.nan
+    
+    vals = np.array(list(map(mapper, s.split())))
+    
+    rows = len(vals[~np.isnan(vals)]) # 6--> force, 3--> only coords
+    
+    while i < no:
+        s = d.read(buff).decode()
+        i += lines
+        
+        vals = np.append(vals, np.array(list(map(mapper, s.split()))) )
+    
+    #TO DO: check whether box size has been read already
+    
+    vals = vals[~np.isnan(vals)]
+    
+    coords = vals[:-3]
+    
+    # check whether forces present or no before reshaping
+    if rows == 6: cols = ['x', 'y', 'z', 'force-x', 'force-y', 'force-z']
+    elif rows == 3: cols = ['x', 'y', 'z']
+    
+    coords = pd.DataFrame(coords.reshape(rows, no).T, columns=cols)
+    coords['id'] = coords.index.to_numpy()+1
+    
+    box = vals[-3:]
+    
+    return coords, box.tolist()
