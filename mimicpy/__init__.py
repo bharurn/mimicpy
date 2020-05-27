@@ -11,7 +11,7 @@ from .system.protein import Protein
 from .core import prepare, simulate
 from .shell import shell
 from ._global import _Global as gbl
-from .utils.logger import Logger, StdOut
+from .utils.logger import Logger
 from .utils.errors import MiMiCPyError
 import sys
 
@@ -55,6 +55,9 @@ def setLogger(level, redirect=sys.stdout):
         gbl.logger.info = redirect
         gbl.logger.debug = redirect
         gbl.logger.debug2 = redirect
+        
+def redirectWarnings(redirect):
+    gbl.logger.warning = redirect
         
 def closeHost():
     """Convenience function to close host"""
