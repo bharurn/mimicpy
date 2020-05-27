@@ -7,8 +7,8 @@ def getBox(gro):
     tail = gbl.host.run(f'tail -n 1 {gro}')
     return [float(v) for v in tail.split()]
 
-def read(file, lines):
-    d = gbl.open(file, 'rb')
+def read(file, lines=500):
+    d = gbl.host.open(file, 'rb')
     
     d.readline()
     no = int(d.readline().decode())

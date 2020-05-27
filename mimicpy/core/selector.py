@@ -5,8 +5,11 @@ import xmlrpc.client as xmlrpclib
 import pandas as pd
 
 class Selector:
+    def __init__(self, lines=500):
+        self.lines = lines
+        
     def load(self, mpt, gro_file):
-        gro_df, box = gro.read()
+        gro_df, box = gro.read(gro_file, self.lines)
         self.df = mpt.getFull()
         self.df = self.df.merge(gro_df, left_on='id', right_on='id')
         return box
