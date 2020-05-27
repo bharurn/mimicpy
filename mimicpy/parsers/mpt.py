@@ -85,12 +85,17 @@ class Reader:
         
         for mol in self.mpt:    
             _df = self._get_df(mol)
+            no = self.mpt[mol][0]
             if df is None:
-                df = _df
+                df = pd.concat([_df]*no, ignore_index=True)
             else:
-                df = df.append(_df)
+                df = df.append(pd.concat([_df]*no, ignore_index=True))
         
-        return df
+        # atom id is automatically generated when multipling df
+        # but resid in not, TO DO: resid handling
+        df['id'] = df.index+1
+        
+        return df.set_index(['id'])
     
     # TO DO: add func to get each column seperately
     
