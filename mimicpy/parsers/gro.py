@@ -33,11 +33,11 @@ def read(file, lines=500):
         i += lines
         
         vals = np.append(vals, np.array(list(map(mapper, s.split()))) )
-    
+
     vals = vals[~np.isnan(vals)]
     
     expected_len = no*rows
-    
+
     # checking if box size is read already
     if len(vals) == expected_len:
         # box vector not been read yet
@@ -55,7 +55,7 @@ def read(file, lines=500):
     if rows == 6: cols = ['x', 'y', 'z', 'force-x', 'force-y', 'force-z']
     elif rows == 3: cols = ['x', 'y', 'z']
     
-    coords = pd.DataFrame(coords.reshape(rows, no).T, columns=cols)
+    coords = pd.DataFrame(coords.reshape(no, rows), columns=cols)
     coords['id'] = coords.index.to_numpy()+1
     
     return coords.set_index(['id']), box.tolist()
