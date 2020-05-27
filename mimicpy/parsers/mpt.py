@@ -78,7 +78,18 @@ class Reader:
         s = [self.selectAtom(i) for i in ids]
         return pd.concat(s, axis=1).T
     
-    # TO DO: add getFull()
+    def getFull(self):
+        # not complete!!
+        df = None
+        
+        for mol in self.mpt:    
+            _df = self._get_df(mol)
+            if df is None:
+                df = _df
+            else:
+                df = df.append(_df)
+        
+        return df
     
     # TO DO: add func to get each column seperately
     
