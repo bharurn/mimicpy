@@ -58,4 +58,4 @@ def read(file, lines=500):
     coords = pd.DataFrame(coords.reshape(rows, no).T, columns=cols)
     coords['id'] = coords.index.to_numpy()+1
     
-    return coords, box.tolist()
+    return coords.set_index(['id']), box.tolist()

@@ -300,14 +300,14 @@ class QM(BaseHandle):
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together
         # index is also reset, for getOverlaps_Atoms()
-        self.qmatoms = self.qmatoms.sort_values(by=['link', 'element']).reset_index()
+        sorted_qm = self.qmatoms.sort_values(by=['link', 'element']).reset_index()
         
         _global.logger.write('info', "Creating CPMD input script..")
         inp.mimic = cpmd.Section()
         inp.mimic.paths = "1\n---" #path will be set in MiMiC run function
-        inp.mimic.box = '  '.join([str(s/bohr_rad) for s in self._mm_boxx])
+        inp.mimic.box = '  '.join([str(s/bohr_rad) for s in self._mm_box])
         
-        inp = _qmhelper.getOverlaps_Atoms(self.qmatoms, inp) # get the overlaps and add atoms section of inp
+        inp = _qmhelper.getOverlaps_Atoms(sorted_qm, inp) # get the overlaps and add atoms section of inp
         
         inp.system.charge = round(sum(self.qmatoms['charge']), 1) # system section already created in getQverlap_Atoms()
         # TO DO: give option of changing round off precision
