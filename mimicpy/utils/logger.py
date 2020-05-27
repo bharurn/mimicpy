@@ -6,8 +6,7 @@ This module contains the Logger, LogString and StdOut
 classes to allow for logging multiple streams and redirection
 
 """
-
-import sys
+from .._global import _Global as gbl
 from .errors import MiMiCPyError
 
 class Logger:
@@ -15,15 +14,9 @@ class Logger:
        
         self.kwargs = list(kwargs.keys())
         
-        for k,v in kwargs.items():
-            setattr(self, k, v)
-    
     def add(self, **kwargs):
        
         self.kwargs.extend(list(kwargs.keys()))
-        
-        for k,v in kwargs.items():
-            setattr(self, k, v)
         
     def write(self, option, value):
         if option not in self.kwargs:
@@ -31,15 +24,6 @@ class Logger:
         writer = getattr(self, option)
         if writer != None:
             writer.write(value+'\n')
-            writer.flush()
-    
-    def __del__(self):
-        for k in self.kwargs:
-            v = getattr(self, k)
-            v.close()
-                
-    def close(self):
-        self.__del__()
         
 class LogString:
     def __init__(self):
@@ -48,24 +32,20 @@ class LogString:
     def write(self, s):
         self.val += s
     
-    def flush(self):
-        pass
-    
-    def close(self):
-        pass
-    
     def __str__(self):
         return self.val
     
     def __repr__(self):
         return self.val
     
-class StdOut:
+class LogFile:
+    def __init__(self, name, forceLocal=False):
+        self.fname = name
+        self.forceLocal = forceLocal
+        
     def write(self, s):
-        print(s, end='')
-    
-    def flush(self):
-        pass
-    
-    def close(self):
-        pass
+        if not self.forceLocal:
+            gbl.host.write(s, self.fname)
+        else:
+            with open(self.fname, 'r') as f:
+                f.write(s)

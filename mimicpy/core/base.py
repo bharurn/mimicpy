@@ -28,7 +28,7 @@ class BaseHandle:
         self._status = status # init _status
         self.log = LogString() # log string of standard ouput from all gmx commands
         # init logger with gmx log string, and notes redirected to stdout
-        self.logger = Logger(log=self.log, notes=sys.stdout)
+        self.logger = Logger(log=self.log, notes=sys.stderr)
         self.current_cmd = 'gmx'
     
     def getcurrent(self, ext, level=False, exp=True):
@@ -158,7 +158,7 @@ class BaseHandle:
         notes = BaseHandle._notes(text) # get notes/warnings
         
         if not notes.isspace() and notes.strip() != '': # write notes
-            self.logger.write('notes', f"From {self.current_cmd}")
+            self.logger.write('notes', f"From {self.current_cmd}:")
             self.logger.write('notes', notes)
     
     @staticmethod

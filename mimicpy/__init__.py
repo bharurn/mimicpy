@@ -13,6 +13,7 @@ from .shell import shell
 from ._global import _Global as gbl
 from .utils.logger import Logger, StdOut
 from .utils.errors import MiMiCPyError
+import sys
 
 def setHost(dirc='.', *args, path=None):
     """Wrapper function to set-up host"""
@@ -36,7 +37,7 @@ def setEnv(**kwargs):
         else:
             raise MiMiCPyError(f"{k} is not an enviornment executable/path!")
 
-def setLogger(level, redirect=StdOut):
+def setLogger(level, redirect=sys.stdout):
     """Set the logger level and stream"""
     if level == 0: # no output
         gbl.logger.info = None
@@ -60,4 +61,4 @@ def closeHost():
     gbl.host.__del__()
     
 gbl.host = shell.Local('.', None)
-gbl.logger = Logger(info=StdOut(), debug=StdOut(), debug2=None)
+gbl.logger = Logger(info=sys.stdout, debug=sys.stdout, debug2=None, warning=sys.stderr)
