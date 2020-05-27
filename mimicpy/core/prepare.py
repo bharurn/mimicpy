@@ -39,7 +39,10 @@ class MM(BaseHandle):
         super().__init__(status) # call BaseHandle constructor to init _status dict
         _global.logger.write('debug', 'Set handle directory as prepareMM..')
         
-        self.dir = 'prepareMM' # dir of handle, can be changed by user
+        if self._status['prepMM'] == '':
+            self.dir = 'prepareMM' # dir of handle, can be changed by user
+        else:
+            self.dir = self._status['prepMM']
         
         # all files names used when running gmx, can be changed by user
         self.confin = "confin.pdb"
@@ -212,7 +215,7 @@ class MM(BaseHandle):
         
         mptwrite(pp, mpt, nonstd_atm_types)
         
-        self.saveToYaml()
+        self.toYaml()
         
 class QM(BaseHandle):
     """
@@ -237,7 +240,10 @@ class QM(BaseHandle):
         # init scripts and paths/files
         self.inp = cpmd.Input()
         self.qmatoms = None
-        self.dir = 'prepareQM'
+        if self._status['prepQM'] == '':
+            self.dir = 'prepareQM'
+        else:
+            self.dir = self._status['prepQM']
         self.index = 'index.ndx'
         self.preprc = 'processed.top'
         self.mimic = 'mimic'
