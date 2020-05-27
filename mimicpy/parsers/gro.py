@@ -34,12 +34,11 @@ def read(file, lines):
         
         vals = np.append(vals, np.array(list(map(mapper, s.split()))) )
     
-    #TO DO: check whether box size has been read already
-    
     vals = vals[~np.isnan(vals)]
     
     expected_len = no*rows
     
+    # checking if box size is read already
     if len(vals) == expected_len:
         # box vector not been read yet
         coords = vals

@@ -18,17 +18,17 @@ class Selector:
             #raise SelectionError
             pass
         
-        df = self.df
+        df = self.df # rename df
         
         # if selection is a lambda func, then just call and return it
-        # this is provided for debuggin puposes
+        # this is provided for debugging puposes
         LAMBDA = lambda:0
         if isinstance(selection, type(LAMBDA)):
             return df[selection(df)]
             
         # below code translates selection langauge to pandas boolean
         # selection eg., resname is SER and id < 25 and mol not Protein_chain_B
-        # will be translated to df['resName'] == 'SER' and df.index == 25 and df['chainID'] != 'B'
+        # will be translated to df['resname'] == 'SER' and df.index < 25 and df['mol'] != 'Protein_chain_B'
     
         ev = '' # converted string
         i = 0 # counter to keep track of word position
@@ -57,8 +57,8 @@ class Selector:
                 
             i += 1
 
-        ev = f"df.loc[{ev}]" # eg., df.loc[ df['resName'] == 'SER' and df.index == 25 and df['chainID'] != 'B' ]
-        ev = ev.replace("df['number']","df.index") # replace df['number'] to df.index as number is the index of df
+        ev = f"df.loc[{ev}]" # eg., df.loc[ df['resname'] == 'SER' and df.index < 25 and df['mol'] != 'Protein_chain_B' ]
+        ev = ev.replace("df['id']","df.index") # replace df['id'] to df.index as id is the index of df
         gbl.logger.write('debug2', f'Selection command translated to: {ev}')
         
         return eval(ev) # evaluate string and return the dataframe
