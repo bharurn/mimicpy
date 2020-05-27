@@ -21,10 +21,10 @@ class Logger:
             setattr(self, k, v)
         
     def write(self, option, value):
-        if option not in self.kwargs:
-            raise MiMiCPyError(f'{option} is not a logger stream')
         writer = getattr(self, option)
         if writer != None:
+            if not hasattr(writer, 'write'):
+                raise MiMiCPyError(f'{option} is not a logger stream')
             writer.write(value+'\n')
         
 class LogString:
