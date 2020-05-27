@@ -70,7 +70,10 @@ class BaseHandle:
         else it just return back that file
         """
         if file:
-            return file
+            if level == True:
+                return (0, file)
+            else:
+                return file
         else:
             return self.getcurrent(ext, level, exp)
     
@@ -92,6 +95,7 @@ class BaseHandle:
     def _getFile(dirc, ext):
         """Finds file in dirc folder with extension ext"""
         
+        ext = '.'+ext
         # get list of all files in dirc with extension ext, ignore folders
         lst = _global.host.ls(dirc=dirc, file_eval=lambda a: True if a.endswith(ext) else False, dir_eval=lambda a: False)
         
@@ -147,7 +151,8 @@ class BaseHandle:
         Function called by _global.host eveytime a gmx command is executed
         Used to parse gmx ouput and check for errors/notes/warnings
         """
-        defaultHook(cmd, text) # call defaultHook to look for stupid errors
+        if 'not recognisable' in text.lower() or 'not found' in text.lower(): # when gmx exec not found
+            raise GromacsError(cmd, text)
         
         # write log
         self.logger.write('log', f"==>Command Run: {cmd}\n")
@@ -155,10 +160,9 @@ class BaseHandle:
         
         self._gmxerrhdnl(cmd, text) # check for errors
         
-        notes = BaseHandle._notes(text) # get notes/warnings
+        notes = BaseHandle._notes(self.current_cmd, text) # get notes/warnings
         
         if not notes.isspace() and notes.strip() != '': # write notes
-            self.logger.write('notes', f"From {self.current_cmd}:")
             self.logger.write('notes', notes)
     
     @staticmethod
@@ -195,7 +199,7 @@ class BaseHandle:
             return None
         
     @staticmethod
-    def _notes(text):
+    def _notes(cmd, text):
         """Parse gmx output for notes and warnings"""
         
         pattern = re.compile("^-+$")
@@ -205,16 +209,17 @@ class BaseHandle:
         for i, line in enumerate(text.splitlines()):
             # parse from here
             if line.startswith('NOTE') or line.startswith('WARNING') or 'One or more water molecules can not be settled.' in line:
-                notes += line + '\n'
+                notes += re.sub('\[.*\]', f'while running {cmd}', line) + '\n'
                 start = True
             elif start:
                 if line.strip() == '' or line.startswith('WARNING') or line.startswith('NOTE') or pattern.match(line):
                     # end parsing
+                    notes += '\n'
                     start = False
                 else:
-                    notes += line + '\n'
+                    notes += line.replace('  ', '') + ' '
         
-        return ''.join(filter(lambda x: not re.match(r'^\s*$', x), notes)) # remove blank lines
+        return notes[:-2] # remove last \n char
     
      
     def gmx(self, cmd, **kwargs):
@@ -223,6 +228,8 @@ class BaseHandle:
         e.g., to execute gmx pdb2gmx -f in.pdb -o out.gro -water spce -his
         call gmx('pdb2gmx', f='in.pdb', o='out.gro', water='spce', his='')
         """
+        
+        self.current_cmd = cmd
         
         if _global.gmx is None or _global.gmx.strip() == '': # make sure gmx path is set
             raise EnvNotSetError('Gromacs executable', 'gmx')
@@ -311,7 +318,7 @@ class BaseHandle:
         else: # otherwise, just use the gro file
             self.gmx('grompp', f = f'{new}.mdp', c = gro[1],\
                      p = self.getcurrent('top'), o = f"{new}.tpr", **kwargs)
-            
+          
     def cpmd(self, inp, out, onlycmd=False, dirc=''):
         """
         Function to execute gmx commands in "pythonic" way
