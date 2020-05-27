@@ -74,7 +74,7 @@ class AtomsParser:
         df_ = {k:[] for k in AtomsParser.columns}
         start = False
         mol = ''
-        end.append('moleculetype')
+        end += ['moleculetype', 'settles']
         atom_splt = atoms.splitlines()
         for i, line in enumerate(atom_splt):
             if any([isSection(hdr, line) for hdr in end]):

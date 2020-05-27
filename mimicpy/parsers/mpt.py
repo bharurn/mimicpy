@@ -12,6 +12,7 @@ def write(inp, out, nonstd_atm_types={}, buff=1000):
     # extend atm_types_to_symb with nonstdligands
     # should be dict of atom type --> symb
     atm_types_to_symb.update(nonstd_atm_types)
+    print(atm_types_to_symb)
     ap = _mpt_writer.AtomsParser(file, mols, atm_types_to_symb, buff)
     
     df = ap.mol_df
