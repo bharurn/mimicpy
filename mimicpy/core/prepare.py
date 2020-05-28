@@ -305,7 +305,7 @@ class QM(BaseHandle):
         inp=cpmd.Input()
         
         inp.mimic = cpmd.Section()
-        inp.mimic.paths = "1\n---" #path will be set in MiMiC run function
+        inp.mimic.paths = "1\n---" #path will be set by simulate.MiMiC.run()
         inp.mimic.box = '  '.join([str(s/bohr_rad) for s in self._mm_box])
         
         inp = _qmhelper.getOverlaps_Atoms(sorted_qm, inp) # get the overlaps and add atoms section of inp

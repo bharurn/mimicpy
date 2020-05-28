@@ -62,30 +62,31 @@ class MDP(Script):
     @classmethod
     def defaultGenion(cls):
         return cls(name = 'Genion',
-        integrator = "steep",  # Algorithm (steep = steepest descent minimization)
-        emtol = 1000.0, # Stop minimization when the maximum force < 1000.0 kJ/mol/nm
-        emstep = 0.01,  # Minimization step size
-        nstlog = 50,
-         nsteps = 50000, # Maximum number of (minimization) steps to perform
-        nstlist = 10, # Frequency to update the neighbor list and long range forces
-         cutoff_scheme = "Verlet", # Buffered neighbor searching 
-         ns_type = "grid", # Method to determine neighbor list (simple, grid)
-         coulombtype = "cutoff", #Treatment of long range electrostatic interactions
-         rcoulomb = 1.0,# Short-range electrostatic cut-off
-          rvdw = 1.0, # Short-range Van der Waals cut-off
-          pbc = 'xyz')
+                   integrator = "steep",  # Algorithm (steep = steepest descent minimization)
+                   emtol = 1000.0, # Stop minimization when the maximum force < 1000.0 kJ/mol/nm
+                   emstep = 0.01,  # Minimization step size
+                   nstlog = 50,
+                   nsteps = 50000, # Maximum number of (minimization) steps to perform
+                   nstlist = 10, # Frequency to update the neighbor list and long range forces
+                   cutoff_scheme = "Verlet", # Buffered neighbor searching 
+                   ns_type = "grid", # Method to determine neighbor list (simple, grid)
+                   coulombtype = "cutoff", #Treatment of long range electrostatic interactions
+                   rcoulomb = 1.0,# Short-range electrostatic cut-off
+                   rvdw = 1.0, # Short-range Van der Waals cut-off
+                   pbc = 'xyz'
+                   )
         
     @classmethod
     def defaultEM(cls):
         em = cls.defaultGenion()
-        em.name = 'EM'
+        em.name = 'Minim'
         em.coulombtype = "PME"
         return em
     
     @classmethod
     def defaultNVT(cls):
         return cls(name = 'NVT', 
-                   define = '-DPOSRES',  # position restrain the protein
+                   define = '-DPOSRES',  # position restrain the protein/ligands
                    # Run parameters
                    integrator = 'md', #leap-frog integrator
                    nsteps = 50000, # 2 * 50000 = 100 ps
@@ -162,37 +163,36 @@ class MDP(Script):
         return eq
     
     def defaultMiMiC(cls):
-        return cls(
-                # integrator = mimic will be set by prepare.QM.getInp()
-                nsteps = 100000,
-                dt = 0.0001, # around 4 hartree
-                # Output control
-                nstxout = 100, # save coordinates every 100 steps
-                nstvout = 100, # save velocities every 100 steps
-                nstfout = 100, # save forces every 100 stesp
-                nstenergy = 0, # energies not necessary as they are not accurate in MiMiC run (use CPMD output)
-                nstlog = 100, # update log file every 50 steps
-                # Bond parameters
-                continuation = 'yes', # first dynamics run
-                constraints = 'none', # no constraints as we want QM region to be flexible
-                # Neighbor searching
-                cutoff_scheme = 'Verlet',
-                ns_type = 'grid', # search neighboring grid cells
-                nstlist = 10,
-                rcoulomb = 1.0, # short-range electrostatic cutoff (in nm)
-                rvdw = 1.0, # short-range van der Waals cutoff (in nm)
-                # Electrostatics
-                coulombtype = 'PME', # Particle Mesh Ewald for long-range electrostatics
-                pme_order = 4, # cubic interpolation
-                fourierspacing = 0.16, # grid spacing for FFT
-                # Temperature coupling is off - no need for that as CPMD will be the integrator
-                tcoupl = 'no',
-                pcoupl = 'no',
-                # Periodic boundary conditions
-                pbc = 'xyz', # 3-D PBC
-                # Dispersion correction
-                DispCorr = 'EnerPres', # account for cut-off vdW scheme
-                # Velocity generation
-                gen_vel = 'no' # do not generate velocities
-                # QMMM-grps = QMatoms will be set by prepare.QM.getInp()
-            )
+        return cls(integrator = 'mimic', # will be set by prepare.QM.getInp() anyways
+                   nsteps = 100000,
+                   dt = 0.0001, # around 4 hartree
+                   # Output control
+                   nstxout = 10000, # save coordinates every 100 steps
+                   nstvout = 10000, # save velocities every 100 steps
+                   nstfout = 10000, # save forces every 100 stesp
+                   nstenergy = 0, # energies not necessary as they are not accurate in MiMiC run (use CPMD output)
+                   nstlog = 5000, # update log file every 50 steps
+                   # Bond parameters
+                   continuation = 'no', # first dynamics run
+                   constraints = 'none', # no constraints as we want QM region to be flexible
+                   # Neighbor searching
+                   cutoff_scheme = 'Verlet',
+                   ns_type = 'grid', # search neighboring grid cells
+                   nstlist = 10,
+                   rcoulomb = 1.0, # short-range electrostatic cutoff (in nm)
+                   rvdw = 1.0, # short-range van der Waals cutoff (in nm)
+                   # Electrostatics
+                   coulombtype = 'PME', # Particle Mesh Ewald for long-range electrostatics
+                   pme_order = 4, # cubic interpolation
+                   fourierspacing = 0.16, # grid spacing for FFT
+                   # Temperature coupling is off - no need for that as CPMD will be the integrator
+                   tcoupl = 'no',
+                   pcoupl = 'no',
+                   # Periodic boundary conditions
+                   pbc = 'xyz', # 3-D PBC
+                   # Dispersion correction
+                   DispCorr = 'EnerPres', # account for cut-off vdW scheme
+                   # Velocity generation
+                   gen_vel = 'no' # do not generate velocities
+                   # QMMM-grps = QMatoms will be set by prepare.QM.getInp()
+                   )
