@@ -15,21 +15,20 @@ class ParserError(MiMiCPyError):
     Raised when a file could not be parsed
     using the format requsted
     """
-    def __init__(self, ftype, file=None, no=None):
-        if file is None: file = 'data block'
-        else: file = 'file ' + file
+    def __init__(self, ftype, file='', no='', extra=''):
+        if file: file = ' as'+ file
+        
         self.file = file
         self.ftype = ftype
-        self.no = no
+        
+        if no: self.no = f" at line number {no}"
+        
+        self.extra = extra
         
     def __str__(self):
-        s = f"{self.file} cannot be parsed as {self.ftype}"
-        if self.no:
-            s = f"Line number {self.no} in "+s
-        else:
-            s = s[0].upper() + s[1:] # make data/file --> Data/File if it is first letter
-            
-        return s
+        s = f"Error parsing {self.file}{self.ftype}{self.no}"
+        
+        return s+": "+self.extra
 
 class ExecutionError(MiMiCPyError):
     """

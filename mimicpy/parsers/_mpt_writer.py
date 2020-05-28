@@ -1,6 +1,8 @@
 from collections import defaultdict, OrderedDict
 import pandas as pd
 from ..utils.constants import element_names
+from .._global import _Global as gbl
+from ..utils.errors import ParserError
  
 def isSection(section, txt):
     if section == '*': section = ''
@@ -111,18 +113,30 @@ class AtomsParser:
                 
                 if _type in self.atm_types_to_symb:
                     elem = self.atm_types_to_symb[_type]
+                elif self.guess:
+                    # guess atomic no from mass
+                    # works well if no isotopes present
+                    mass_int = int(round(mass))
+                    if mass_int<=1: elem = 'H' # for H
+                    elif mass_int<36: elem = element_names[mass_int//2] # He to Cl
+                    else: elem = name.title() # from Ar onwards, assume name same as symbol, case insensitive
+                    
+                    gbl.logger.write('warning', (f"Guessing atomic symbol for atom id {nr} and name {name} as {elem}..") )
+                
                 else:
-                    elem = ''
+                    raise ParserError("gmx topology", file=self.f,\
+                                         extra="Cannot determine atomic symbol for atom ID {nr} and name {name}")
                 
                 df_[c[6]].append(elem)
                 df_[c[7]].append(mass)
     
-    def __init__(self, f, mols, atm_types_to_symb, buff):
+    def __init__(self, f, mols, atm_types_to_symb, buff, guess):
         self.f = f
         self.atm_types_to_symb = atm_types_to_symb
         # mol_name: (no. of mols, no. of atoms in one mol, no. of atoms before mol, df)
         self.mol_df = OrderedDict( (k,[v,0,0,pd.DataFrame()]) for k,v in mols.items())
         self.natms = 0
+        self.guess = guess
         
         while any(m[3].empty for k,m in self.mol_df.items()): 
             self.parseAtoms(buff)

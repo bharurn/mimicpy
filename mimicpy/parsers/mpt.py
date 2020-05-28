@@ -3,7 +3,7 @@ from .._global import _Global as gbl
 from . import _mpt_writer
 import pandas as pd
 
-def write(inp, out, nonstd_atm_types={}, buff=1000):
+def write(inp, out, nonstd_atm_types={}, buff=1000, guess_elems=True):
     tail = gbl.host.run(f'tail -n 30 {inp}')
     mols = _mpt_writer.molecules(tail)
         
@@ -13,7 +13,7 @@ def write(inp, out, nonstd_atm_types={}, buff=1000):
     # should be dict of atom type --> symb
     atm_types_to_symb.update(nonstd_atm_types)
     print(atm_types_to_symb)
-    ap = _mpt_writer.AtomsParser(file, mols, atm_types_to_symb, buff)
+    ap = _mpt_writer.AtomsParser(file, mols, atm_types_to_symb, buff, guess_elems)
     
     df = ap.mol_df
     
