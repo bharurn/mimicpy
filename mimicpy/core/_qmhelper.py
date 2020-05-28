@@ -73,13 +73,17 @@ def getOverlaps_Atoms(qmatoms, inp):
         
     inp.mimic.overlaps = out
     inp.system = cpmd.Section() # init system section of script
-    
+    inp.poisson__solver__tuckerman = ''
+    inp.system.symmetry = 0
+
     # box size fro mx and mi
-    qm_box = list(map(lambda x,y: (x - y + 0.6)/bohr_rad, mx, mi))
-    qm_box[1] = round(qm_box[1]/qm_box[0], 2)
-    qm_box[2] = round(qm_box[2]/qm_box[0], 2)
+    # add 0.7 nm for Poisson solver's requirement
+    qm_box = list(map(lambda x,y: (x - y + 0.7)/bohr_rad, mx, mi))
+    qm_box[1] = round(qm_box[1]/qm_box[0], 1)
+    qm_box[2] = round(qm_box[2]/qm_box[0], 1)
     qm_box[0] = round(qm_box[0])
     qm_box.extend([0, 0, 0])
     inp.system.cell = '  '.join([str(s) for s in qm_box])
+    inp.system.cutoff = 70.0
     
     return inp

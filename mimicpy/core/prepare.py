@@ -8,17 +8,14 @@ MM topology, MPT and QM region/CPMD script
 """
 
 from ..parsers import pdb as hpdb
-from ..scripts import mdp
 from .selector import Selector
 from .base import BaseHandle
 from .._global import _Global as _global
 from . import _qmhelper
 from ..parsers.mpt import Reader as MPTReader, write as mptwrite
-from ..parsers import gro as GROReader
 from ..utils.constants import hartree_to_ps, bohr_rad
-from ..scripts import cpmd
+from ..scripts import cpmd, mdp
 from collections import defaultdict
-import pandas as pd
 
 class MM(BaseHandle):
     """
@@ -274,7 +271,7 @@ class QM(BaseHandle):
         """Empty the QM region to start over"""
         self.qmatoms = None
     
-    def getInp(self, mdp, inp=cpmd.Input()):
+    def getInp(self, mdp=mdp.MDP.defaultMiMiC()):
         """
         Create the QM region from the atoms added
         Steps done:
@@ -305,14 +302,25 @@ class QM(BaseHandle):
         sorted_qm = self.qmatoms.sort_values(by=['link', 'element']).reset_index()
         
         _global.logger.write('info', "Creating CPMD input script..")
+        inp=cpmd.Input()
+        
         inp.mimic = cpmd.Section()
         inp.mimic.paths = "1\n---" #path will be set in MiMiC run function
         inp.mimic.box = '  '.join([str(s/bohr_rad) for s in self._mm_box])
         
         inp = _qmhelper.getOverlaps_Atoms(sorted_qm, inp) # get the overlaps and add atoms section of inp
         
-        inp.system.charge = round(sum(self.qmatoms['charge']), 1) # system section already created in getQverlap_Atoms()
-        # TO DO: give option of changing round off precision
+        inp.mimic.long_range__coupling = ''
+        inp.mimic.fragment__sorting__atom_wise__update = 100
+        inp.mimic.cutoff__distance = 20.0
+        inp.mimic.multipole__order = 3
+        
+        q = sum(self.qmatoms['charge'])
+        if not round(q, 2).is_number(): 
+            _global.logger.write('warning', (f'Total charge of QM region ({q}) not an integer up to 2 decimal places.'
+                                            ' \nRounding to integer anyways..'))
+        
+        inp.system.charge = round(q) # system section already created in getQverlap_Atoms()
         
         # set cpmd section
         if not inp.checkSection('cpmd'): inp.cpmd = cpmd.Section()
@@ -322,6 +330,9 @@ class QM(BaseHandle):
         # set no of steps from mdp file
         if not mdp.hasparam('nsteps'): mdp.nsteps = 1000 # default value, if not present in mdp
         inp.cpmd.maxsteps = mdp.nsteps
+        
+        inp.dft = cpmd.Section()
+        inp.dft.functional__blyp = '' # update to new XC_DRIVER code
         
         # set timestep from mdp file
         if not mdp.hasparam('dt'): mdp.dt = 0.0001 # default value, if not present in mdp
