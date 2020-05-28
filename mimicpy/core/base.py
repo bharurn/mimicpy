@@ -9,7 +9,7 @@ This module contains the BaseHandle class which is inherited by all handles
 import re
 import yaml
 from .._global import _Global as _global
-from ..utils.errors import GromacsError, MiMiCPyError, EnvNotSetError, defaultHook
+from ..utils.errors import GromacsError, MiMiCPyError, EnvNotSetError
 from ..utils.logger import Logger, LogString
 import sys
 
@@ -28,7 +28,7 @@ class BaseHandle:
         self._status = status # init _status
         self.log = LogString() # log string of standard ouput from all gmx commands
         # init logger with gmx log string, and notes redirected to stdout
-        self.logger = Logger(log=self.log, notes=sys.stdout)
+        self.logger = Logger(log=self.log, notes=sys.stderr)
         self.current_cmd = 'gmx'
     
     def getcurrent(self, ext, level=False, exp=True):
@@ -58,11 +58,6 @@ class BaseHandle:
         # if nothing was found in any folder, raise exception
         if exp: raise FileNotFoundError(f"Cannot find file with extension {ext}")
     
-    def __del__(self):
-        """Deconstructor"""
-        self.logger.close()
-        self.toYaml()
-        
     def getcurrentNone(self, file, ext, level=False, exp=True):
         """
         Convenience function, check if argument passed is None
@@ -70,7 +65,10 @@ class BaseHandle:
         else it just return back that file
         """
         if file:
-            return file
+            if level == True:
+                return (0, file)
+            else:
+                return file
         else:
             return self.getcurrent(ext, level, exp)
     
@@ -92,6 +90,7 @@ class BaseHandle:
     def _getFile(dirc, ext):
         """Finds file in dirc folder with extension ext"""
         
+        ext = '.'+ext
         # get list of all files in dirc with extension ext, ignore folders
         lst = _global.host.ls(dirc=dirc, file_eval=lambda a: True if a.endswith(ext) else False, dir_eval=lambda a: False)
         
@@ -109,12 +108,12 @@ class BaseHandle:
     def getStatus(self): return self._status
     
     @classmethod
-    def continueFrom(cls, session):
+    def continueFrom(cls, session, *args, **kwargs):
         """Transfer _status from session to new handle"""
         if not hasattr(session, '_status'):
             raise MiMiCPyError("No simulation status variables were found for session!")
         
-        return cls(status=session._status)
+        return cls(status=session._status, *args, **kwargs)
     
     def toYaml(self):
         """Save _status to yaml"""
@@ -123,12 +122,12 @@ class BaseHandle:
         _global.host.write(y, '_status.yaml')
     
     @classmethod
-    def fromYaml(cls):
+    def fromYaml(cls, *args, **kwargs):
        """Transfer _status from _status.yaml to new handle"""
        _global.logger.write('debug', f"Loading status from _status.yaml..")
        txt = _global.host.read('_status.yaml')
        _status = yaml.safe_load(txt)
-       return cls(status=_status)
+       return cls(status=_status, *args, **kwargs)
    
     def setcurrent(self, dirc=None, key='run'):
         """Add new directory to _status dict"""
@@ -147,7 +146,8 @@ class BaseHandle:
         Function called by _global.host eveytime a gmx command is executed
         Used to parse gmx ouput and check for errors/notes/warnings
         """
-        defaultHook(cmd, text) # call defaultHook to look for stupid errors
+        if 'not recognisable' in text.lower() or 'not found' in text.lower(): # when gmx exec not found
+            raise GromacsError(cmd, text)
         
         # write log
         self.logger.write('log', f"==>Command Run: {cmd}\n")
@@ -155,10 +155,9 @@ class BaseHandle:
         
         self._gmxerrhdnl(cmd, text) # check for errors
         
-        notes = BaseHandle._notes(text) # get notes/warnings
+        notes = BaseHandle._notes(self.current_cmd, text) # get notes/warnings
         
         if not notes.isspace() and notes.strip() != '': # write notes
-            self.logger.write('notes', f"From {self.current_cmd}")
             self.logger.write('notes', notes)
     
     @staticmethod
@@ -195,7 +194,7 @@ class BaseHandle:
             return None
         
     @staticmethod
-    def _notes(text):
+    def _notes(cmd, text):
         """Parse gmx output for notes and warnings"""
         
         pattern = re.compile("^-+$")
@@ -205,16 +204,17 @@ class BaseHandle:
         for i, line in enumerate(text.splitlines()):
             # parse from here
             if line.startswith('NOTE') or line.startswith('WARNING') or 'One or more water molecules can not be settled.' in line:
-                notes += line + '\n'
+                notes += re.sub('\[.*\]', f'while running {cmd}', line) + '\n'
                 start = True
             elif start:
                 if line.strip() == '' or line.startswith('WARNING') or line.startswith('NOTE') or pattern.match(line):
                     # end parsing
+                    notes += '\n'
                     start = False
                 else:
-                    notes += line + '\n'
+                    notes += line.replace('  ', '') + ' '
         
-        return ''.join(filter(lambda x: not re.match(r'^\s*$', x), notes)) # remove blank lines
+        return notes[:-2] # remove last \n char
     
      
     def gmx(self, cmd, **kwargs):
@@ -223,6 +223,8 @@ class BaseHandle:
         e.g., to execute gmx pdb2gmx -f in.pdb -o out.gro -water spce -his
         call gmx('pdb2gmx', f='in.pdb', o='out.gro', water='spce', his='')
         """
+        
+        self.current_cmd = cmd
         
         if _global.gmx is None or _global.gmx.strip() == '': # make sure gmx path is set
             raise EnvNotSetError('Gromacs executable', 'gmx')
@@ -285,9 +287,14 @@ class BaseHandle:
         if 'gro' in kwargs:
             gro_file = kwargs['gro']
             del kwargs['gro']
-        elif 'trr' in kwargs:
+        else:
+            gro_file = None
+            
+        if 'trr' in kwargs:
             trr_file = kwargs['trr']
             del kwargs['trr']
+        else:
+            trr_file = None
         
         # if no custom file is passed, search for it in folders
         gro = self.getcurrentNone(gro_file, 'gro', level=True, exp=False)
@@ -306,7 +313,7 @@ class BaseHandle:
         else: # otherwise, just use the gro file
             self.gmx('grompp', f = f'{new}.mdp', c = gro[1],\
                      p = self.getcurrent('top'), o = f"{new}.tpr", **kwargs)
-            
+          
     def cpmd(self, inp, out, onlycmd=False, dirc=''):
         """
         Function to execute gmx commands in "pythonic" way

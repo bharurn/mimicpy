@@ -79,6 +79,7 @@ def getOverlaps_Atoms(qmatoms, inp):
     qm_box[1] = round(qm_box[1]/qm_box[0], 2)
     qm_box[2] = round(qm_box[2]/qm_box[0], 2)
     qm_box[0] = round(qm_box[0])
+    qm_box.extend([0, 0, 0])
     inp.system.cell = '  '.join([str(s) for s in qm_box])
     
     return inp

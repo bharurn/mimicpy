@@ -9,11 +9,16 @@ Gromacs MDP script
 """
 
 from .base import Script
+from .._global import _Global as gbl
+from ..utils.errors import ParserError
 
 class MDP(Script):
     def __init__(self, **kwargs):
         
         super().__init__(**kwargs)
+        
+        if 'title' in kwargs:
+            self.name = kwargs['title']
         
         if not self.hasparam('name'):
             self.name = 'MD Run'
@@ -35,6 +40,24 @@ class MDP(Script):
             val += f"{d_} = {getattr(self, d)}\n"
         
         return val
+    
+    @classmethod
+    def fromFile(cls, script):
+        return cls.fromText(gbl.host.read(script))
+    
+    @classmethod
+    def fromText(cls, script):
+        kwargs = {}
+        for i, line in enumerate(script.splitlines()):
+            line = line.strip()
+            if line.startswith(';'): continue
+            vals = line.split(';')[0].split('=')
+            if len(vals) < 2:
+                raise ParserError(ftype='.mdp', no=i)
+            else:
+                param, val = vals
+            kwargs.update({param.strip(): val.strip()})
+        return cls(**kwargs)                  
     
     @classmethod
     def defaultGenion(cls):

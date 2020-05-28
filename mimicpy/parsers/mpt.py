@@ -3,7 +3,7 @@ from .._global import _Global as gbl
 from . import _mpt_writer
 import pandas as pd
 
-def write(inp, out, nonstd_atm_types={}, buff=1000):
+def write(inp, out, nonstd_atm_types={}, buff=1000, guess_elems=True):
     tail = gbl.host.run(f'tail -n 30 {inp}')
     mols = _mpt_writer.molecules(tail)
         
@@ -12,7 +12,8 @@ def write(inp, out, nonstd_atm_types={}, buff=1000):
     # extend atm_types_to_symb with nonstdligands
     # should be dict of atom type --> symb
     atm_types_to_symb.update(nonstd_atm_types)
-    ap = _mpt_writer.AtomsParser(file, mols, atm_types_to_symb, buff)
+    print(atm_types_to_symb)
+    ap = _mpt_writer.AtomsParser(file, mols, atm_types_to_symb, buff, guess_elems)
     
     df = ap.mol_df
     
@@ -50,7 +51,7 @@ class Reader:
         else:
             return third_val
     
-    def selectAtom(self, idx, mol=None, relative=False):
+    def selectByID(self, idx, mol=None, relative=False):
         orig_id = idx
         if not mol:
             mol = ''
@@ -74,55 +75,28 @@ class Reader:
         
         return srs.append(pd.Series({'mol':mol, 'id':orig_id}))
     
-    def selectAtoms(self, ids):
+    def selectByIDs(self, ids):
         s = [self.selectAtom(i) for i in ids]
         return pd.concat(s, axis=1).T
     
-    # TO DO: make func to merge mpt with gro file
-    
-    # TO DO: need to rewrite this for current mpt format
-    def parse_selec(selection, df):
-        """Translate selection language string into pandas dataframe selection"""
-    
-        # if selection is a lambda func, then just call and return it
-        # this is provided for debuggin puposes
-        LAMBDA = lambda:0
-        if isinstance(selection, type(LAMBDA)):
-            return df[selection(df)]
-            
-        # below code translates selection langauge to pandas boolean
-        # selection eg., resName is SER and number < 25 and chainID not B
-        # will be translated to df['resName'] == 'SER' and df.index == 25 and df['chainID'] != 'B'
-    
-        ev = '' # converted string
-        i = 0 # counter to keep track of word position
-        for s in selection.split():
-            if i == 0: # if starting of set
-                ev += f"(df['{s}']"
-                # if and/or encountered, reset i to -1 (will become 0 due to i+= 1 at end)
-                # so we can start parsing again
-            elif s == 'or':
-                ev += f' | '
-                i = -1
-            elif s == 'and':
-                ev += f' & '
-                i = -1
-            elif s == 'is':
-                ev += '=='
-            elif s == 'not':
-                ev += '!='
-            elif s == '>' or s == '>=' or s == '<' or s == '<=':
-                ev += s
-            else: # parse everything else, meant for the third word
-                if s.isnumeric():
-                    ev += f"{s})"
-                else:
-                    ev += f"'{s}')"
-                
-            i += 1
-
-        ev = f"df.loc[{ev}]" # eg., df.loc[ df['resName'] == 'SER' and df.index == 25 and df['chainID'] != 'B' ]
-        ev = ev.replace("df['number']","df.index") # replace df['number'] to df.index as number is the index of df
-        gbl.logger.write('debug2', f'Selection command translated to: {ev}')
+    def getFull(self):
+        # not complete!!
+        df = None
         
-        return eval(ev) # evaluate string and return the dataframe
+        for mol in self.mpt:    
+            _df = self._get_df(mol)
+            no = self.mpt[mol][0]
+            if df is None:
+                df = pd.concat([_df]*no, ignore_index=True)
+            else:
+                df = df.append(pd.concat([_df]*no, ignore_index=True))
+        
+        # atom id is automatically generated when multipling df
+        # but resid in not, TO DO: resid handling
+        df['id'] = df.index+1
+        
+        return df.set_index(['id'])
+    
+    # TO DO: add func to get each column seperately
+    
+    # TO DO: need to make a selection language for current mpt format
