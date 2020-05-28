@@ -121,4 +121,4 @@ def checkLine(line, no=None):
         raise TypeError(f"Line{no} is of unknown type")
     
     if set(vals.keys()) == keys:
-        raise ParserError('PDB', no=no)
+        raise ParserError(ftype='.pdb', no=no)

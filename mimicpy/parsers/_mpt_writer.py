@@ -124,7 +124,7 @@ class AtomsParser:
                     gbl.logger.write('warning', (f"Guessing atomic symbol for atom id {nr} and name {name} as {elem}..") )
                 
                 else:
-                    raise ParserError("gmx topology", file=self.f,\
+                    raise ParserError(file=self.f, ftype="preprocessed topology", \
                                          extra="Cannot determine atomic symbol for atom ID {nr} and name {name}")
                 
                 df_[c[6]].append(elem)
