@@ -162,6 +162,7 @@ class MDP(Script):
 
         return eq
     
+    @classmethod
     def defaultMiMiC(cls):
         return cls(integrator = 'mimic', # will be set by prepare.QM.getInp() anyways
                    nsteps = 100000,
