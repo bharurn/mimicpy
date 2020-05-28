@@ -148,7 +148,7 @@ class MDP(Script):
         return npt
      
     @classmethod
-    def defaultPRD(cls):
+    def defaultMD(cls):
         eq = cls.defaultNPT()
         eq.name = 'MD'
         eq.define = None
@@ -160,3 +160,39 @@ class MDP(Script):
         eq.refcoord_scaling = None
 
         return eq
+    
+    def defaultMiMiC(cls):
+        return cls(
+                # integrator = mimic will be set by prepare.QM.getInp()
+                nsteps = 100000,
+                dt = 0.0001, # around 4 hartree
+                # Output control
+                nstxout = 100, # save coordinates every 100 steps
+                nstvout = 100, # save velocities every 100 steps
+                nstfout = 100, # save forces every 100 stesp
+                nstenergy = 0, # energies not necessary as they are not accurate in MiMiC run (use CPMD output)
+                nstlog = 100, # update log file every 50 steps
+                # Bond parameters
+                continuation = 'yes', # first dynamics run
+                constraints = 'none', # no constraints as we want QM region to be flexible
+                # Neighbor searching
+                cutoff_scheme = 'Verlet',
+                ns_type = 'grid', # search neighboring grid cells
+                nstlist = 10,
+                rcoulomb = 1.0, # short-range electrostatic cutoff (in nm)
+                rvdw = 1.0, # short-range van der Waals cutoff (in nm)
+                # Electrostatics
+                coulombtype = 'PME', # Particle Mesh Ewald for long-range electrostatics
+                pme_order = 4, # cubic interpolation
+                fourierspacing = 0.16, # grid spacing for FFT
+                # Temperature coupling is off - no need for that as CPMD will be the integrator
+                tcoupl = 'no',
+                pcoupl = 'no',
+                # Periodic boundary conditions
+                pbc = 'xyz', # 3-D PBC
+                # Dispersion correction
+                DispCorr = 'EnerPres', # account for cut-off vdW scheme
+                # Velocity generation
+                gen_vel = 'no' # do not generate velocities
+                # QMMM-grps = QMatoms will be set by prepare.QM.getInp()
+            )
