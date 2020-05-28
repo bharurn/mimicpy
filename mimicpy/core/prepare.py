@@ -37,12 +37,13 @@ class MM(BaseHandle):
         self._topol_kwargs = {'water': 'tip3p', 'ff': 'amber99sb-ildn'} # parameters to pass to gmx pdb2gmx
         self.his_str = '' # string version of list of histidine protonation states, input to pdb2gmx
         super().__init__(status) # call BaseHandle constructor to init _status dict
-        _global.logger.write('debug', 'Set handle directory as prepareMM..')
         
         if self._status['prepMM'] == '':
             self.dir = 'prepareMM' # dir of handle, can be changed by user
         else:
             self.dir = self._status['prepMM']
+            
+        _global.logger.write('debug', f'Set handle directory as {self.dir}..')
         
         # all files names used when running gmx, can be changed by user
         self.confin = "confin.pdb"
@@ -202,9 +203,9 @@ class MM(BaseHandle):
         for ligname, lig in self.protein.ligands.items():
             nonstd_atm_types.update( dict(zip(lig.atm_types, lig.elems)) )
         
-        self.getMPT(nonstd_atm_types)
+        self.getMPT(nonstd_atm_types, guess_elems=False)
     
-    def getMPT(self, nonstd_atm_types={}, preproc=None, mpt=None):
+    def getMPT(self, nonstd_atm_types={}, preproc=None, mpt=None, guess_elems=True):
         """Get the MPT topology, used in prepare.QM"""
         
         # add reading elements from protein ligands
@@ -212,6 +213,7 @@ class MM(BaseHandle):
         pp = self.getcurrentNone(preproc, 'pptop')
         
         if mpt == None: mpt = f"{self.dir}/{self.mpt}" # if no mpt file was passed, use default value
+        else: mpt = f"{self.dir}/{mpt}"
         
         mptwrite(pp, mpt, nonstd_atm_types)
         
