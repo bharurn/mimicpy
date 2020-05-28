@@ -9,7 +9,7 @@ This module contains the BaseHandle class which is inherited by all handles
 import re
 import yaml
 from .._global import _Global as _global
-from ..utils.errors import GromacsError, MiMiCPyError, EnvNotSetError, defaultHook
+from ..utils.errors import GromacsError, MiMiCPyError, EnvNotSetError
 from ..utils.logger import Logger, LogString
 import sys
 
@@ -58,11 +58,6 @@ class BaseHandle:
         # if nothing was found in any folder, raise exception
         if exp: raise FileNotFoundError(f"Cannot find file with extension {ext}")
     
-    def __del__(self):
-        """Deconstructor"""
-        self.logger.close()
-        self.toYaml()
-        
     def getcurrentNone(self, file, ext, level=False, exp=True):
         """
         Convenience function, check if argument passed is None
