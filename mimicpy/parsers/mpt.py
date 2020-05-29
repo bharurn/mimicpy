@@ -79,13 +79,30 @@ class Reader:
         s = [self.selectAtom(i) for i in ids]
         return pd.concat(s, axis=1).T
     
-    def getDF(self):
+    def r(self, a, no):
+        """Function to keep track of res counter in getDF()"""
+        if self._res_i%no == 0:
+            self._res_before += 1
+        self._res_i += 1
+        return a+self._res_before
+    
+    
+    def getDF(self, s):
         df = None
-        
-        for mol in self.mpt:    
-            _df = self._get_df(mol)
-            no = self.mpt[mol][0]
+    
+        resn = 0
+        for mol in s.mpt:    
+            _df = s._get_df(mol)
+            no = s.mpt[mol][0]
             _df = _df.loc[_df.index.repeat(no)].reset_index(drop=True)
+            _df['resid'] += resn
+            
+            if no > 1:
+                self._res_i = 0 # res counter
+                self._res_before = -1 # residues before current one
+                _df['resid'] = _df['resid'].apply(self.r, args=[s.mpt[mol][1]])
+            
+            resn = _df['resid'].iloc[-1]
             if df is None:
                 df = _df
             else:
