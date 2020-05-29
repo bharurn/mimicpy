@@ -55,48 +55,81 @@ class Reader:
         orig_id = idx
         if not mol:
             mol = ''
+            resn = 0
+            curr_res = 0
             for k,v in self.mpt.items():
-                if idx <= v[2]: break
-                else: mol = k 
+                if idx <= v[2]:
+                    break
+                else:
+                    mol = k
+                    # to get correct resid
+                    curr_res = self._get_df(k)['resid'].iloc[-1]
+                    resn += curr_res # no. of res till now
+        
+        resn -= curr_res # resn includes no. of res for current mol, remove it
         
         df = self._get_df(mol)
         if not relative:
             atms_before = self.mpt[mol][2]
             idx = idx-atms_before
         
+        ## Accounting for multiple molecules
         natms = self.mpt[mol][1]
         
-        if natms > 1:
-            idx -= 1
-            col = idx % natms
-            idx = col+1
+        idx -= 1
+        
+        if self.mpt[mol][0] > 1: # to get correct resid
+            n_res_before = idx//natms
+            resn += n_res_before
+        
+        # atom id for multiple molecules case
+        col = idx % natms
+        idx = col+1
             
         srs = df.loc[idx]
+        resn += srs['resid']
+        # drop resid and assing it again, to avoid pandas warning
+        srs = srs.drop(labels=['resid'])
         
-        return srs.append(pd.Series({'mol':mol, 'id':orig_id}))
+        return srs.append(pd.Series({'mol':mol, 'id':orig_id, 'resid': resn}))
     
     def selectByIDs(self, ids):
         s = [self.selectAtom(i) for i in ids]
         return pd.concat(s, axis=1).T
     
-    def getFull(self):
-        # not complete!!
+    def r(self, a, no):
+        """Function to keep track of res counter in getDF()"""
+        if self._res_i%no == 0:
+            self._res_before += 1
+        self._res_i += 1
+        return a+self._res_before
+    
+    
+    def getDF(self):
         df = None
-        
+    
+        resn = 0
         for mol in self.mpt:    
             _df = self._get_df(mol)
             no = self.mpt[mol][0]
-            # this method doesn't work for large no of atoms
-            # like water, CHANGE!!
+            _df = _df.loc[_df.index.repeat(no)].reset_index(drop=True)
+            _df['resid'] += resn
+            
+            if no > 1:
+                self._res_i = 0 # res counter
+                self._res_before = -1 # residues before current one
+                _df['resid'] = _df['resid'].apply(self.r, args=[self.mpt[mol][1]])
+            
+            resn = _df['resid'].iloc[-1]
             if df is None:
-                df = pd.concat([_df]*no, ignore_index=True)
+                df = _df
             else:
-                df = df.append(pd.concat([_df]*no, ignore_index=True))
+                df = df.append(_df)
         
-        # atom id is automatically generated when multipling df
-        # but resid in not, TO DO: resid handling
+    	# atom id is automatically generated when multipling df
+    	# but resid in not, TO DO: resid handling
         df['id'] = df.index+1
-        
+
         return df.set_index(['id'])
     
     def getProperty(self, prop):

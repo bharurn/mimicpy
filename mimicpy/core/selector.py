@@ -10,7 +10,7 @@ class Selector:
         
     def load(self, mpt, gro_file):
         gro_df, box = gro.read(gro_file, self.lines)
-        self.df = mpt.getFull()
+        self.df = mpt.getDF()
         self.df = self.df.merge(gro_df, left_on='id', right_on='id')
         return box
         
