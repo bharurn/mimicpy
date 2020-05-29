@@ -1,5 +1,5 @@
 # MiMiCPy
-MiMiCPy is a python package for efficient set-up and execution of QM/MM simulations using the MiMiC CPMD/Gromacs interface developed at Forschungszentrum Juelich and EPFL. [1] It supports a custom selection language and integration with molecular visualization software packages like PyMOL for easy preparation of the MiMiC input scripts. Preparation of Gromacs topologies for non-standard ligands, and other system preparation steps are also supported for the Amber force field. Support for wider system topologies and force fields are in development.
+MiMiCPy is a python package for efficient set-up and execution of QM/MM simulations using the MiMiC CPMD/Gromacs interface developed at Forschungszentrum Juelich and EPFL. [1] It supports a custom selection language and integration with molecular visualization software packages like PyMOL for easy preparation and execution of MiMiC runs. Preparation of Gromacs topologies for non-standard ligands, and other system preparation steps are also supported for the Amber force field. Support for wider system topologies and force fields are in development.
 
 ## Installation
 MiMiCPy is not available on pip/conda yet. To install run the following command in the terminal:
