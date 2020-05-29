@@ -16,9 +16,9 @@ For the required packages/dependencies please read the requirements.txt and manu
 These difficulties in setup are only a temporary hassle, and will be fixed once the package is stable enough to be published on pip/conda.
 
 ## Portability Issues
-The package has been tested and confirmed to work on Mac OSX and Linux. Running on Windows is not supported natively, but can work by using a UNIX shell utility for Windows. However, this has not been tested and performance is unknown.
+The package has been tested and confirmed to work on Mac OSX and Linux. Running on Windows is not fully supported, however running MiMiCPy on a Windows machine and submitting to a Unix remote host with MiMiC should work. However, this has not been tested.
 
-Currently, at least Python 3.6 is required to run the package. If it is unavailable on the remote server you are using to run MiMiC (and you do not have sudo privileges), the package and required python verions need to only be installed locally, and the MiMiCPy host can be set-up to run all jobs remotely. For more details, please read the docs.
+Currently, at least Python 3.6 is required to run the package. If it is unavailable on the remote server you are using to run MiMiC (and you do not have sudo privileges), MiMiCPy and the dependencies need to only be installed locally, and `mimicpy.setHost()` can be used to set-up all jobs remotely. For more details, please read the docs.
 
 ## Demo
 Below is a demo for preparing a given protein+ligand system and running a MiMiC simulation:
@@ -34,7 +34,7 @@ em_mdp = mimicpy.scripts.MDP.defaultEM() # get the default energy minimization M
 md.run(em_mdp) # minimize system
 
 qm = mimicpy.prepare.QM() # QM prepare handle
-qm.add('resname is ICT and id < 13085') # add ligand ICT to the QM region
+qm.add('resname is ICT and resid is 832') # add ligand ICT to the QM region
 cpmd_inp = qm.getInp() # get the CPMD input file for a MiMiC run
 cpmd_inp.cpmd.molecular__dynamics__cp = '' # set the Car-Parrinello option ON in the input script
 
