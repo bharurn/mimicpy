@@ -86,6 +86,8 @@ class Reader:
         for mol in self.mpt:    
             _df = self._get_df(mol)
             no = self.mpt[mol][0]
+            # this method doesn't work for large no of atoms
+            # like water, CHANGE!!
             if df is None:
                 df = pd.concat([_df]*no, ignore_index=True)
             else:
@@ -97,6 +99,15 @@ class Reader:
         
         return df.set_index(['id'])
     
-    # TO DO: add func to get each column seperately
-    
-    # TO DO: need to make a selection language for current mpt format
+    def getProperty(self, prop):
+        df = None
+        
+        for mol in self.mpt:    
+            _df = self._get_df(mol)[prop]
+            no = self.mpt[mol][0]
+            if df is None:
+                df = pd.concat([_df]*no)
+            else:
+                df = df.append(pd.concat([_df]*no))
+        
+        return df.to_list()
