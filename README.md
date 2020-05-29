@@ -1,5 +1,5 @@
 # MiMiCPy
-MiMiCPy is a python package for efficient set-up and execution of QM/MM simulations using the MiMiC CPMD/Gromacs interface developed at Forschungszentrum Juelich and EPFL. It supports a custom selection language and integration with molecular visualization software packages like PyMOL for easy generation of the QM region in MiMiC input files. Gromacs topologies for non-standard ligands, and other system preparation steps are also supported for the Amber force field. Support for wider system topology preparation and force fields is in development.
+MiMiCPy is a python package for efficient set-up and execution of QM/MM simulations using the MiMiC CPMD/Gromacs interface developed at Forschungszentrum Juelich and EPFL. [1] It supports a custom selection language and integration with molecular visualization software packages like PyMOL for easy preparation of the MiMiC input scripts. Preparation of Gromacs topologies for non-standard ligands, and other system preparation steps are also supported for the Amber force field. Support for wider system topologies and force fields are in development.
 
 ## Installation
 MiMiCPy is not available on pip/conda yet. To install run the following command in the terminal:
@@ -34,11 +34,14 @@ em_mdp = mimicpy.scripts.MDP.defaultEM() # get the default energy minimization M
 md.run(em_mdp) # minimize system
 
 qm = mimicpy.prepare.QM() # QM prepare handle
-qm.add('resname is ICT and mol is Protein_chain_A') # add ligand ICT chain A to the QM region
+qm.add('resname is ICT and id < 13085') # add ligand ICT to the QM region
 cpmd_inp = qm.getInp() # get the CPMD input file for a MiMiC run
 cpmd_inp.cpmd.molecular__dynamics__cp = '' # set the Car-Parrinello option ON in the input script
 
 mimic = mimicpy.simulate.MiMiC.continuefrom(qm) # MiMiC simulation handle
 mimic.run(cpmd_inp) # run a MiMiC simulation using the above cpmd script
 ```
-For more details and options please refer to the docs before implementing MiMiCPy for your research. Especially useful features include support for running on a remote server and executing jobs with Slurm.
+For more details and options please refer to the docs before implementing MiMiCPy for your research.
+ 
+## References
+[1] J. Chem. Theory Comput. 2019, 15, 6, 3810–3823
