@@ -79,24 +79,22 @@ class Reader:
         s = [self.selectAtom(i) for i in ids]
         return pd.concat(s, axis=1).T
     
-    def getFull(self):
-        # not complete!!
+    def getDF(self):
         df = None
         
         for mol in self.mpt:    
             _df = self._get_df(mol)
             no = self.mpt[mol][0]
-            # this method doesn't work for large no of atoms
-            # like water, CHANGE!!
+            _df = _df.loc[_df.index.repeat(no)].reset_index(drop=True)
             if df is None:
-                df = pd.concat([_df]*no, ignore_index=True)
+                df = _df
             else:
-                df = df.append(pd.concat([_df]*no, ignore_index=True))
+                df = df.append(_df)
         
-        # atom id is automatically generated when multipling df
-        # but resid in not, TO DO: resid handling
+    	# atom id is automatically generated when multipling df
+    	# but resid in not, TO DO: resid handling
         df['id'] = df.index+1
-        
+
         return df.set_index(['id'])
     
     def getProperty(self, prop):
