@@ -24,7 +24,7 @@ class MM(BaseHandle):
     
     """
     
-    def __init__(self, status=[], protein=None):
+    def __init__(self, status=[]):
         """Class constructor"""
         
         # parameters to pass to gmx genion
@@ -52,10 +52,8 @@ class MM(BaseHandle):
         self.mpt = "topol.mpt"
         self.preproc = "topol.pptop"
         self.ions = "ions"
-        
-        self.protein = protein
     
-    def topolParams(self, **kwargs):
+    def pdb2gmxParams(self, **kwargs):
         """
         
         Set self._topol_kwargs, custom parameters for pdb2gmx
@@ -73,17 +71,19 @@ class MM(BaseHandle):
             kwargs['his'] = '' # set the his option on, so -his will be passed to pdb2gmx
         
         self._topol_kwargs = kwargs # set custom topol kwargs
+    
+    def editconfParams(self, **kwargs): self._box_kwargs = kwargs
         
-    def _pdb2gmx(self):
+    def prepProtein(self, protein):
         """Runs gmx pdb2gmx for pure protien, and adds ligands/waters to pdb and .top in the right order"""
         
         self.setcurrent(key='prepMM') # set the current prepMM directory to self.dir in _status dict
         
         _global.logger.write('info', 'Preparing protein topology..')
         
-        _global.logger.write('debug2', f"Writing {self.protein.name} to {self.confin}..")
+        _global.logger.write('debug2', f"Writing {protein.name} to {self.confin}..")
         
-        _global.host.write(self.protein.pdb+self.protein.water, f'{self.dir}/{self.confin}')
+        _global.host.write(protein.pdb+protein.water, f'{self.dir}/{self.confin}')
         
         _global.logger.write('info', 'Calculating protein topology')
         
@@ -117,9 +117,11 @@ class MM(BaseHandle):
         
         _global.logger.write('info', "Combining ligand structure and topology with protein..")
         # combine protein, ligand and water in that order, so that gromacs doesn't complain about order
-        conf_pdb = '\n'.join(splt[:len(splt)-i]) + '\n' + self.protein.ligand_pdb + '\n'.join(lines[::-1])
+        conf_pdb = '\n'.join(splt[:len(splt)-i]) + '\n' + protein.ligand_pdb + '\n'.join(lines[::-1])
         
         _global.host.write(conf_pdb, conf)
+        
+        self.gmx('editconf', f = self.conf, o = self.conf1, dirc=self.dir, **self._box_kwargs)
         
         ######
         # Followinng section combines .itp data of all ligands into a single file
@@ -133,13 +135,13 @@ class MM(BaseHandle):
         ######
         
         # init atomtypes section of itp
-        top1 = (f"; Topology data for all non-standard resiudes in {self.protein.name} created by MiMiCPy\n"
+        top1 = (f"; Topology data for all non-standard resiudes in {protein.name} created by MiMiCPy\n"
             "; AmberTools was used to generate topolgy parameter for Amber Force Field, conversion to GMX done using Acpype"
                     "\n\n[ atomtypes ]\n")
         top2 = '' # init rest of itp
         
         _global.logger.write('debug2', "Combining ligands topology into single file ligands.itp..")
-        for ligname, lig in self.protein.ligands.items():
+        for ligname, lig in protein.ligands.items():
             t1, t2 = lig.splitItp() # splits ligand itp into contents of [ atomtypes ], and eveything else
 	
             top1 += t1 # update atomtypes section
@@ -161,23 +163,27 @@ class MM(BaseHandle):
         # SOL is in between protein and ligand in [ molecule ]
         # we need to remove that and add it to the end, to match pdb order
         _global.host.run('grep -v SOL topol.top > topol_.top && mv topol_.top '+topol)
-        _global.host.run(f'echo SOL {self.protein.hoh_mols} >> '+topol)
+        _global.host.run(f'echo SOL {protein.hoh_mols} >> '+topol)
         _global.logger.write('debug', "ligands.itp added to topol.top")
         
         _global.logger.write('info', 'Topology prepared..')
         
+        nonstd_atm_types = {}
+        for name, lig in protein.ligands.items():
+            nonstd_atm_types.update( dict(zip(lig.atm_types, lig.elems)) )
+        
+        #generate MPT file
+        self.getMPT(ligs=list(protein.ligands.values()))
+        
+        _global.logger.write('info', "Converting to gro..")
+        
         self.saveToYaml()
         
-    def ionParams(self, **kwargs): self._ion_kwargs = kwargs
-    def boxParams(self, **kwargs): self._box_kwargs = kwargs
+    def genionParams(self, **kwargs): self._ion_kwargs = kwargs
     def solvateParams(self, **kwargs): self._solavte_kwargs = kwargs
     
-    def _box(self, genion_mdp):
-        """Run gmx editconf, gmx solvate, gmx grompp and gmx genion in that order"""
-        
-        _global.logger.write('info', "Preparing system box..")
-        
-        self.gmx('editconf', f = self.conf, o = self.conf1, dirc=self.dir, **self._box_kwargs)
+    def getBox(self, genion_mdp):
+        """Run gmx solvate, gmx grompp and gmx genion in that order"""
         
         _global.logger.write('info', "Solvating box..")
         self.gmx('solvate', cp = self.conf1, o = self.conf2, p = self.topol, dirc=self.dir, **self._solavte_kwargs)
@@ -192,27 +198,26 @@ class MM(BaseHandle):
         
         self.saveToYaml()
     
-    def getTopology(self, genion_mdp=mdp.MDP.defaultGenion()):
-        self._pdb2gmx()
-        self._box(genion_mdp)
-        
-        nonstd_atm_types = {}
-        for ligname, lig in self.protein.ligands.items():
-            nonstd_atm_types.update( dict(zip(lig.atm_types, lig.elems)) )
-        
-        self.getMPT(nonstd_atm_types, guess_elems=False)
-    
-    def getMPT(self, nonstd_atm_types={}, preproc=None, mpt=None, guess_elems=True):
+    def prepSystem(self, sys_dir=None, ligs=None, mpt=None, guess_elems=False):
         """Get the MPT topology, used in prepare.QM"""
         
-        # add reading elements from protein ligands
+        if sys_dir.strip() != '' or sys_dir.strip() != None:
+            self.dir = sys_dir
         
-        pp = self.getcurrentNone(preproc, 'pptop')
+        if ligs==None: ligs = []
+        
+        # get non std residue dict from ligs
+        nonstd_atm_types = {}
+        for lig in ligs:
+            nonstd_atm_types.update( dict(zip(lig.atm_types, lig.elems)) )
+        
+        # generate proprocessed topology or changed writer mpt to read from .top
+        self.grompp(mdp.MDP.defaultGenion(), self.ions, gro = self.conf2, pp = self.preproc, dirc=self.dir) 
         
         if mpt == None: mpt = f"{self.dir}/{self.mpt}" # if no mpt file was passed, use default value
         else: mpt = f"{self.dir}/{mpt}"
         
-        mptwrite(pp, mpt, nonstd_atm_types)
+        mptwrite(self.preproc, mpt, nonstd_atm_types, guess=guess_elems)
         
         self.toYaml()
         

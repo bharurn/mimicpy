@@ -91,7 +91,7 @@ def do(mol, conv):
         
     _global.logger.write('info', f"Running AmberTools parmchk on {prep}..")
     
-    log = _global.host.run(f'Running {_global.parmchk} -i {prep} -f prepi -o params.frcmod..')
+    log = _global.host.run(f'{_global.parmchk} -i {prep} -f prepi -o params.frcmod..')
     
     _global.logger.write('debug2', log)
     
@@ -99,7 +99,7 @@ def do(mol, conv):
     
     tleap_in = "source leaprc.gaff\n"
     tleap_in += f"loadamberprep {prep}\n"
-    tleap_in += f"loadamberparams params.frcmod\n"
+    #tleap_in += f"loadamberparams params.frcmod\n"
     
     if _global.host.checkFile(f"{mol}.frcmod", throw=False):
         tleap_in += f"loadamberparams {mol}.frcmod\n"
