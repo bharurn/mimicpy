@@ -1,4 +1,5 @@
-from collections import defaultdict, OrderedDict
+#from collections import defaultdict, OrderedDict
+from collections import OrderedDict
 import pandas as pd
 from ..utils.constants import element_names
 from .._global import _Global as gbl
@@ -11,18 +12,21 @@ def isSection(section, txt):
     else: return False
     
 def molecules(tail):    
-    _mols = defaultdict(int)
-        
+#    _mols = defaultdict(int)
+    _mols = []
+    
     for line in tail.splitlines()[::-1]:
         if isSection('molecules', line):
             break
         elif line.strip() == '' or line.startswith(';'):
             continue
         mol, no = line.split()
-        _mols[mol] += int(no)
+#        _mols[mol] += int(no)
+        _mols += [[mol, int(no)]]
             
-    return OrderedDict(list(_mols.items())[::-1])
-    
+#    return OrderedDict(list(_mols.items())[::-1])
+    return _mols[::-1]
+
 def atomtypes(f, buff):
     atomtypes = ''
     while True:
@@ -82,6 +86,7 @@ class AtomsParser:
             if any([isSection(hdr, line) for hdr in end]):
                 start = False
                 if mol in self.mol_df.keys():
+#                if mol in [mol[0] for mol in self.mol_df]:
                     self.mol_df[mol][2] = self.natms
                     self.mol_df[mol][3] = pd.DataFrame(df_).set_index(['number'])
                     self.mol_df[mol][1] = len(self.mol_df[mol][3])
@@ -91,7 +96,6 @@ class AtomsParser:
                     for l in atom_splt[i+1:]:
                         if not l.startswith(';'):
                             mol = l.split()[0]
-                            print(mol)
                             break
             if isSection('atoms', line) and mol in self.mol_df.keys(): # read all atom sections
                 start = True
@@ -134,9 +138,12 @@ class AtomsParser:
         self.f = f
         self.atm_types_to_symb = atm_types_to_symb
         # mol_name: (no. of mols, no. of atoms in one mol, no. of atoms before mol, df)
-        self.mol_df = OrderedDict( (k,[v,0,0,pd.DataFrame()]) for k,v in mols.items())
+#        self.mol_df = OrderedDict( (k,[v,0,0,pd.DataFrame()]) for k,v in mols.items())
+        self.mol_df = OrderedDict( (k,[v,0,0,pd.DataFrame()]) for k,v in mols )
         self.natms = 0
         self.guess = guess
         
+#        while any(m[3].empty for k,m in self.mol_df.items()): 
         while any(m[3].empty for k,m in self.mol_df.items()): 
+
             self.parseAtoms(buff)
