@@ -97,6 +97,8 @@ class Reader:
     
     def r(self, a, no):
         """Function to keep track of res counter in getDF()"""
+        print("a :" + str(a))
+        print("no:" + str(no))
         if self._res_i%no == 0:
             self._res_before += 1
         self._res_i += 1
@@ -110,15 +112,16 @@ class Reader:
 #            _df = self._get_df(mol)
             _df = mol[1][3]
 #            no = self.mpt[mol][0]
-            no = mol[1][0]
-            _df = _df.loc[_df.index.repeat(no)].reset_index(drop=True)
+            n_mols = mol[1][0]
+            _df = _df.loc[_df.index.repeat(n_mols)].reset_index(drop=True)
             _df['resid'] += resn
             
-            if no > 1:
+            if n_mols > 1:
                 self._res_i = 0 # res counter
                 self._res_before = -1 # residues before current one
                 
   #              _df['resid'] = _df['resid'].apply(self.r, args=[self.mpt[mol][1]])
+                print(len([mol[1][1]]))
                 _df['resid'] = _df['resid'].apply(self.r, args=[mol[1][1]])
             
             resn = _df['resid'].iloc[-1]
