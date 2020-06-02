@@ -2,22 +2,25 @@ import pickle
 from .._global import _Global as gbl
 from . import _mpt_writer
 import pandas as pd
+import numpy as np
 
 def write(inp, out, nonstd_atm_types={}, buff=1000, guess_elems=True):
     tail = gbl.host.run(f'tail -n 30 {inp}')
     mols = _mpt_writer.molecules(tail)
+    print(mols)
         
     file = gbl.host.open(inp, 'rb')
     atm_types_to_symb = _mpt_writer.atomtypes(file, buff)
     # extend atm_types_to_symb with nonstdligands
     # should be dict of atom type --> symb
     atm_types_to_symb.update(nonstd_atm_types)
-    print(atm_types_to_symb)
     ap = _mpt_writer.AtomsParser(file, mols, atm_types_to_symb, buff, guess_elems)
     
     df = ap.mol_df
+    print(df)
     
-    # replace repeating dataframes with the string name of prev mol
+    # replace repeating dataframes with the string name of prev mol 
+
     keys = list(df.keys())
     vals = []
     for i in range(len(keys)):
@@ -26,30 +29,24 @@ def write(inp, out, nonstd_atm_types={}, buff=1000, guess_elems=True):
             key_j = keys[j]
         
             try:
-                if all(df[key_i][3] == df[key_j][3]): 
+                if all(df[key_i][1] == df[key_j][1]): 
                     vals.append((key_i, key_j))
             except ValueError:
                 continue
     
-    for k,v in vals: df[v][3] = k
-    
+    for k,v in vals: df[v][1] = k
+
     pkl = gbl.host.open(out, 'wb')
+    pickle.dump(mols, pkl)
     pickle.dump(df, pkl)
     
 class Reader:
     
     def __init__(self, file):
         pkl = gbl.host.open(file, 'rb') # open as bytes
-        self.mpt = pickle.load(pkl) # unpickle
+        self.mol_names = pickle.load(pkl) # unpickle
+        self.atom_info = pickle.load(pkl)
         pkl.close()
-    
-    def _get_df(self, mol):
-        third_val = self.mpt[mol][3]
-        
-        if isinstance(third_val, str):
-            return self.mpt[third_val][3]
-        else:
-            return third_val
     
     def selectByID(self, idx, mol=None, relative=False):
         orig_id = idx
@@ -99,38 +96,29 @@ class Reader:
     
     def r(self, a, no):
         """Function to keep track of res counter in getDF()"""
+        print("a :" + str(a))
+        print("no:" + str(no))
         if self._res_i%no == 0:
             self._res_before += 1
         self._res_i += 1
         return a+self._res_before
-    
-    
-    def getDF(self):
-        df = None
-    
-        resn = 0
-        for mol in self.mpt:    
-            _df = self._get_df(mol)
-            no = self.mpt[mol][0]
-            _df = _df.loc[_df.index.repeat(no)].reset_index(drop=True)
-            _df['resid'] += resn
+                
+    def buildSystemTopology(self):
+        molecule_topology = pd.DataFrame()
+        for mol, n_mols in self.mol_names:
+            _df = self.atom_info[mol][1]
+            # repeat the molecule topology n_mol times and preserve the atom order
+            _df = pd.DataFrame(np.tile(_df.values, (n_mols, 1)), columns = _df.columns)
+            # reset index to consecutive numbering
+            _df = _df.reset_index(drop=True)
             
-            if no > 1:
-                self._res_i = 0 # res counter
-                self._res_before = -1 # residues before current one
-                _df['resid'] = _df['resid'].apply(self.r, args=[self.mpt[mol][1]])
-            
-            resn = _df['resid'].iloc[-1]
-            if df is None:
-                df = _df
-            else:
-                df = df.append(_df)
-        
+            molecule_topology = molecule_topology.append(_df,  ignore_index=True)
+
     	# atom id is automatically generated when multipling df
     	# but resid in not, TO DO: resid handling
-        df['id'] = df.index+1
+        molecule_topology['id'] = molecule_topology.index+1
 
-        return df.set_index(['id'])
+        return molecule_topology.set_index(['id'])
     
     def getProperty(self, prop):
         df = None
