@@ -7,7 +7,6 @@ MM topology, MPT and QM region/CPMD script
 
 """
 
-from ..parsers import pdb as hpdb
 from .selector import Selector
 from .base import BaseHandle
 from .._global import _Global as _global
