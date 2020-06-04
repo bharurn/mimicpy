@@ -1,5 +1,5 @@
 # MiMiCPy
-MiMiCPy is the python API for preparing and executing QM/MM simulations with the MiMiC CPMD/Gromacs interface developed at Forschungszentrum Juelich and EPFL. [1] For more details on compiling the MiMiC source code, please visit Ref 2.
+MiMiCPy is the python API for preparing and executing QM/MM simulations with the MiMiC CPMD/Gromacs interface developed at Forschungszentrum Juelich and EPFL. [1] For more details on compiling the MiMiC source code, please refer [2].
 
 MiMiCPy, among other features, supports a custom selection language and integration with molecular visualization software packages like PyMOL for easy preparation and execution of MiMiC runs.
 A command line interface to prepare CPMD scripts is also being developed.
@@ -48,4 +48,5 @@ For more details and options please refer to the docs.
  
 ## References
 [1] J. Chem. Theory Comput. 2019, 15, 6, 3810–3823
+
 [2] MiMiC Hybrid Quantum Mechanical Interface (http://manual.gromacs.org/documentation/2019-rc1/reference-manual/special/mimic-qmmm.html)
