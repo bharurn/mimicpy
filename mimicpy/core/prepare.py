@@ -39,6 +39,16 @@ class MM(BaseHandle):
         self.toYaml()
         
         self.nonstd_atm_types = {}
+        self.conf1 = 'conf1.gro'
+        self.conf2 = 'conf2.gro'
+        self.conf3 = 'conf3.gro'
+        self.topol = "topol.top"
+        self.mpt = "topol.mpt"
+        self.preproc = "topol.pptop"
+        self.ions = "ions"
+        
+        self._ion_kwargs = {'pname': 'NA', 'nname': 'CL', 'neutral': ''} # parameters to pass to gmx genion
+        self._solavte_kwargs = {'cs': 'spc216.gro'} # parameters to pass to gmx solvate
     
     def addLig(self, pdb, itp, *resnames, buff=1000):
         pdb_df = parse_pdb.parseFile(pdb, buff)
@@ -65,6 +75,25 @@ class MM(BaseHandle):
         mptwrite(self.preproc, mpt, self.nonstd_atm_types, buff, guess_elems)
         
         self.toYaml()
+    
+    def genionParams(self, **kwargs): self._ion_kwargs = kwargs
+    def solvateParams(self, **kwargs): self._solavte_kwargs = kwargs
+    
+    def makeBox(self, genion_mdp=mdp.MDP.defaultGenion()):
+        """Run gmx solvate, gmx grompp and gmx genion in that order"""
+        
+        _global.logger.write('info', "Solvating box..")
+        self.gmx('solvate', cp = self.conf1, o = self.conf2, p = self.topol, dirc=self.dir, **self._solavte_kwargs)
+        
+        _global.logger.write('info', "Adding ions to neutralize charge..")
+        self.grompp(genion_mdp, self.ions, gro = self.conf2, pp = self.preproc, dirc=self.dir)
+        
+        # sent SOL to stdin, so gromacs replaces some SOL molecules with ions 
+        self.gmx('genion', s = self.ions_tpr, o = self.conf3, p = self.topol, dirc=self.dir, **self._ion_kwargs, stdin="SOL")
+        
+        _global.logger.write('info', 'Simulation box prepared..')
+        
+        self.saveToYaml()
         
 class QM(BaseHandle):
     """
