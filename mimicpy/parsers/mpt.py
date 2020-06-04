@@ -4,7 +4,7 @@ from . import _mpt_writer
 import pandas as pd
 import numpy as np
 
-def write(inp, out, nonstd_atm_types={}, buff=1000, guess_elems=True):
+def write(inp, out, nonstd_atm_types, buff, guess_elems):
     tail = gbl.host.run(f'tail -n 30 {inp}')
     mols = _mpt_writer.molecules(tail)
     print(mols)

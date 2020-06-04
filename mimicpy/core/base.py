@@ -27,7 +27,7 @@ class BaseHandle:
             status = {'prepMM': '', 'prepQM': '', 'run': ['']}
         self._status = status # init _status
         self.log = LogString() # log string of standard ouput from all gmx commands
-        # init logger with gmx log string, and notes redirected to stdout
+        # init logger with gmx log string, and notes redirected to stderr
         self.logger = Logger(log=self.log, notes=sys.stderr)
         self.current_cmd = 'gmx'
     
