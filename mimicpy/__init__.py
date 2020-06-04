@@ -6,8 +6,6 @@ This initializer script of mimicpy
 
 """
 
-from .system.ligand import NonStdLigand, StdLigand
-from .system.protein import Protein
 from .core import prepare, simulate
 from .shell import shell
 from ._global import _Global as gbl
