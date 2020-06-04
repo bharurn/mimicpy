@@ -12,8 +12,10 @@ from .base import BaseHandle
 from .._global import _Global as _global
 from . import _qmhelper
 from ..parsers.mpt import Reader as MPTReader, write as mptwrite
+from ..parser._mpt_writer import atomtypes
 from ..utils.constants import hartree_to_ps, bohr_rad
 from ..scripts import cpmd, mdp
+from ..parsers import parse_pdb
 
 class MM(BaseHandle):
     """
@@ -36,21 +38,23 @@ class MM(BaseHandle):
         
         self.toYaml()
         
-        self.ligs = []
+        self.nonstd_atm_types = {}
     
-    def addNonStd(self, residue, coords, topol):
-        # read elems from pdb or sdf
-        # read atomtypes from topol
-        pass
+    def addLig(self, pdb, itp, *resnames, buff=1000):
+        pdb_df = parse_pdb.parseFile(pdb, buff)
+        
+        elems = [pdb_df['element'][pdb_df['resName']==name] for name in resnames]
+        
+        f = _global.host.open(itp, 'rb')
+        
+        atm_types = atomtypes(f, buff, True)
+        f.close()
+        
+        self.nonstd_atm_types.update( dict(zip(atm_types, elems)) )
         
     
     def getMPT(self, mpt=None, buff=1000, guess_elems=False):
         """Get the MPT topology, used in prepare.QM"""
-        
-        # get non std residue dict from ligs
-        nonstd_atm_types = {}
-        for lig in self.ligs:
-            nonstd_atm_types.update( dict(zip(lig.atm_types, lig.elems)) )
         
         # generate proprocessed topology for now, TO DO: changed writer mpt to read from .top
         self.grompp(mdp.MDP.defaultGenion(), self.ions, gro = self.conf2, pp = self.preproc, dirc=self.dir) 
@@ -58,7 +62,7 @@ class MM(BaseHandle):
         if mpt == None: mpt = f"{self.dir}/{self.mpt}" # if no mpt file was passed, use default value
         else: mpt = f"{self.dir}/{mpt}"
         
-        mptwrite(self.preproc, mpt, nonstd_atm_types, buff, guess_elems)
+        mptwrite(self.preproc, mpt, self.nonstd_atm_types, buff, guess_elems)
         
         self.toYaml()
         
