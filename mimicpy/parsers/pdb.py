@@ -8,6 +8,8 @@ handle pdb lines by converting them to a dictionary
 """
 
 from ..utils.errors import ParserError
+from .._global import _Global as gbl
+import pandas as pd
 
 keys = ['record', 'serial', 'name', 'altLoc', 'resName', 'chainID', 'resSeq', 'iCode', 'x', 'y', 'z',\
         'occupancy', 'tempFactor', 'element', 'charge']
@@ -122,3 +124,25 @@ def checkLine(line, no=None):
     
     if set(vals.keys()) == keys:
         raise ParserError(ftype='.pdb', no=no)
+
+def parseFile(self, pdb, lines=1000):
+    f = gbl.host.open(pdb, 'rb')
+    
+    pdb_lst = []
+    
+    while True:
+        # ATOM/HETATM line is always 78 bytes/chars
+        bytes_data = f.read(78*lines)
+        if bytes_data == b'': break
+    
+        for line in bytes_data.decode().splitlines():
+            try:
+                vals = readLine(line)
+            except: # if only part of line was read
+                loc = f.tell()
+                f.seek(loc-len(line)) # push back the file pointer to start of line
+            
+            if vals['record'] == 'ATOM' or vals['record'] == 'HETATM':
+                pdb_lst.append(vals)
+                
+    return pd.DataFrame(pdb_lst)
