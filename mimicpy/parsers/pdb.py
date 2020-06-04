@@ -139,8 +139,7 @@ def parseFile(self, pdb, lines=1000):
             try:
                 vals = readLine(line)
             except: # if only part of line was read
-                loc = f.tell()
-                f.seek(loc-len(line)) # push back the file pointer to start of line
+                f.seek(-len(line), 1) # push back the file pointer to start of line
             
             if vals['record'] == 'ATOM' or vals['record'] == 'HETATM':
                 pdb_lst.append(vals)
