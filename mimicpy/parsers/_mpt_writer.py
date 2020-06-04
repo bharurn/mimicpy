@@ -22,7 +22,7 @@ def molecules(tail):
 
     return _mols[::-1]
 
-def atomtypes(f, buff):
+def atomtypes(f, buff, get_nonstd=False):
     atomtypes = ''
     while True:
         s = f.read(buff).decode()
@@ -31,6 +31,8 @@ def atomtypes(f, buff):
         
     atm_types_to_symb = {} # init atom types to symbol
     start = False
+    
+    nonstd_atm_types = []
     
     for line in atomtypes.splitlines():
         if isSection('atomtypes', line) and atm_types_to_symb == {}: # read only first atomtypes
@@ -42,13 +44,20 @@ def atomtypes(f, buff):
                 e = line.split()[0] # first val is atom type
                 _n = line.split()[1]
                 
-                if not _n.isnumeric(): continue # check just in case
+                if not _n.isnumeric():
+                    if get_nonstd:
+                       nonstd_atm_types.append(e) 
+                    else:
+                        continue # check just in case
                 else: n = int(_n)-1 # second is element no.
                 
                 if n == -1: continue # dummy masses, skip for now
                 atm_types_to_symb[e]  = element_names[n] # fill up at
     
-    return atm_types_to_symb
+    if get_nonstd:
+        return atm_types_to_symb
+    else:
+        return nonstd_atm_types
 
 
 class AtomsParser:
