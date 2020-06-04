@@ -1,5 +1,5 @@
 # MiMiCPy
-MiMiCPy is a python package for efficient set-up and execution of QM/MM simulations using the MiMiC CPMD/Gromacs interface developed at Forschungszentrum Juelich and EPFL. [1] It supports a custom selection language and integration with molecular visualization software packages like PyMOL for easy preparation and execution of MiMiC runs. Preparation of Gromacs topologies for non-standard ligands, and other system preparation steps are also supported for the Amber force field. Support for wider system topologies and force fields are in development.
+MiMiCPy is a python API for efficient set-up and execution of QM/MM simulations using the MiMiC CPMD/Gromacs interface developed at Forschungszentrum Juelich and EPFL. [1] It supports a custom selection language and integration with molecular visualization software packages like PyMOL for easy preparation and execution of MiMiC runs. 
 
 ## Installation
 MiMiCPy is not available on pip/conda yet. To install run the following command in the terminal:
@@ -21,27 +21,27 @@ The package has been tested and confirmed to work on Mac OSX and Linux. Running 
 Currently, at least Python 3.6 is required to run the package. If it is unavailable on the remote server you are using to run MiMiC (and you do not have sudo privileges), MiMiCPy and the dependencies need to only be installed locally, and `mimicpy.setHost()` can be used to set-up all jobs remotely. For more details, please read the docs.
 
 ## Demo
-Below is a demo for preparing a given protein+ligand system and running a MiMiC simulation:
+Below is a demo for running a MiMiC simulation for a protein-ligand system:
 ```python
 import mimicpy
-prt = mimicpy.loadRCSB('3INM') # load protein, ligands from PDBID 3INM and generate ligand topologies
 
-prep = mimicpy.prepare.MM() # MM prepare handle
-prep.getTopology(prt) # generate gromacs, mimicpy topology and solvate
+prep = mimicpy.prepare.MM('topol_data') # feed gromacs topology and coords in topol_data/ to MM prepare handle
+prep.addLig('ICT', 'conf1.pdb', 'ligands.itp') # include non-standard ligand ICT
+prep.getMPT() # write mimicpy topology
 
 md = mimicpy.simulate.MD.continueFrom(prep) # MD simulation handle
 em_mdp = mimicpy.scripts.MDP.defaultEM() # get the default energy minimization MDP Gromacs file
 md.run(em_mdp) # minimize system
 
-qm = mimicpy.prepare.QM() # QM prepare handle
-qm.add('resname is ICT and resid is 832') # add ligand ICT to the QM region
+qm = mimicpy.prepare.QM() # QM prepare handle, read MPT file
+qm.add('resname is ICT and resid is 832') # add ligand ICT, chain A to the QM region
 cpmd_inp = qm.getInp() # get the CPMD input file for a MiMiC run
 cpmd_inp.cpmd.molecular__dynamics__cp = '' # set the Car-Parrinello option ON in the input script
 
 mimic = mimicpy.simulate.MiMiC.continuefrom(qm) # MiMiC simulation handle
 mimic.run(cpmd_inp) # run a MiMiC simulation using the above cpmd script
 ```
-For more details and options please refer to the docs before implementing MiMiCPy for your research.
+For more details and options please refer to the docs.
  
 ## References
 [1] J. Chem. Theory Comput. 2019, 15, 6, 3810–3823
