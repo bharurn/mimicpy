@@ -12,10 +12,10 @@ from .base import BaseHandle
 from .._global import _Global as _global
 from . import _qmhelper
 from ..parsers.mpt import Reader as MPTReader, write as mptwrite
-from ..parser._mpt_writer import atomtypes
+from ..parsers._mpt_writer import atomtypes
 from ..utils.constants import hartree_to_ps, bohr_rad
 from ..scripts import cpmd, mdp
-from ..parsers import parse_pdb
+from ..parsers import pdb as parse_pdb
 
 class MM(BaseHandle):
     """
