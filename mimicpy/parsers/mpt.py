@@ -1,24 +1,12 @@
 import pickle
 from .._global import _Global as gbl
-from . import _mpt_writer
+from . import top
 import pandas as pd
 import numpy as np
 
-def write(inp, out, nonstd_atm_types, buff, guess_elems):
-    tail = gbl.host.run(f'tail -n 30 {inp}')
-    mols = _mpt_writer.molecules(tail)
-    print(mols)
-        
-    file = gbl.host.open(inp, 'rb')
-    atm_types_to_symb = _mpt_writer.atomtypes(file, buff)
-    # extend atm_types_to_symb with nonstdligands
-    # should be dict of atom type --> symb
-    atm_types_to_symb.update(nonstd_atm_types)
-    ap = _mpt_writer.AtomsParser(file, mols, atm_types_to_symb, buff, guess_elems)
-    
-    df = ap.mol_df
-    print(df)
-    
+def write(topol, mpt, nonstd_atm_types={}, buff=1000, guess_elems=True):
+    mols, df = top.read(topol, nonstd_atm_types, buff, guess_elems)
+
     # replace repeating dataframes with the string name of prev mol 
 
     keys = list(df.keys())
@@ -36,7 +24,7 @@ def write(inp, out, nonstd_atm_types, buff, guess_elems):
     
     for k,v in vals: df[v][1] = k
 
-    pkl = gbl.host.open(out, 'wb')
+    pkl = gbl.host.open(mpt, 'wb')
     pickle.dump(mols, pkl)
     pickle.dump(df, pkl)
     

@@ -12,7 +12,7 @@ from .base import BaseHandle
 from .._global import _Global as _global
 from . import _qmhelper
 from ..parsers.mpt import Reader as MPTReader, write as mptwrite
-from ..parsers._mpt_writer import atomtypes
+from ..parsers.top_reader import atomtypes
 from ..utils.constants import hartree_to_ps, bohr_rad
 from ..scripts import cpmd, mdp
 from ..parsers import pdb as parse_pdb
@@ -44,7 +44,6 @@ class MM(BaseHandle):
         self.conf3 = 'conf3.gro'
         self.topol = "topol.top"
         self.mpt = "topol.mpt"
-        self.preproc = "topol.pptop"
         self.ions = "ions"
         
         self._ion_kwargs = {'pname': 'NA', 'nname': 'CL', 'neutral': ''} # parameters to pass to gmx genion
@@ -63,16 +62,15 @@ class MM(BaseHandle):
         self.nonstd_atm_types.update( dict(zip(atm_types, elems)) )
         
     
-    def getMPT(self, mpt=None, buff=1000, guess_elems=False):
+    def getMPT(self, topol=None, mpt=None, buff=1000, guess_elems=False):
         """Get the MPT topology, used in prepare.QM"""
         
-        # generate proprocessed topology for now, TO DO: changed writer mpt to read from .top
-        self.grompp(mdp.MDP.defaultGenion(), self.ions, gro = self.conf2, pp = self.preproc, dirc=self.dir) 
+        top = self.getcurrentNone(topol, '.top')
         
         if mpt == None: mpt = f"{self.dir}/{self.mpt}" # if no mpt file was passed, use default value
         else: mpt = f"{self.dir}/{mpt}"
         
-        mptwrite(self.preproc, mpt, self.nonstd_atm_types, buff, guess_elems)
+        mptwrite(top, mpt, self.nonstd_atm_types, buff, guess_elems)
         
         self.toYaml()
     
