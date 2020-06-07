@@ -13,11 +13,13 @@ def isSection(section, txt):
     
 def getSection(section, txt):
     # txt is assumed to be clean
-    reg = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)[\[#]", re.MULTILINE)
+    reg = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)(?:$|\[|#)", re.MULTILINE)
     r = reg.findall(txt)
     return r
 
 def cleanText(txt):
+    # strip comments and double new lines
+    # used as unpit for getSection()
     txt_ = re.sub(re.compile(";(.*)\n" ) ,"\n" , txt)
     return re.sub(re.compile("\n{2,}" ) ,"\n" , txt_)
         
@@ -34,7 +36,7 @@ def molecules(tail):
 
     return _mols[::-1]
 
-def atomtypes(itp_file, buff, get_nonstd=False):
+def _read_atomtypes(itp_file, buff, get_nonstd=False):
     atomtypes = ''
     end = ['bondtypes', 'moleculetypes']
     
@@ -43,34 +45,32 @@ def atomtypes(itp_file, buff, get_nonstd=False):
         atomtypes += chunk
         if any([isSection(hdr, chunk) for hdr in end]): break
     
-    atm_types_to_symb = {} # init atom types to symbol
-    start = False
+    atomtypes = cleanText(atomtypes)
+    return getSection('atomtypes', atomtypes)[0]
+
+def atomtypes(itp_file, buff):
     
-    nonstd_atm_types = []
+    atomtypes = _read_atomtypes(itp_file, buff)
+    
+    atm_types_to_symb = {} # init atom types to symbol
     
     for line in atomtypes.splitlines():
-        if isSection('atomtypes', line) and atm_types_to_symb == {}: # read only first atomtypes
-            start = True
-        elif start:
-            if isSection('*', line):
-                start = False
-            elif not line.startswith(';') and line.strip() != '': # ignore comments and null lines
-                e = line.split()[0] # first val is atom type
-                _n = line.split()[1]
-                if not _n.isnumeric():
-                    if get_nonstd:
-                       nonstd_atm_types.append(e) 
-                    else:
-                        continue # check just in case
-                else: n = int(_n)-1 # second is element no.
-                
-                if n == -1: continue # dummy masses, skip for now
-                atm_types_to_symb[e]  = element_names[n] # fill up at
+        e = line.split()[0] # first val is atom type
+        _n = line.split()[1]
+        
+        if not _n.isnumeric():
+            # should raise an exception here
+            continue
+        else: n = int(_n)-1 # second is element no.
+        
+        if n == -1: continue # dummy masses, skip for now
+        atm_types_to_symb[e]  = element_names[n] # fill up at
     
-    if not get_nonstd:
-        return atm_types_to_symb
-    else:
-        return nonstd_atm_types
+    return atm_types_to_symb
+
+def non_std_atomtypes(itp_file, buff):
+    atomtypes = _read_atomtypes(itp_file, buff)
+    return [line.split()[0] for line in atomtypes.splitlines()]
 
 
 class ITPParser:    
@@ -149,7 +149,8 @@ class ITPParser:
                 
                 if mass_int <= 0:
                     raise ParserError(file=file_name, ftype="topolgy", \
-                extra=f"Cannot determine atomic symbol for atom ID {nr} and name {name} as mass information is not available from the force field")
+                                     extra=(f"Cannot determine atomic symbol for atom ID {nr} and name {name} as mass"
+                                             "information is not available from the force field"))
                 # guess atomic no from mass
                 # works well if no isotopes present
                 

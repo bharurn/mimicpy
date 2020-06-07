@@ -8,7 +8,9 @@ def write(topol, mpt, nonstd_atm_types={}, buff=1000, guess_elems=True):
     mols, df = top.read(topol, nonstd_atm_types, buff, guess_elems)
 
     # replace repeating dataframes with the string name of prev mol 
-
+    
+    # equality b/w dataframes checking seems to be incorrect
+    # seems to be only checking the size of df
     keys = list(df.keys())
     vals = []
     for i in range(len(keys)):

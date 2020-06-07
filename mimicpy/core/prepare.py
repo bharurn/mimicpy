@@ -12,7 +12,7 @@ from .base import BaseHandle
 from .._global import _Global as _global
 from . import _qmhelper
 from ..parsers.mpt import Reader as MPTReader, write as mptwrite
-from ..parsers.top_reader import atomtypes
+from ..parsers.top_reader import non_std_atomtypes
 from ..utils.constants import hartree_to_ps, bohr_rad
 from ..scripts import cpmd, mdp
 from ..parsers import pdb as parse_pdb
@@ -54,10 +54,7 @@ class MM(BaseHandle):
         
         elems = [pdb_df['element'][pdb_df['resName']==name] for name in resnames]
         
-        f = _global.host.open(itp, 'rb')
-        
-        atm_types = atomtypes(f, buff, True)
-        f.close()
+        atm_types = non_std_atomtypes(itp, buff, True)
         
         self.nonstd_atm_types.update( dict(zip(atm_types, elems)) )
         
