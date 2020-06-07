@@ -13,20 +13,21 @@ def isSection(section, txt):
     
 def getSection(section, txt):
     # txt is assumed to be clean
+    # i.e., no comments or double new lines
+    
+    # find text b/w [ section ] and either [ or # (for #if, etc.) or EOF
     reg = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)(?:$|\[|#)", re.MULTILINE)
     r = reg.findall(txt)
     return r
 
 def cleanText(txt):
-    # strip comments and double new lines
-    # used as unpit for getSection()
-    txt_ = re.sub(re.compile(";(.*)\n" ) ,"\n" , txt)
-    return re.sub(re.compile("\n{2,}" ) ,"\n" , txt_)
+    txt_ = re.sub(re.compile(";(.*)\n" ) ,"\n" , txt) # strip comments
+    return re.sub(re.compile("\n{2,}" ) ,"\n" , txt_) # remove double new lines
         
 def molecules(tail):    
     _mols = []
     
-    for line in tail.splitlines()[::-1]:
+    for line in tail.splitlines()[::-1]: # traverse backwards
         if isSection('molecules', line):
             break
         elif line.strip() == '' or line.startswith(';'):
@@ -36,7 +37,8 @@ def molecules(tail):
 
     return _mols[::-1]
 
-def _read_atomtypes(itp_file, buff, get_nonstd=False):
+def _read_atomtypes(itp_file, buff):
+    """ Function to read file for atomtypes by chunks"""
     atomtypes = ''
     end = ['bondtypes', 'moleculetypes']
     
@@ -123,7 +125,7 @@ class ITPParser:
         
         df_ = {k:[] for k in self.columns}
         
-        for i, line in enumerate(txt.splitlines()):
+        for line in txt.splitlines():
             
             splt = line.split()
             if len(splt) == 8:

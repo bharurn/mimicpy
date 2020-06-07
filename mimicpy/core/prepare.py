@@ -81,7 +81,7 @@ class MM(BaseHandle):
         self.gmx('solvate', cp = self.conf1, o = self.conf2, p = self.topol, dirc=self.dir, **self._solavte_kwargs)
         
         _global.logger.write('info', "Adding ions to neutralize charge..")
-        self.grompp(genion_mdp, self.ions, gro = self.conf2, pp = self.preproc, dirc=self.dir)
+        self.grompp(genion_mdp, self.ions, gro = self.conf2, dirc=self.dir)
         
         # sent SOL to stdin, so gromacs replaces some SOL molecules with ions 
         self.gmx('genion', s = self.ions_tpr, o = self.conf3, p = self.topol, dirc=self.dir, **self._ion_kwargs, stdin="SOL")
