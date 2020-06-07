@@ -7,7 +7,6 @@ convert a pdb line to dict, or convert the whole file to a dataframe
 
 """
 
-from .._global import _Global as gbl
 from .parser import Parser
 import pandas as pd
 
@@ -39,7 +38,7 @@ def readLine(line):
     
     return vals
 
-def parseFile(self, pdb, lines=1000):
+def parseFile(pdb, lines=1000):
     # ATOM/HETATM line is always 78 bytes/chars
     file = Parser(pdb, 78*lines)
     
