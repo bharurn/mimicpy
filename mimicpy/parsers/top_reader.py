@@ -37,8 +37,8 @@ def molecules(tail):
 
     return _mols[::-1]
 
-def _read_atomtypes(itp_file, buff):
-    """ Function to read file for atomtypes by chunks"""
+def atomtypes(itp_file, buff):
+    
     atomtypes = ''
     end = ['bondtypes', 'moleculetypes']
     
@@ -48,11 +48,8 @@ def _read_atomtypes(itp_file, buff):
         if any([isSection(hdr, chunk) for hdr in end]): break
     
     atomtypes = cleanText(atomtypes)
-    return getSection('atomtypes', atomtypes)[0]
-
-def atomtypes(itp_file, buff):
     
-    atomtypes = _read_atomtypes(itp_file, buff)
+    atomtypes = getSection('atomtypes', atomtypes)[0]
     
     atm_types_to_symb = {} # init atom types to symbol
     
@@ -70,16 +67,16 @@ def atomtypes(itp_file, buff):
     
     return atm_types_to_symb
 
-def non_std_atomtypes(itp_file, buff):
-    atomtypes = _read_atomtypes(itp_file, buff)
-    return [line.split()[0] for line in atomtypes.splitlines()]
-
-
 class ITPParser:    
     
     columns = ['number', 'type', 'resid','resname','name', 'charge','element',	'mass']
     dfs = []
     mols = []
+
+    @staticmethod
+    def clear():
+        ITPParser.mols = []
+        ITPParser.dfs = []
 
     def __init__(self, mols_to_read, atm_types_to_symb, buff, guess):
         self.mols_to_read = mols_to_read
@@ -151,7 +148,7 @@ class ITPParser:
                 
                 if mass_int <= 0:
                     raise ParserError(file=file_name, ftype="topolgy", \
-                                     extra=(f"Cannot determine atomic symbol for atom ID {nr} and name {name} as mass"
+                                     extra=(f"Cannot determine atomic symbol for atom ID {nr} and name {name} in residue {res} as mass"
                                              "information is not available from the force field"))
                 # guess atomic no from mass
                 # works well if no isotopes present
@@ -160,11 +157,10 @@ class ITPParser:
                 elif mass_int<36: elem = element_names[mass_int//2 - 1] # He to Cl
                 else: elem = name.title() # from Ar onwards, assume name same as symbol, case insensitive
                 
-                gbl.logger.write('warning', (f"Guessing atomic symbol for atom id {nr} and name {name} as {elem}..") )
-            
+                gbl.logger.write('warning', (f"Guessing atomic symbol for atom id {nr} and name {name} in residue {res} as {elem}..") )
             else:
                 raise ParserError(file=file_name, ftype="topology", \
-                                     extra="Cannot determine atomic symbol for atom ID {nr} and name {name}")
+                                     extra=f"Cannot determine atomic symbol for atom ID {nr} and name {name} in residue {res}")
             
             df_[c[6]].append(elem)
             df_[c[7]].append(mass)

@@ -12,10 +12,11 @@ from .base import BaseHandle
 from .._global import _Global as _global
 from . import _qmhelper
 from ..parsers.mpt import Reader as MPTReader, write as mptwrite
-from ..parsers.top_reader import non_std_atomtypes
+from ..parsers.top_reader import ITPParser
 from ..utils.constants import hartree_to_ps, bohr_rad
 from ..scripts import cpmd, mdp
 from ..parsers import pdb as parse_pdb
+from collections import defaultdict
 
 class MM(BaseHandle):
     """
@@ -52,20 +53,39 @@ class MM(BaseHandle):
     def addLig(self, pdb, itp, *resnames, buff=1000):
         pdb_df = parse_pdb.parseFile(pdb, buff)
         
-        elems = [pdb_df['element'][pdb_df['resName']==name] for name in resnames]
+        # get chain info
+        chains = pdb_df['chainID'].unique().tolist()
+        chains.remove(' ') # remove elements wtih no chain info from lisy
         
-        atm_types = non_std_atomtypes(itp, buff, True)
+        # either select only first chain of residue or all residues with no chain info
+        pdb_df = pdb_df[(pdb_df['chainID'] == chains[0]) | (pdb_df['chainID'] == ' ')]
         
+        # get elems
+        elems = [a for name in resnames for a in pdb_df['element'][pdb_df['resName']==name].to_list()]
+        
+        # get atom types
+        ITPParser.clear()
+        
+        # fake class to satisfy atomtypes dict
+        class defdict:
+            def __contains__(self, item): return True
+            def __getitem__(self,key): return ' '
+        
+        itp_parser = ITPParser(resnames, defdict(), buff, False)
+        itp_parser.parse(itp)
+        atm_types = [a for df in itp_parser.dfs for a in df[1]['type'].to_list()]
+        
+        # assert len(atm_types) == len(elems) before zipping
         self.nonstd_atm_types.update( dict(zip(atm_types, elems)) )
         
     
     def getMPT(self, topol=None, mpt=None, buff=1000, guess_elems=False):
         """Get the MPT topology, used in prepare.QM"""
         
-        top = self.getcurrentNone(topol, '.top')
+        top = self.getcurrentNone(topol, 'top')
         
-        if mpt == None: mpt = f"{self.dir}/{self.mpt}" # if no mpt file was passed, use default value
-        else: mpt = f"{self.dir}/{mpt}"
+        if mpt == None: mpt = _global.host.join(self.dir, self.mpt) # if no mpt file was passed, use default value
+        else: mpt = _global.host.join(self.dir,  mpt)
         
         mptwrite(top, mpt, self.nonstd_atm_types, buff, guess_elems)
         
