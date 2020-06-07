@@ -200,6 +200,10 @@ class Local(Base):
     # copy command
     def cp(self, f1, f2): copyfile(f1, f2)
    
+    def join(self, *args): return os.path.join(*args)
+    
+    def dirname(self, file): return os.path.dirname(file)
+    
     # provided to match remote.__del__()
     def __del__(self): pass
 
@@ -255,3 +259,11 @@ class Remote(remote.Shell, Base):
         return file
     
     def cp(self, f1, f2): self.run(f"cp {f1} {f2}")
+    
+    def join(self, *args):
+        # both unix and windows basedd ssh uses forward slash
+        # see discussion of issue 306 on the fabric github page
+        return "/".join([l for l in args if l != ''])
+
+    def dirname(self, file):
+        return "/".join(i for i in file.split('/')[:-1])
