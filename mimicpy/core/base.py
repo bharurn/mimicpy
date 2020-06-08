@@ -28,8 +28,8 @@ class BaseHandle:
         self._status = status # init _status
         self.log = LogString() # log string of standard ouput from all gmx commands
         # init logger with gmx log string, and notes redirected to stderr
-        self.logger = Logger(log=self.log, notes=sys.stderr)
-        self.current_cmd = 'gmx'
+        self.__logger = Logger(log=self.log, notes=sys.stderr)
+        self.__current_cmd = 'gmx'
     
     def getcurrent(self, ext, level=False, exp=True):
         """Find the latest file with extnestion ext using _status"""
@@ -38,10 +38,10 @@ class BaseHandle:
         
         if ext == 'top' or ext == 'mpt':
             # if top/mpt go directly to prepMM folder
-            return _dir+BaseHandle._getFile(self._status['prepMM'], ext)
+            return _dir+BaseHandle.__getFile(self._status['prepMM'], ext)
         elif ext == 'mimic-tpr':
             # if mimic tpr is asked for go directly to prepQM folder
-            return _dir+BaseHandle._getFile(self._status['prepQM'], ext)
+            return _dir+BaseHandle.__getFile(self._status['prepQM'], ext)
         
         # if topology is not asked for, then it is run files (trr,cpt,etc.)
         # get the list of folders from run key, also tack on the prepMM and prepQM folder
@@ -49,7 +49,7 @@ class BaseHandle:
         run =  [self._status['prepMM'], self._status['prepQM']] + self._status['run']
         
         for i,d in enumerate(run[::-1]): # loop in reverse, latests to earliest
-            ret = BaseHandle._getFile(d, ext)
+            ret = BaseHandle.__getFile(d, ext)
             
             if ret != None: # if we got a file, return it, else continue with next directory
                 if level: return(i, _dir+ret)
@@ -79,7 +79,7 @@ class BaseHandle:
         run =  [self._status['prepMM'], self._status['prepQM']] + self._status['run']
         
         for i,d in enumerate(run[::-1]): # loop in reverse, latests to earliest
-            ret = BaseHandle._getFile(d, ext)
+            ret = BaseHandle.__getFile(d, ext)
             
             if ret != None: # if we got a file, return it, else continue with next directory
                 lst.append(_dir+ret)
@@ -87,7 +87,7 @@ class BaseHandle:
         return lst
     
     @staticmethod
-    def _getFile(dirc, ext):
+    def __getFile(dirc, ext):
         """Finds file in dirc folder with extension ext"""
         
         ext = '.'+ext
@@ -150,18 +150,18 @@ class BaseHandle:
             raise GromacsError(cmd, text)
         
         # write log
-        self.logger.write('log', f"==>Command Run: {cmd}\n")
-        self.logger.write('log', text)
+        self.__logger.write('log', f"==>Command Run: {cmd}\n")
+        self.__logger.write('log', text)
         
-        self._gmxerrhdnl(cmd, text) # check for errors
+        self.__gmxerrhdnl(cmd, text) # check for errors
         
-        notes = BaseHandle._notes(self.current_cmd, text) # get notes/warnings
+        notes = BaseHandle.__notes(self.__current_cmd, text) # get notes/warnings
         
         if not notes.isspace() and notes.strip() != '': # write notes
-            self.logger.write('notes', notes)
+            self.__logger.write('notes', notes)
     
     @staticmethod
-    def _gmxerrhdnl(gmx_cmd, text, dont_raise=False):
+    def __gmxerrhdnl(gmx_cmd, text, dont_raise=False):
         """Parse gmx output for errors and raise exception"""
         
         # checks for these words in output; should be expanded
@@ -194,7 +194,7 @@ class BaseHandle:
             return None
         
     @staticmethod
-    def _notes(cmd, text):
+    def __notes(cmd, text):
         """Parse gmx output for notes and warnings"""
         
         pattern = re.compile("^-+$")
@@ -224,7 +224,7 @@ class BaseHandle:
         call gmx('pdb2gmx', f='in.pdb', o='out.gro', water='spce', his='')
         """
         
-        self.current_cmd = cmd
+        self.__current_cmd = cmd
         
         if _global.gmx is None or _global.gmx.strip() == '': # make sure gmx path is set
             raise EnvNotSetError('Gromacs executable', 'gmx')

@@ -16,7 +16,6 @@ from ..parsers.top_reader import ITPParser
 from ..utils.constants import hartree_to_ps, bohr_rad
 from ..scripts import cpmd, mdp
 from ..parsers import pdb as parse_pdb
-from collections import defaultdict
 
 class MM(BaseHandle):
     """
@@ -25,7 +24,7 @@ class MM(BaseHandle):
     
     """
     
-    def __init__(self, topol_dir='prepareMM', status=None):
+    def __init__(self, topol_dir='', status=None):
         """Class constructor"""
         
         super().__init__(status) # call BaseHandle constructor to init _status dict
@@ -40,11 +39,8 @@ class MM(BaseHandle):
         self.toYaml()
         
         self.nonstd_atm_types = {}
-        self.conf1 = 'conf1.gro'
-        self.conf2 = 'conf2.gro'
-        self.conf3 = 'conf3.gro'
-        self.topol = "topol.top"
-        self.mpt = "topol.mpt"
+        self.conf1 = 'solv.gro'
+        self.conf2 = 'ions.gro'
         self.ions = "ions"
         
         self._ion_kwargs = {'pname': 'NA', 'nname': 'CL', 'neutral': ''} # parameters to pass to gmx genion
@@ -84,7 +80,7 @@ class MM(BaseHandle):
         
         top = self.getcurrentNone(topol, 'top')
         
-        if mpt == None: mpt = _global.host.join(self.dir, self.mpt) # if no mpt file was passed, use default value
+        if mpt == None: mpt = _global.host.join(self.dir, 'topol.mpt') # if no mpt file was passed, use default value
         else: mpt = _global.host.join(self.dir,  mpt)
         
         mptwrite(top, mpt, self.nonstd_atm_types, buff, guess_elems)
@@ -94,17 +90,17 @@ class MM(BaseHandle):
     def genionParams(self, **kwargs): self._ion_kwargs = kwargs
     def solvateParams(self, **kwargs): self._solavte_kwargs = kwargs
     
-    def makeBox(self, genion_mdp=mdp.MDP.defaultGenion()):
+    def makeBox(self, gro=None, genion_mdp=mdp.MDP.defaultGenion()):
         """Run gmx solvate, gmx grompp and gmx genion in that order"""
         
         _global.logger.write('info', "Solvating box..")
-        self.gmx('solvate', cp = self.conf1, o = self.conf2, p = self.topol, dirc=self.dir, **self._solavte_kwargs)
+        self.gmx('solvate', cp = self.getcurrentNone(gro, 'gro'), o = self.conf1, p = self.topol, dirc=self.dir, **self._solavte_kwargs)
         
-        _global.logger.write('info', "Adding ions to neutralize charge..")
-        self.grompp(genion_mdp, self.ions, gro = self.conf2, dirc=self.dir)
+        _global.logger.write('info', "Adding ions to box..")
+        self.grompp(genion_mdp, self.ions, gro = self.conf1, dirc=self.dir)
         
-        # sent SOL to stdin, so gromacs replaces some SOL molecules with ions 
-        self.gmx('genion', s = self.ions_tpr, o = self.conf3, p = self.topol, dirc=self.dir, **self._ion_kwargs, stdin="SOL")
+        # send SOL to stdin, so gromacs replaces some SOL molecules with ions 
+        self.gmx('genion', s = self.ions_tpr, o = self.conf2, p = self.topol, dirc=self.dir, **self._ion_kwargs, stdin="SOL")
         
         _global.logger.write('info', 'Simulation box prepared..')
         
@@ -158,7 +154,7 @@ class QM(BaseHandle):
     def delete(self, selection=None):
         """Delete from QM region using selection langauage"""
         qdf = QM._cleanqdf( self.selector.select(selection) )
-        # drop selection, ignore errors to ignore extra residues selected that are not present in self.qmatoms
+        # drop selection, ignore pandas errors to disregard extra residues selected that are not present in self.qmatoms
         self.qmatoms = self.qmatoms.drop(qdf.index, errors='ignore')
     
     def clear(self):
@@ -174,7 +170,7 @@ class QM(BaseHandle):
             Run gmx grompp to get mimic.tpr
             Sort self.qmatoms by link and elements
             Read element symbols and all charge info from self.qmatoms
-            Add MIMIC, SYSTEM section of CPMD script
+            Add MIMIC, SYSTEM, DFT sections of CPMD script
             Add all atoms to CPMD script
         """
         dirc = self.dir
@@ -226,7 +222,7 @@ class QM(BaseHandle):
         inp.cpmd.maxsteps = mdp.nsteps
         
         inp.dft = cpmd.Section()
-        inp.dft.functional__blyp = '' # update to new XC_DRIVER code
+        inp.dft.functional__blyp = '' # TO DO: update to new XC_DRIVER code
         
         # set timestep from mdp file
         if not mdp.hasparam('dt'): mdp.dt = 0.0001 # default value, if not present in mdp
