@@ -4,31 +4,54 @@ from . import top
 import pandas as pd
 import numpy as np
 
+class TopolDict:
+    def __init__(self, dict_df, repeating):
+        self.dict_df = dict_df
+        self.repeating = repeating
+    
+    @classmethod
+    def fromDict(cls, df):
+        keys = list(df.keys())
+        df2 = df.copy()
+        repeating = {}
+        for i in range(len(keys)):
+            key_i = keys[i]
+            for j in range(i+1, len(keys)):
+                key_j = keys[j]
+                if df[key_i][0] == df[key_j][0] and df[key_i][1].equals(df[key_j][1]):
+                    repeating[key_j] = key_i
+                    del df2[key_j]
+        return cls(df2, repeating)
+    
+    def __getitem__(self, item):
+        try:
+            key, i = item
+        except:
+            key = item
+            i = 1
+        if key in self.dict_df:
+            return self.dict_df[key][i]
+        elif key in self.repeating:
+            return self.dict_df[self.repeating[key]][i]
+        else:
+            raise KeyError(f"Molecule {key} not in topology")
+    
+    def getAll(self):
+        extras = self.dict_df.copy()
+        for i in self.repeating:
+            extras[i] = self.__getitem__(i)
+        return extras
+    
+    def __str__(self): return str(self.getAll())
+
+    def __repr__(self): return repr(self.getAll())
+    
 def write(topol, mpt, nonstd_atm_types={}, buff=1000, guess_elems=True):
     mols, df = top.read(topol, nonstd_atm_types, buff, guess_elems)
 
-    # replace repeating dataframes with the string name of prev mol 
-    
-    # equality b/w dataframes checking seems to be incorrect
-    # seems to be only checking the size of df
-    keys = list(df.keys())
-    vals = []
-    for i in range(len(keys)):
-        key_i = keys[i]
-        for j in range(i+1, len(keys)):
-            key_j = keys[j]
-        
-            try:
-                if all(df[key_i][1] == df[key_j][1]): 
-                    vals.append((key_i, key_j))
-            except ValueError:
-                continue
-    
-    for k,v in vals: df[v][1] = k
-
     pkl = gbl.host.open(mpt, 'wb')
     pickle.dump(mols, pkl)
-    pickle.dump(df, pkl)
+    pickle.dump(TopolDict.fromDict(df), pkl)
     
 class Reader:
     
