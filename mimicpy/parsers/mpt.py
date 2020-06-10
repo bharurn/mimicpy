@@ -18,21 +18,16 @@ class TopolDict:
             key_i = keys[i]
             for j in range(i+1, len(keys)):
                 key_j = keys[j]
-                if df[key_i][0] == df[key_j][0] and df[key_i][1].equals(df[key_j][1]):
+                if df[key_i].equals(df[key_j]):
                     repeating[key_j] = key_i
                     del df2[key_j]
         return cls(df2, repeating)
     
-    def __getitem__(self, item):
-        try:
-            key, i = item
-        except:
-            key = item
-            i = 1
+    def __getitem__(self, key):
         if key in self.dict_df:
-            return self.dict_df[key][i]
+            return self.dict_df[key]
         elif key in self.repeating:
-            return self.dict_df[self.repeating[key]][i]
+            return self.dict_df[self.repeating[key]]
         else:
             raise KeyError(f"Molecule {key} not in topology")
     

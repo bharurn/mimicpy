@@ -69,7 +69,7 @@ class MM(BaseHandle):
         
         itp_parser = ITPParser(resnames, defdict(), buff, False)
         itp_parser.parse(itp)
-        atm_types = [a for df in itp_parser.dfs for a in df[1]['type'].to_list()]
+        atm_types = [a for df in itp_parser.dfs for a in df['type'].to_list()]
         
         # assert len(atm_types) == len(elems) before zipping
         self.nonstd_atm_types.update( dict(zip(atm_types, elems)) )

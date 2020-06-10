@@ -154,11 +154,12 @@ class ITPParser:
             df_[c[3]].append(res)
             df_[c[4]].append(name)
             df_[c[5]].append(float(q))
+            mass = float(mass)
             
             if _type in self.atm_types_to_symb:
                 elem = self.atm_types_to_symb[_type]
             elif self.guess:
-                mass_int = int(float(mass))
+                mass_int = int(mass)
                 
                 if mass_int <= 0:
                     raise ParserError(file=file_name, ftype="topolgy", \
@@ -179,5 +180,5 @@ class ITPParser:
             df_[c[6]].append(elem)
             df_[c[7]].append(mass)
         
-        df = pd.DataFrame(df_).set_index(['number'])
-        self.dfs.append( [ len(df), df ] )
+        df = pd.DataFrame(df_).set_index(c[0])
+        self.dfs.append(df)
