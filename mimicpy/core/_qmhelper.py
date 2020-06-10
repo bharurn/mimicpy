@@ -7,14 +7,14 @@ pptop() and getOverlaps_Atoms() adapted from the prepare_qmmm python script by V
 
 """
 
-from ..parsers.mpt import _mpt_writer
+from ..parsers.top_reader import ITPParser
 from ..utils.constants import bohr_rad
 from ..scripts.cpmd import Atom
 from collections import OrderedDict 
 from ..scripts import cpmd
 
 def _cleanqdf(qdf):
-    columns = _mpt_writer.AtomsParser.columns       
+    columns = ITPParser.columns       
     columns.extend(['x','y','z'])
     lst = [l for l in qdf.columns if l not in columns]
     return qdf.drop(lst, axis=1)

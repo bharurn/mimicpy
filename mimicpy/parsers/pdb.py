@@ -7,7 +7,7 @@ convert a pdb line to dict, or convert the whole file to a dataframe
 
 """
 
-from .._global import _Global as gbl
+from .parser import Parser
 import pandas as pd
 
 keys = ['record', 'serial', 'name', 'altLoc', 'resName', 'chainID', 'resSeq', 'iCode', 'x', 'y', 'z',\
@@ -38,21 +38,19 @@ def readLine(line):
     
     return vals
 
-def parseFile(self, pdb, lines=1000):
-    f = gbl.host.open(pdb, 'rb')
+def parseFile(pdb, lines=1000):
+    # ATOM/HETATM line is always 78 bytes/chars
+    file = Parser(pdb, 78*lines)
     
     pdb_lst = []
     
-    while True:
-        # ATOM/HETATM line is always 78 bytes/chars
-        bytes_data = f.read(78*lines)
-        if bytes_data == b'': break
-    
-        for line in bytes_data.decode().splitlines():
+    for chunk in file:
+        
+        for line in chunk.splitlines():
             try:
                 vals = readLine(line)
             except: # if only part of line was read
-                f.seek(-len(line), 1) # push back the file pointer to start of line
+                file.f.seek(-len(line), 1) # push back the file pointer to start of line
             
             if vals['record'] == 'ATOM' or vals['record'] == 'HETATM':
                 pdb_lst.append(vals)

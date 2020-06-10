@@ -7,4 +7,5 @@ This initializer script of mimicpy
 """
 
 from . import mpt
-from. import pdb
+from . import pdb
+from . import top
