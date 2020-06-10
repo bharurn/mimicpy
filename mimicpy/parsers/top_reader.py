@@ -4,6 +4,8 @@ from ..utils.constants import element_names
 from .._global import _Global as gbl
 from .parser import Parser
 from ..utils.errors import ParserError
+
+include_file_regex = re.compile(r"#include\s+[\"\'](.+)\s*[\"\']", re.MULTILINE)
  
 def isSection(section, txt):
     if section == '*': section = ''
@@ -39,21 +41,32 @@ def molecules(tail):
 
 def atomtypes(itp_file, buff):
     
-    atomtypes = ''
+    itp_txt = ''
+    # atomtypes has to be before a bondtypes ot moleculetypes section; or it can be the last section in file
     end = ['bondtypes', 'moleculetypes']
     
     file = Parser(itp_file, buff)
     for chunk in file:
-        atomtypes += chunk
+        itp_txt += chunk
         if any([isSection(hdr, chunk) for hdr in end]): break
     
-    atomtypes = cleanText(atomtypes)
+    itp_txt = cleanText(itp_txt)
     
-    atomtypes = getSection('atomtypes', atomtypes)[0]
+    atomtypes_txt = getSection('atomtypes', itp_txt)
     
+    if atomtypes_txt == []:
+        # if no atomtypes section look for #include
+        for i in include_file_regex.findall(itp_txt):
+            full_path = gbl.host.join(gbl.host.dirname(itp_file), i)
+            atm_types_to_symb = atomtypes(full_path, buff) # recursively call this func
+            if atm_types_to_symb != {}: return atm_types_to_symb # if found atomtypes, return it
+        return {} # if not found return empty dict
+    else:
+        atomtypes_txt = atomtypes_txt[0]
+        
     atm_types_to_symb = {} # init atom types to symbol
     
-    for line in atomtypes.splitlines():
+    for line in atomtypes_txt.splitlines():
         e = line.split()[0] # first val is atom type
         _n = line.split()[1]
         
@@ -97,6 +110,7 @@ class ITPParser:
                 
             if molecule: txt += chunk
             
+            # TO DO: test this ending of molecule/atom section
             if isSection('bonds', chunk):
                 molecule = False
         

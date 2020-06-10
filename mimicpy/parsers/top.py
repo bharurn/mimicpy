@@ -1,19 +1,16 @@
 from . import top_reader
-from .._global import _Global as gbl
-import re
 
 def read(topol_file, nonstd_atm_types={}, buff=1000, guess_elems=True):
     file = top_reader.Parser(topol_file, buff)
-    # we assume that .top if not too big and can be fully loaded to memory
+    # we assume that .top is not too big and can be fully loaded to memory
     # gromacs usually only writes at most one molecule to .top file
     topol_txt = "".join(file)
     
     # get all itp files in .top
-    include_file_list = re.compile(r"#include\s+[\"\'](.+)\s*[\"\']", re.MULTILINE).findall(topol_txt)
+    include_file_list = top_reader.include_file_regex.findall(topol_txt)
     
-    # get ffnonbonded.itp in forcefield directory
-    ffnonbonded = gbl.host.join(gbl.host.dirname(include_file_list[0]), 'ffnonbonded.itp')
-    atm_types = top_reader.atomtypes(ffnonbonded, buff) # get atomtypes to symb dict
+    # look for atomtypes in first itp
+    atm_types = top_reader.atomtypes(include_file_list[0], buff)
     atm_types.update(nonstd_atm_types)
     
     mols_data = top_reader.molecules(topol_txt) # mol, no. list
