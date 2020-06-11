@@ -1,5 +1,42 @@
 from . import top_reader
 
+class TopolDict:
+    def __init__(self, dict_df, repeating):
+        self.dict_df = dict_df
+        self.repeating = repeating
+    
+    @classmethod
+    def fromDict(cls, df):
+        keys = list(df.keys())
+        df2 = df.copy()
+        repeating = {}
+        for i in range(len(keys)):
+            key_i = keys[i]
+            for j in range(i+1, len(keys)):
+                key_j = keys[j]
+                if df[key_i].equals(df[key_j]):
+                    repeating[key_j] = key_i
+                    del df2[key_j]
+        return cls(df2, repeating)
+    
+    def __getitem__(self, key):
+        if key in self.dict_df:
+            return self.dict_df[key]
+        elif key in self.repeating:
+            return self.dict_df[self.repeating[key]]
+        else:
+            raise KeyError(f"Molecule {key} not in topology")
+    
+    def __getAll(self):
+        extras = self.dict_df.copy()
+        for i in self.repeating:
+            extras[i] = self.__getitem__(i)
+        return extras
+    
+    def __str__(self): return str(self.__getAll())
+
+    def __repr__(self): return repr(self.__getAll())
+
 def read(topol_file, nonstd_atm_types={}, buff=1000, guess_elems=True):
     file = top_reader.Parser(topol_file, buff)
     # we assume that .top is not too big and can be fully loaded to memory
@@ -31,4 +68,4 @@ def read(topol_file, nonstd_atm_types={}, buff=1000, guess_elems=True):
     
     mol_df = dict(zip(itp_parser.mols, itp_parser.dfs))
     
-    return mols_data, mol_df
+    return mols_data, TopolDict.fromDict(mol_df)

@@ -69,7 +69,7 @@ class MM(BaseHandle):
         
         itp_parser = ITPParser(resnames, defdict(), buff, False)
         itp_parser.parse(itp)
-        atm_types = [a for df in itp_parser.dfs for a in df[1]['type'].to_list()]
+        atm_types = [a for df in itp_parser.dfs for a in df['type'].to_list()]
         
         # assert len(atm_types) == len(elems) before zipping
         self.nonstd_atm_types.update( dict(zip(atm_types, elems)) )
@@ -173,18 +173,25 @@ class QM(BaseHandle):
             Add MIMIC, SYSTEM, DFT sections of CPMD script
             Add all atoms to CPMD script
         """
+        ####
+        #Write ndx, tpr file for gromacs
+        #output only ndx if mdp is None
+        ####
         dirc = self.dir
         self.setcurrent(key='prepQM')
         
-        _global.logger.write('debug2', "Changing Gromacs integrator to MiMiC..")
-        mdp.integrator = 'mimic'
-        
-        _global.logger.write('debug', f"Writing atoms in QM region to {self.index}..")
-        mdp.QMMM_grps = 'QMatoms'
+        # write index file
         _global.host.write(_qmhelper.index(self.qmatoms.index, mdp.QMMM_grps), f'{dirc}/{self.index}')
         
-        _global.logger.write('info', "Generating Gromacs tpr file for MiMiC run..")
-        self.grompp(mdp, self.mimic, gro=self.gro, n=self.index, dirc=dirc)
+        if mdp != None:
+            _global.logger.write('debug2', "Changing Gromacs integrator to MiMiC..")
+            mdp.integrator = 'mimic'
+        
+            _global.logger.write('debug', f"Writing atoms in QM region to {self.index}..")
+            mdp.QMMM_grps = 'QMatoms'
+            
+            _global.logger.write('info', "Generating Gromacs .tpr file for MiMiC run..")
+            self.grompp(mdp, self.mimic, gro=self.gro, n=self.index, dirc=dirc)
         
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together

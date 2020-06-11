@@ -1,65 +1,32 @@
-import pickle
 from .._global import _Global as gbl
+from .mpt_xdr import pack_strlist, pack_topol_dict, unpack_strlist, unpack_topol_dict
 from . import top
 import pandas as pd
 import numpy as np
-
-class TopolDict:
-    def __init__(self, dict_df, repeating):
-        self.dict_df = dict_df
-        self.repeating = repeating
-    
-    @classmethod
-    def fromDict(cls, df):
-        keys = list(df.keys())
-        df2 = df.copy()
-        repeating = {}
-        for i in range(len(keys)):
-            key_i = keys[i]
-            for j in range(i+1, len(keys)):
-                key_j = keys[j]
-                if df[key_i][0] == df[key_j][0] and df[key_i][1].equals(df[key_j][1]):
-                    repeating[key_j] = key_i
-                    del df2[key_j]
-        return cls(df2, repeating)
-    
-    def __getitem__(self, item):
-        try:
-            key, i = item
-        except:
-            key = item
-            i = 1
-        if key in self.dict_df:
-            return self.dict_df[key][i]
-        elif key in self.repeating:
-            return self.dict_df[self.repeating[key]][i]
-        else:
-            raise KeyError(f"Molecule {key} not in topology")
-    
-    def getAll(self):
-        extras = self.dict_df.copy()
-        for i in self.repeating:
-            extras[i] = self.__getitem__(i)
-        return extras
-    
-    def __str__(self): return str(self.getAll())
-
-    def __repr__(self): return repr(self.getAll())
+import xdrlib
     
 def write(topol, mpt, nonstd_atm_types={}, buff=1000, guess_elems=True):
-    mols, df = top.read(topol, nonstd_atm_types, buff, guess_elems)
+    mols, topol_dict = top.read(topol, nonstd_atm_types, buff, guess_elems)
 
-    pkl = gbl.host.open(mpt, 'wb')
-    pickle.dump(mols, pkl)
-    pickle.dump(TopolDict.fromDict(df), pkl)
+    ######packing
+    packer = xdrlib.Packer()
+    
+    mol_names, no = list(zip(*mols)) # unzip list of tuples to get mol_name and nums
+    pack_strlist(packer, mol_names) #pack mol names as string list
+    packer.pack_list(no, packer.pack_int) #pack num of mols as list of ints
+    pack_topol_dict(packer, topol_dict) #pack topol dict object
+    gbl.host.write(packer.get_buffer(), mpt, asbytes=True)
     
 class Reader:
     
     def __init__(self, file):
-        pkl = gbl.host.open(file, 'rb') # open as bytes
-        self.mol_names = pickle.load(pkl) # unpickle
-        self.atom_info = pickle.load(pkl)
-        pkl.close()
+        unpacker = xdrlib.Unpacker(gbl.host.read(file, asbytes=True)) # open as bytes
+        
+        # unpack mol list
+        mol_names = unpack_strlist(unpacker) # unpack mol names
+        nos = unpacker.unpack_list(unpacker.unpack_int) # unpack num of mols
+        self.mol_list = list(zip(mol_names, nos)) # zip together
+        self.topol_dict = unpack_topol_dict(unpacker) # unpack topol_dict
     
     def selectByID(self, idx, mol=None, relative=False):
         orig_id = idx

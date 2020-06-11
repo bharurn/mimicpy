@@ -75,20 +75,27 @@ class Base():
         elif throw:
             raise FileNotFoundError(f"{file} not found!")
     
-    def read(self, file):
+    def read(self, file, asbytes=False):
         """ Read and return contents of full file """
-        with self.open(file, 'r') as f:
+        mode = 'rb' if asbytes else 'r'
+        with self.open(file, mode) as f:
             out = f.read()
-            # sftp file objects, when read, return only bytes
-            # so need to decode it if self is remote
-            try:
-                return out.decode()
-            except (UnicodeDecodeError, AttributeError): # if error, means out is string
+            if not asbytes:
+                # sftp file objects, when read, return only bytes
+                # so need to decode it if self is remote
+                try:
+                    return out.decode()
+                except (UnicodeDecodeError, AttributeError): # if error, means out is string
+                    return out
+            else:
+                # mode should be rb
+                # so o/p will be in bytes, just return
                 return out
     
-    def write(self, content, file):
+    def write(self, content, file, asbytes=False):
         """ Write file """
-        with self.open(file, 'w') as f: f.write(content)
+        mode = 'wb' if asbytes else 'w'
+        with self.open(file, mode) as f: f.write(content)
         
     def mkdir(self, directory):
         """ Make directory """
