@@ -19,7 +19,7 @@ class Parser(object):
             self.close()
             raise StopIteration()
         else:
-            if self.decode(): return out.decode()
+            if self.decode: return out.decode()
             else: return out
     
     def __del__(self):
