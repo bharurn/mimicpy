@@ -8,7 +8,24 @@ import xdrlib
 def write(topol, mpt, nonstd_atm_types={}, buff=1000, guess_elems=True):
     mols, topol_dict = top.read(topol, nonstd_atm_types, buff, guess_elems)
 
-    ######packing
+    ########Packing
+    ####Format
+    ##Header
+    # mol names from mols
+    # mol nos. from mols
+    ##TopolDict
+    # repeating dict keys
+    # repeating dict values
+    # mol name of first entry in dict_df
+    # col1 of df in mol name
+    # col2 of df in mol name
+    # col3 ....
+    # col4 ....
+    # ... continue for all columns of df
+    # mol name of second entry in dict_df
+    # .... continue for all entries in dict_df
+    ##########
+    
     packer = xdrlib.Packer()
     
     mol_names, no = list(zip(*mols)) # unzip list of tuples to get mol_name and nums

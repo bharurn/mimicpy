@@ -1,4 +1,5 @@
 from .top import TopolDict
+from .top_reader import ITPParser
 import pandas as pd
 
 encoder = 'utf-8'
@@ -44,11 +45,11 @@ def unpack_df(unpacker):
     lst7 = unpack_strlist(unpacker) # unpack elemtn
     lst8 = unpacker.unpack_list(unpacker.unpack_float) # unpack masses
     df = pd.DataFrame([lst1, lst2, lst3, lst4, lst5, lst6, lst7, lst8]).T
-    df.columns = ['number', 'type', 'resid', 'resname','name', 'charge', 'element', 'mass']
-    return df.set_index('number')
+    df.columns = ITPParser.columns
+    return df.set_index(df.columns[0])
 
 def unpack_topol_dict(unpacker):
-    # unpack repeaating dict
+    # unpack repeating dict
     repeating_keys = unpack_strlist(unpacker)
     repeating_vals = unpack_strlist(unpacker)
     repeating = dict(zip(repeating_keys, repeating_vals))
