@@ -47,6 +47,9 @@ def read(topol_file, nonstd_atm_types={}, buff=1000, guess_elems=True):
     # get all itp files in .top
     include_file_list = top_reader.include_file_regex.findall(topol_txt)
     
+    dirname = gbl.host.dirname(topol_file) # get dir of topol file
+    include_file_list = [gbl.host.join(dirname, i) for i in include_file_list]
+    
     # look for atomtypes in first itp
     atm_types = top_reader.atomtypes(include_file_list[0], buff)
     atm_types.update(nonstd_atm_types)
