@@ -5,6 +5,7 @@ class Parser(object):
         self.f = gbl.host.open(file, 'rb')
         self.buff = buff
         self.decode = decode
+        self.isclosed = False
         
     def __iter__(self):
         return self
@@ -13,6 +14,8 @@ class Parser(object):
         return self.next()
 
     def next(self):
+        if self.isclosed: raise StopIteration()
+        
         out = self.f.read(self.buff)
     
         if out == b'':
@@ -26,4 +29,5 @@ class Parser(object):
         self.close()
     
     def close(self):
+        self.isclosed = True
         self.f.close()
