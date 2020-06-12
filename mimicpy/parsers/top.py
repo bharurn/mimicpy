@@ -50,7 +50,6 @@ def read(topol_file, nonstd_atm_types={}, buff=1000, guess_elems=True):
     # look for atomtypes in first itp
     atm_types = top_reader.atomtypes(include_file_list[0], buff)
     atm_types.update(nonstd_atm_types)
-    print(atm_types)
     
     mols_data = top_reader.molecules(topol_txt) # mol, no. list
     mols = [m[0] for m in mols_data]
@@ -72,5 +71,4 @@ def read(topol_file, nonstd_atm_types={}, buff=1000, guess_elems=True):
             gbl.logger.write('warning', f"Cannot find {file}, skipping..")
     
     mol_df = dict(zip(itp_parser.mols, itp_parser.dfs))
-    print(mol_df)
     return mols_data, TopolDict.fromDict(mol_df)

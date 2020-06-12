@@ -10,7 +10,6 @@ This module contains handles to run MD and MiMiC simulations
 from .base import BaseHandle
 from .._global import _Global as _global
 from collections import defaultdict
-from ..utils.errors import MiMiCPyError
 
 class MD(BaseHandle):
     """

@@ -24,17 +24,22 @@ class MM(BaseHandle):
     
     """
     
-    def __init__(self, topol_dir='', status=None):
+    def __init__(self, topol_dir='', status=None, savestatus=True):
         """Class constructor"""
         
         super().__init__(status) # call BaseHandle constructor to init _status dict
+        
+        self.savestatus = savestatus
         
         if self._status['prepMM'] != '':
             self.dir = self._status['prepMM']
         else:
             self.dir = topol_dir
             
-        _global.logger.write('debug', f'Set handle directory as {self.dir}..')
+        if self.dir:
+            _global.logger.write('debug', f'Set handle directory as {self.dir}..')
+        else:
+            _global.logger.write('debug', f'Set handle directory as current directory..')
         
         self.toYaml()
         

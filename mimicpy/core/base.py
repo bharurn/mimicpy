@@ -23,6 +23,7 @@ class BaseHandle:
     
     def __init__(self, status=None):
         """Init status and log string"""
+        self.savestatus = True
         if not status:
             status = {'prepMM': '', 'prepQM': '', 'run': ['']}
         self._status = status # init _status
@@ -117,6 +118,7 @@ class BaseHandle:
     
     def toYaml(self):
         """Save _status to yaml"""
+        if not self.savestatus: return
         _global.logger.write('debug', f"Saving status to _status.yaml..")
         y = yaml.dump(self._status)
         _global.host.write(y, '_status.yaml')
