@@ -27,7 +27,7 @@ class Logger:
                 raise MiMiCPyError(f'{option} is not a logger stream')
             writer.write(value+'\n')
         
-class LogString:
+class LogString():
     def __init__(self):
         self.val = ''
     
@@ -39,6 +39,18 @@ class LogString:
     
     def __repr__(self):
         return self.val
+    
+    def __getattr__(self, attr):
+        # for all other string methods
+        return getattr(self.val, attr)
+    
+    def __eq__(self, other):
+        if isinstance(other, LogString):
+            return self.val == other.val
+        elif isinstance(other, str):
+            return self.val == other
+        else:
+            return False
     
 class LogFile:
     def __init__(self, name, forceLocal=False):
