@@ -1,4 +1,5 @@
 from . import top_reader
+from .._global import _Global as gbl
 
 class TopolDict:
     def __init__(self, dict_df, repeating):
@@ -49,6 +50,7 @@ def read(topol_file, nonstd_atm_types={}, buff=1000, guess_elems=True):
     # look for atomtypes in first itp
     atm_types = top_reader.atomtypes(include_file_list[0], buff)
     atm_types.update(nonstd_atm_types)
+    print(atm_types)
     
     mols_data = top_reader.molecules(topol_txt) # mol, no. list
     mols = [m[0] for m in mols_data]
@@ -64,8 +66,11 @@ def read(topol_file, nonstd_atm_types={}, buff=1000, guess_elems=True):
     
     # parse itp files
     for file in include_file_list[1:]:
-        itp_parser.parse(file)
+        if gbl.host.fileExists(file):
+            itp_parser.parse(file)
+        else:
+            gbl.logger.write('warning', f"Cannot find {file}, skipping..")
     
     mol_df = dict(zip(itp_parser.mols, itp_parser.dfs))
-    
+    print(mol_df)
     return mols_data, TopolDict.fromDict(mol_df)

@@ -22,6 +22,28 @@ def getSection(section, txt):
     r = reg.findall(txt)
     return r
 
+def getSectionHeaders(txt):
+    reg = re.compile(fr"\[\s*(.*?)\s*\]", re.MULTILINE)
+    r = reg.findall(txt)
+    return r
+
+def parseBlocktillSection(itp_file, sections, buff):
+    #parse file till sections (its a list of sections) is found
+    itp_txt = ''
+    sections_read = [] #keep track of sections read
+    
+    file = Parser(itp_file, buff)
+    for chunk in file:
+        itp_txt += chunk
+        sections_read += getSectionHeaders(chunk)
+        
+        # if all sections have been read, and we now have read another sections after this
+        # means that we read all sections we wanted, so break
+        if set(sections).issubset(sections_read) and sections_read[-1] != sections[-1]:
+            break
+        
+    return cleanText(itp_txt)
+
 def cleanText(txt):
     txt_ = re.sub(re.compile(";(.*)\n" ) ,"\n" , txt) # strip comments
     return re.sub(re.compile("\n{2,}" ) ,"\n" , txt_) # remove double new lines
@@ -41,16 +63,7 @@ def molecules(tail):
 
 def atomtypes(itp_file, buff):
     
-    itp_txt = ''
-    # atomtypes has to be before a bondtypes ot moleculetypes section; or it can be the last section in file
-    end = ['bondtypes', 'moleculetypes']
-    
-    file = Parser(itp_file, buff)
-    for chunk in file:
-        itp_txt += chunk
-        if any([isSection(hdr, chunk) for hdr in end]): break
-    
-    itp_txt = cleanText(itp_txt)
+    itp_txt = parseBlocktillSection(itp_file, ['atomtypes'], buff)
     
     atomtypes_txt = getSection('atomtypes', itp_txt)
     
@@ -69,7 +82,7 @@ def atomtypes(itp_file, buff):
     for line in atomtypes_txt.splitlines():
         e = line.split()[0] # first val is atom type
         _n = line.split()[1]
-        
+         
         if not _n.isnumeric():
             # should raise an exception here
             continue
@@ -96,32 +109,13 @@ class ITPParser:
         self.atm_types_to_symb = atm_types_to_symb
         self.buff = buff
         self.guess = guess
-        
-    def read(self, itp_file):
-        
-        file = Parser(itp_file, self.buff)
-        
-        molecule = False
-        txt = ''
-        
-        for chunk in file:
-            if isSection('moleculetype', chunk):
-                molecule = True
-                
-            if molecule: txt += chunk
-            
-            # TO DO: test this ending of molecule/atom section
-            if isSection('bonds', chunk):
-                molecule = False
-        
-        return txt
     
     def parse(self, file_name, itp_text=None):
         
         if itp_text == None:
-            itp_text = self.read(file_name)
-        
-        itp_text = cleanText(itp_text)
+            itp_text = parseBlocktillSection(file_name, ['moleculetype', 'atoms'], self.buff)
+        else:
+            itp_text = cleanText(itp_text)
         
         mol_section = getSection('moleculetype', itp_text)
         atom_section = getSection('atoms', itp_text)

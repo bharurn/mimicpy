@@ -53,7 +53,9 @@ def unpack_topol_dict(unpacker):
     repeating_keys = unpack_strlist(unpacker)
     repeating_vals = unpack_strlist(unpacker)
     repeating = dict(zip(repeating_keys, repeating_vals))
-    
+    if repeating == {'': ''}: # empty dict will be stored like this in xdr
+        repeating = {}
+        
     dict_df = {}
     while True: # unpack dataframe dict until EOF
         try:
