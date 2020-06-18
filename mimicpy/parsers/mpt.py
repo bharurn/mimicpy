@@ -4,47 +4,57 @@ from . import top
 import pandas as pd
 import numpy as np
 import xdrlib
-    
-def write(topol, mpt, nonstd_atm_types={}, buff=1000, guess_elems=True):
-    mols, topol_dict = top.read(topol, nonstd_atm_types, buff, guess_elems)
 
-    ########Packing
-    ####Format
-    ##Header
-    # mol names from mols
-    # mol nos. from mols
-    ##TopolDict
-    # repeating dict keys
-    # repeating dict values
-    # mol name of first entry in dict_df
-    # col1 of df in mol name
-    # col2 of df in mol name
-    # col3 ....
-    # col4 ....
-    # ... continue for all columns of df
-    # mol name of second entry in dict_df
-    # .... continue for all entries in dict_df
-    ##########
+class MPT:
+    def __init__(self, mols, topol_dict):
+        self.mol_list = mols
+        self.topol_dict = topol_dict
     
-    packer = xdrlib.Packer()
+    @classmethod
+    def fromTop(cls, topol, nonstd_atm_types={}, buff=1000, guess_elems=True):
+        mols, topol_dict = top.read(topol, nonstd_atm_types, buff, guess_elems)
+        return cls(mols, topol_dict)
     
-    mol_names, no = list(zip(*mols)) # unzip list of tuples to get mol_name and nums
-    pack_strlist(packer, mol_names) #pack mol names as string list
-    packer.pack_list(no, packer.pack_int) #pack num of mols as list of ints
-    pack_topol_dict(packer, topol_dict) #pack topol dict object
-    gbl.host.write(packer.get_buffer(), mpt, asbytes=True)
+    def write(self, fname):
+        """Function to write mpt file
+        based on XDR format. Format given below:
+        ##Header
+         mol names from mol_list
+         mol nos. from mol_list
+        ##TopolDict
+         repeating dict keys
+         repeating dict values
+         mol name of first entry in dict_df
+         col1 of df in mol name
+         col2 of df in mol name
+         col3 ....
+         col4 ....
+         ... continue for all columns of df
+         mol name of second entry in dict_df
+         .... continue for all entries in dict_df
+        ##End
+        """
+        
+        packer = xdrlib.Packer()
+        
+        mol_names, no = list(zip(*self.mol_list)) # unzip list of tuples to get mol_name and nums
+        pack_strlist(packer, mol_names) #pack mol names as string list
+        packer.pack_list(no, packer.pack_int) #pack num of mols as list of ints
+        pack_topol_dict(packer, self.topol_dict) #pack topol dict object
+        gbl.host.write(packer.get_buffer(), fname, asbytes=True)
     
-class Reader:
-    
-    def __init__(self, file):
+    @classmethod
+    def fromFile(cls, file):
         unpacker = xdrlib.Unpacker(gbl.host.read(file, asbytes=True)) # open as bytes
         
         # unpack mol list
         mol_names = unpack_strlist(unpacker) # unpack mol names
         nos = unpacker.unpack_list(unpacker.unpack_int) # unpack num of mols
-        self.mol_list = list(zip(mol_names, nos)) # zip together
-        self.topol_dict = unpack_topol_dict(unpacker) # unpack topol_dict
+        mol_list = list(zip(mol_names, nos)) # zip together
+        topol_dict = unpack_topol_dict(unpacker) # unpack topol_dict
+        return cls(mol_list, topol_dict)
     
+    ##rewrite all this!!
     def selectByID(self, idx, mol=None, relative=False):
         orig_id = idx
         if not mol:

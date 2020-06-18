@@ -11,7 +11,7 @@ from .selector import Selector
 from .base import BaseHandle
 from .._global import _Global as _global
 from . import _qmhelper
-from ..parsers.mpt import Reader as MPTReader, write as mptwrite
+from ..parsers.mpt import MPT
 from ..parsers.top_reader import ITPParser
 from ..utils.constants import hartree_to_ps, bohr_rad
 from ..scripts import cpmd, mdp
@@ -88,7 +88,8 @@ class MM(BaseHandle):
         if mpt == None: mpt = _global.host.join(self.dir, 'topol.mpt') # if no mpt file was passed, use default value
         else: mpt = _global.host.join(self.dir,  mpt)
         
-        mptwrite(top, mpt, self.nonstd_atm_types, buff, guess_elems)
+        mpt_handle = MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems)
+        mpt_handle.write(mpt)
         
         self.toYaml()
     
@@ -124,7 +125,8 @@ class QM(BaseHandle):
         super().__init__(status) # call BaseHandle.__init__() to init status dict
         
         
-        self.mpt = MPTReader(self.getcurrentNone(mpt, 'mpt'))
+        if isinstance(mpt, MPT): self.mpt = mpt
+        else: self.mpt = MPT.fromFile(self.getcurrentNone(mpt, 'mpt'))
         self.gro = self.getcurrentNone(gro, 'gro')
         self.selector = selector
         
