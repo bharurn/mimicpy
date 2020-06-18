@@ -80,15 +80,17 @@ class MM(BaseHandle):
         self.nonstd_atm_types.update( dict(zip(atm_types, elems)) )
         
     
-    def getMPT(self, topol=None, mpt=None, buff=1000, guess_elems=False):
+    def getMPT(self, topol=None, mpt=None, buff=1000, guess_elems=False, toFile=True):
         """Get the MPT topology, used in prepare.QM"""
         
         top = self.getcurrentNone(topol, 'top')
+        mpt_handle = MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems)
+        
+        if not toFile: return mpt_handle
         
         if mpt == None: mpt = _global.host.join(self.dir, 'topol.mpt') # if no mpt file was passed, use default value
         else: mpt = _global.host.join(self.dir,  mpt)
         
-        mpt_handle = MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems)
         mpt_handle.write(mpt)
         
         self.toYaml()
@@ -123,7 +125,6 @@ class QM(BaseHandle):
         """Class constructor"""
         
         super().__init__(status) # call BaseHandle.__init__() to init status dict
-        
         
         if isinstance(mpt, MPT): self.mpt = mpt
         else: self.mpt = MPT.fromFile(self.getcurrentNone(mpt, 'mpt'))
