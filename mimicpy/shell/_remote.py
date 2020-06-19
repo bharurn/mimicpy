@@ -170,7 +170,8 @@ class _ShellBGRun:
                     
                 prev = self.stdout
                     
-                if hook: hook(cmd, text)
+                if hook:
+                    if hook(cmd, text): break
                 
             else: break
         
