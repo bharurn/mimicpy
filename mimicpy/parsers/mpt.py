@@ -1,24 +1,32 @@
 from .._global import _Global as gbl
 from .mpt_xdr import pack_strlist, pack_topol_dict, unpack_strlist, unpack_topol_dict
-from ..utils.errors import SelectionError
+from ..utils.errors import SelectionError, MiMiCPyError
 from . import top
 import pandas as pd
 import numpy as np
 import xdrlib
 
-class MPT:
-    def __init__(self, mols, topol_dict):
+columns = top.top_reader.ITPParser.columns.copy() # copy it, otherwise editing will change both
+columns.remove('number') # remove 'number'
+columns.append('mol')
+
+class MPT:    
+    def __init__(self, mols, topol_dict, mode='r'):
         self.__mol_list = mols
         self.__topol_dict = topol_dict
         self.__all_data = None
-        self.columns = top.top_reader.ITPParser.columns
-        self.columns.remove('number') # remove 'number'
-        self.columns.append('mol')
+        self.__columns = columns
+        
+        if mode == 'r':
+            # preload data into memory
+            self.__generateData()
+        elif mode != 'w':
+            raise MiMiCPyError(f"{mode} not a mode. Only r/w can be used")
     
     @classmethod
-    def fromTop(cls, topol, nonstd_atm_types={}, buff=1000, guess_elems=True):
+    def fromTop(cls, topol, nonstd_atm_types={}, buff=1000, guess_elems=True, mode='r'):
         mols, topol_dict = top.read(topol, nonstd_atm_types, buff, guess_elems)
-        return cls(mols, topol_dict)
+        return cls(mols, topol_dict, mode)
     
     def write(self, fname):
         """Function to write mpt file
@@ -49,7 +57,7 @@ class MPT:
         gbl.host.write(packer.get_buffer(), fname, asbytes=True)
     
     @classmethod
-    def fromFile(cls, file):
+    def fromFile(cls, file, mode='r'):
         unpacker = xdrlib.Unpacker(gbl.host.read(file, asbytes=True)) # open as bytes
         
         # unpack mol list
@@ -57,7 +65,7 @@ class MPT:
         nos = unpacker.unpack_list(unpacker.unpack_int) # unpack num of mols
         mol_list = list(zip(mol_names, nos)) # zip together
         topol_dict = unpack_topol_dict(unpacker) # unpack topol_dict
-        return cls(mol_list, topol_dict)
+        return cls(mol_list, topol_dict, mode)
     
     def __getitem__(self, key):
         """Select an atom by passing the atom ID to key
@@ -75,30 +83,32 @@ class MPT:
         
         return self.__selectbyID(key)
     
-    def generateData(self):
-        """Generate list of all data from topol_dict
-            Should be called before select()
-        """
-        # generate everything as python lists, much faster
-        self.__all_data = [self.__getProperty(i) for i in self.columns]
+    def __generateData(self):
+        """Generate list of all data from topol_dict"""
+        # generate everything as python lists, much faster than np or df
+        # generating resid is slow, otherwise everthing is fast enough
+        self.__all_data = [self.__getProperty(i) for i in self.__columns]
         
     def __selectbyID(self, ids):
-        if self.__all_data == None: self.generateData() # generate data if not already done
+        if self.__all_data == None: self.__generateData() # generate data if not already done
         
         # select necessary rows; keep everything as python list, much faster than df or np
         # i-1 to convert gromacs/mpt id to list indexing
         data_list = [[row[i-1] for row in self.__all_data] for i in ids]
         
-        df = pd.DataFrame(data_list, columns=self.columns)
+        df = pd.DataFrame(data_list, columns=self.__columns)
         df['id'] = ids
         return df.set_index(['id'])
     
-    def clean(self):
+    def close(self):
         self.__all_data = None
+        self.__topol_dict = None
     
     def __getProperty(self, prop):
+        if self.__topol_dict == None: raise MiMiCPyError("MPT file is closed")
+        if self.__all_data != None: return self.__all_data[self.__columns.index(prop)]
         
-        #if prop == 'resi': return self.__getResID()
+        if prop == 'resid': return self.__getResID()
         
         prop_list = []
         
@@ -113,14 +123,14 @@ class MPT:
         return prop_list 
     
     def __getResID(self):
-        ## TO DO: too slow rewrite
+        if self.__topol_dict == None: raise MiMiCPyError("MPT file is closed")
         resn_so_far = 0
         resn_list = []
         for mol, n_mols in self.__mol_list:
-            for n in range(n_mols): # this part makes it too slow
-                lst = self.__topol_dict[mol]['resid'].to_list()
-                resn_list += [i+resn_so_far for i in lst]
-                resn_so_far += lst[-1]+n
+            for n in range(n_mols): # this part makes its slow
+                lst = self.__topol_dict[mol]['resid'].to_numpy()+resn_so_far
+                resn_list += lst.tolist()
+                resn_so_far = lst[-1]
         
         return resn_list
     
@@ -135,59 +145,64 @@ class MPT:
         keys = []
         for s in selection.split():
             if i == 0: # if starting of set
-                if s not in self.columns and s != 'id':
+                if s not in self.__columns and s != 'id':
                     raise SelectionError(f"{s} is not a valid selection keyword")
                     
                 ev += f"(np_vals['{s}']"
                 keys.append(s)
-                # if and/or encountered, reset i to -1 (will become 0 due to i+= 1 at end)
-                # so we can start parsing again
             elif i == 1:
-                if s == 'or':
-                    ev += f' | '
-                    i = -1
-                elif s == 'and':
-                    ev += f' & '
-                    i = -1
-                elif s == 'is':
+                if s == 'is':
                     ev += '=='
                 elif s == 'not':
                     ev += '!='
                 elif s == '>' or s == '>=' or s == '<' or s == '<=':
                     ev += s
                 else:
-                    raise SelectionError("Invalid operator used for selection")
-            else: # parse everything else, meant for the third word
+                    raise SelectionError(f"{s} is not a valid logical operator")
+            elif i == 2: # parse everything else, meant for the third word
                 if s.isnumeric():
                     ev += f"{s})"
                 else:
                     ev += f"'{s}')"
+            elif i == 3:
+                # if and/or encountered, reset i to -1 (will become 0 due to i+= 1 at end)
+                # so we can start parsing again
+                if s == 'or':
+                    ev += f' | '
+                    i = -1
+                elif s == 'and':
+                    ev += f' & '
+                    i = -1
+                else:
+                    raise SelectionError(f"{s} not a valid boolean operator")
     
             i += 1
     
+        # return the translated string and the keywords used
         return ev, keys
     
     def select(self, selection):
         if selection is None or selection.strip() == '':
             raise SelectionError("The selection cannot be empty")
         
-        if self.__all_data == None: self.generateData() # generate data if not already done
+        if self.__all_data == None: self.__generateData() # generate data if not already done
         
-        np_str, vals = self.__translate(selection)
+        np_str, vals = self.__translate(selection) # get transaltes str and keywords
         
+        # the keywords 'vals' has to added to np_vals dict for np_str to be executed
         np_vals = {}
         for i in vals:
             if i == 'id':
                 natms = len(self.__all_data[0])
                 arr = np.array(list(range(natms)))+1
             else:
-                arr = np.array(self.__all_data[self.columns.index(i)])
+                arr = np.array(self.__getProperty(i))
             np_vals[i] = arr
-
+        
         ids = (np.where(eval(np_str))[0]+1).tolist()
         
         if ids == []:
-            raise SelectionError("The atom(s) you selected do not exist")
+            raise SelectionError("The selection did not return any atoms")
         
         return self.__selectbyID(ids)
     

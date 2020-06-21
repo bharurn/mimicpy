@@ -16,6 +16,7 @@ from ..parsers.top_reader import ITPParser
 from ..utils.constants import hartree_to_ps, bohr_rad
 from ..scripts import cpmd, mdp
 from ..parsers import pdb as parse_pdb
+from ..utils.errors import MiMiCPyError
 
 class MM(BaseHandle):
     """
@@ -84,9 +85,9 @@ class MM(BaseHandle):
         """Get the MPT topology, used in prepare.QM"""
         
         top = self.getcurrentNone(topol, 'top')
-        mpt_handle = MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems)
         
-        if not toFile: return mpt_handle
+        if not toFile: return MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems)
+        else: mpt_handle = MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems, mode='w')
         
         if mpt == None: mpt = _global.host.join(self.dir, 'topol.mpt') # if no mpt file was passed, use default value
         else: mpt = _global.host.join(self.dir,  mpt)
@@ -144,6 +145,7 @@ class QM(BaseHandle):
         self.index = 'index.ndx'
         self.preprc = 'processed.top'
         self.mimic = 'mimic'
+        self.QMMM_grps = 'QMatoms'
     
     def add(self, selection=None, link=False):
         """Add dataframe to QM region"""
@@ -181,6 +183,10 @@ class QM(BaseHandle):
             Add MIMIC, SYSTEM, DFT sections of CPMD script
             Add all atoms to CPMD script
         """
+        if self.qmatoms == None:
+            raise MiMiCPyError("No QM atoms have been selected")
+        
+        self.mpt.close() # clear all_data from memory, in case gc doesn't work
         ####
         #Write ndx, tpr file for gromacs
         #output only ndx if mdp is None
@@ -189,17 +195,31 @@ class QM(BaseHandle):
         self.setcurrent(key='prepQM')
         
         # write index file
-        _global.host.write(_qmhelper.index(self.qmatoms.index, mdp.QMMM_grps), f'{dirc}/{self.index}')
+        _global.host.write(_qmhelper.index(self.qmatoms.index, self.QMMM_grps), f'{dirc}/{self.index}')
         
+        # default vals
+        nsteps = 1000
+        dt = 0.0001
+            
         if mdp != None:
             _global.logger.write('debug2', "Changing Gromacs integrator to MiMiC..")
             mdp.integrator = 'mimic'
         
             _global.logger.write('debug', f"Writing atoms in QM region to {self.index}..")
-            mdp.QMMM_grps = 'QMatoms'
+            mdp.QMMM_grps = self.QMMM_grps
             
             _global.logger.write('info', "Generating Gromacs .tpr file for MiMiC run..")
+            
+            # set no of steps in mdp file
+            if not mdp.hasparam('nsteps'): mdp.nsteps = nsteps # default value, if not present in mdp
+            else: nsteps = mdp.nsteps
+            
+            # set timestep in mdp file
+            if not mdp.hasparam('dt'): mdp.dt = dt # default value, if not present in mdp
+            else: dt = mdp.dt
+            
             self.grompp(mdp, self.mimic, gro=self.gro, n=self.index, dirc=dirc)
+            
         
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together
@@ -221,7 +241,7 @@ class QM(BaseHandle):
         inp.mimic.multipole__order = 3
         
         q = sum(self.qmatoms['charge'])
-        if not round(q, 2).is_number(): 
+        if not round(q, 2).is_integer(): 
             _global.logger.write('warning', (f'Total charge of QM region ({q}) not an integer up to 2 decimal places.'
                                             ' \nRounding to integer anyways..'))
         
@@ -232,16 +252,14 @@ class QM(BaseHandle):
         inp.cpmd.mimic = ''
         inp.cpmd.parallel__constraints = ''
         
-        # set no of steps from mdp file
-        if not mdp.hasparam('nsteps'): mdp.nsteps = 1000 # default value, if not present in mdp
-        inp.cpmd.maxsteps = mdp.nsteps
-        
         inp.dft = cpmd.Section()
         inp.dft.functional__blyp = '' # TO DO: update to new XC_DRIVER code
         
-        # set timestep from mdp file
-        if not mdp.hasparam('dt'): mdp.dt = 0.0001 # default value, if not present in mdp
-        inp.cpmd.timestep = round(mdp.dt/hartree_to_ps) # convert to atomic units and round off
+        # set no of steps
+        inp.cpmd.maxsteps = nsteps
+        
+        # set timestep
+        inp.cpmd.timestep = round(dt/hartree_to_ps) # convert to atomic units and round off
         
         self.inp = inp
         

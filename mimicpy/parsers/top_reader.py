@@ -144,6 +144,8 @@ class ITPParser:
     def _parseatoms(self, txt, file_name):
         
         df_ = {k:[] for k in self.columns}
+        prev_resn = 1
+        resid = 1
         
         for line in txt.splitlines():
             
@@ -159,7 +161,13 @@ class ITPParser:
             c = self.columns
             df_[c[0]].append(int(nr))
             df_[c[1]].append(_type)
-            df_[c[2]].append(int(resnr))
+            
+            if resnr != prev_resn:
+                resid += 1
+                resnr = prev_resn
+            
+            df_[c[2]].append(resid)
+            
             df_[c[3]].append(res)
             df_[c[4]].append(name)
             df_[c[5]].append(float(q))
