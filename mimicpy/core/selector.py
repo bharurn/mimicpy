@@ -10,62 +10,15 @@ class Selector:
         self.lines = lines
         
     def load(self, mpt, gro_file):
-        gro_df, box = gro.read(gro_file, self.lines)
-        self.df = mpt.buildSystemTopology()
-        self.df = self.df.merge(gro_df, left_on='id', right_on='id')
+        self.mpt = mpt
+        self.gro_df, box = gro.read(gro_file, self.lines)
         return box
         
     def select(self, selection):
-        """Translate selection language string into pandas dataframe selection"""
-        
-        if selection is None:
-            #raise SelectionError
-            pass
-        
-        df = self.df # rename df
-        
-        # if selection is a lambda func, then just call and return it
-        # this is provided for debugging puposes
-        LAMBDA = lambda:0
-        if isinstance(selection, type(LAMBDA)):
-            return df[selection(df)]
-            
-        # below code translates selection langauge to pandas boolean
-        # selection eg., resname is SER and id < 25 and mol not Protein_chain_B
-        # will be translated to df['resname'] == 'SER' and df.index < 25 and df['mol'] != 'Protein_chain_B'
-    
-        ev = '' # converted string
-        i = 0 # counter to keep track of word position
-        for s in selection.split():
-            if i == 0: # if starting of set
-                ev += f"(df['{s}']"
-                # if and/or encountered, reset i to -1 (will become 0 due to i+= 1 at end)
-                # so we can start parsing again
-            elif s == 'or':
-                ev += f' | '
-                i = -1
-            elif s == 'and':
-                ev += f' & '
-                i = -1
-            elif s == 'is':
-                ev += '=='
-            elif s == 'not':
-                ev += '!='
-            elif s == '>' or s == '>=' or s == '<' or s == '<=':
-                ev += s
-            else: # parse everything else, meant for the third word
-                if s.isnumeric():
-                    ev += f"{s})"
-                else:
-                    ev += f"'{s}')"
-                
-            i += 1
-
-        ev = f"df.loc[{ev}]" # eg., df.loc[ df['resname'] == 'SER' and df.index < 25 and df['mol'] != 'Protein_chain_B' ]
-        ev = ev.replace("df['id']","df.index") # replace df['id'] to df.index as id is the index of df
-        gbl.logger.write('debug2', f'Selection command translated to: {ev}')
-        
-        return eval(ev) # evaluate string and return the dataframe
+        """Select MPT atoms and merge with GRO"""
+        atoms = self.mpt.select(selection)
+        atoms = atoms.merge(self.gro_df, left_on='id', right_on='id')
+        return atoms
 
 class PyMOL(Selector):
     """PyMOL selector to process a PyMOL selection and combine it with an MPT
@@ -126,7 +79,7 @@ class PyMOL(Selector):
         sele_return = self.cmd.get_model(selection, 1)
         pymol_sele = self.__sele2df(sele_return)
     
-        mpt_sele = self.mpt.selectByIDs(pymol_sele['id'])
+        mpt_sele = self.mpt[pymol_sele['id']]
         
         # TO DO: check if names/resname, etc. are same and issue warnings accordingly
         

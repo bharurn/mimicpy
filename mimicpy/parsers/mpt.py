@@ -1,5 +1,6 @@
 from .._global import _Global as gbl
 from .mpt_xdr import pack_strlist, pack_topol_dict, unpack_strlist, unpack_topol_dict
+from ..utils.errors import SelectionError
 from . import top
 import pandas as pd
 import numpy as np
@@ -7,8 +8,12 @@ import xdrlib
 
 class MPT:
     def __init__(self, mols, topol_dict):
-        self.mol_list = mols
-        self.topol_dict = topol_dict
+        self.__mol_list = mols
+        self.__topol_dict = topol_dict
+        self.__all_data = None
+        self.columns = top.top_reader.ITPParser.columns
+        self.columns.remove('number') # remove 'number'
+        self.columns.append('mol')
     
     @classmethod
     def fromTop(cls, topol, nonstd_atm_types={}, buff=1000, guess_elems=True):
@@ -54,88 +59,135 @@ class MPT:
         topol_dict = unpack_topol_dict(unpacker) # unpack topol_dict
         return cls(mol_list, topol_dict)
     
-    ##rewrite all this!!
-    def selectByID(self, idx, mol=None, relative=False):
-        orig_id = idx
-        if not mol:
-            mol = ''
-            resn = 0
-            curr_res = 0
-            for k,v in self.mpt.items():
-                if idx <= v[2]:
-                    break
+    def __getitem__(self, key):
+        """Select an atom by passing the atom ID to key
+            it can be a single int, list or a slice
+            The indexing starts from 1
+            If a string is passed as key then that property is returned
+        """
+        ## If string --> return property
+        if isinstance(key, str): return self.__getProperty(key)
+        
+        ##Else it is atom ID that is requested
+        
+        elif isinstance(key, int): key = [key] 
+        elif isinstance(key, slice): key = list(range(key.stop)[key])
+        
+        return self.__selectbyID(key)
+    
+    def generateData(self):
+        """Generate list of all data from topol_dict
+            Should be called before select()
+        """
+        # generate everything as python lists, much faster
+        self.__all_data = [self.__getProperty(i) for i in self.columns]
+        
+    def __selectbyID(self, ids):
+        if self.__all_data == None: self.generateData() # generate data if not already done
+        
+        # select necessary rows; keep everything as python list, much faster than df or np
+        # i-1 to convert gromacs/mpt id to list indexing
+        data_list = [[row[i-1] for row in self.__all_data] for i in ids]
+        
+        df = pd.DataFrame(data_list, columns=self.columns)
+        df['id'] = ids
+        return df.set_index(['id'])
+    
+    def clean(self):
+        self.__all_data = None
+    
+    def __getProperty(self, prop):
+        
+        #if prop == 'resi': return self.__getResID()
+        
+        prop_list = []
+        
+        if prop == 'mol':
+            for mol, n_mols in self.__mol_list:
+                prop_list += [mol]*len(self.__topol_dict[mol])*n_mols
+        
+        else:
+            for mol, n_mols in self.__mol_list:
+                prop_list += self.__topol_dict[mol][prop].to_list()*n_mols
+        
+        return prop_list 
+    
+    def __getResID(self):
+        ## TO DO: too slow rewrite
+        resn_so_far = 0
+        resn_list = []
+        for mol, n_mols in self.__mol_list:
+            for n in range(n_mols): # this part makes it too slow
+                lst = self.__topol_dict[mol]['resid'].to_list()
+                resn_list += [i+resn_so_far for i in lst]
+                resn_so_far += lst[-1]+n
+        
+        return resn_list
+    
+    def __translate(self, selection):
+        """Translates selection langauge to numpy boolean
+           selection eg., resname is SER and id < 25 and mol not Protein_chain_B
+           will be translated to np_vals['resname'] == 'SER' and np_vals['id'] < 25 and np_vals['mol'] != 'Protein_chain_B'
+         """
+    
+        ev = '' # converted string
+        i = 0 # counter to keep track of word position
+        keys = []
+        for s in selection.split():
+            if i == 0: # if starting of set
+                if s not in self.columns and s != 'id':
+                    raise SelectionError(f"{s} is not a valid selection keyword")
+                    
+                ev += f"(np_vals['{s}']"
+                keys.append(s)
+                # if and/or encountered, reset i to -1 (will become 0 due to i+= 1 at end)
+                # so we can start parsing again
+            elif i == 1:
+                if s == 'or':
+                    ev += f' | '
+                    i = -1
+                elif s == 'and':
+                    ev += f' & '
+                    i = -1
+                elif s == 'is':
+                    ev += '=='
+                elif s == 'not':
+                    ev += '!='
+                elif s == '>' or s == '>=' or s == '<' or s == '<=':
+                    ev += s
                 else:
-                    mol = k
-                    # to get correct resid
-                    curr_res = self._get_df(k)['resid'].iloc[-1]
-                    resn += curr_res # no. of res till now
-        
-        resn -= curr_res # resn includes no. of res for current mol, remove it
-        
-        df = self._get_df(mol)
-        if not relative:
-            atms_before = self.mpt[mol][2]
-            idx = idx-atms_before
-        
-        ## Accounting for multiple molecules
-        natms = self.mpt[mol][1]
-        
-        idx -= 1
-        
-        if self.mpt[mol][0] > 1: # to get correct resid
-            n_res_before = idx//natms
-            resn += n_res_before
-        
-        # atom id for multiple molecules case
-        col = idx % natms
-        idx = col+1
-            
-        srs = df.loc[idx]
-        resn += srs['resid']
-        # drop resid and assing it again, to avoid pandas warning
-        srs = srs.drop(labels=['resid'])
-        
-        return srs.append(pd.Series({'mol':mol, 'id':orig_id, 'resid': resn}))
+                    raise SelectionError("Invalid operator used for selection")
+            else: # parse everything else, meant for the third word
+                if s.isnumeric():
+                    ev += f"{s})"
+                else:
+                    ev += f"'{s}')"
     
-    def selectByIDs(self, ids):
-        s = [self.selectAtom(i) for i in ids]
-        return pd.concat(s, axis=1).T
+            i += 1
     
-    def r(self, a, no):
-        """Function to keep track of res counter in getDF()"""
-        print("a :" + str(a))
-        print("no:" + str(no))
-        if self._res_i%no == 0:
-            self._res_before += 1
-        self._res_i += 1
-        return a+self._res_before
-                
-    def buildSystemTopology(self):
-        molecule_topology = pd.DataFrame()
-        for mol, n_mols in self.mol_names:
-            _df = self.atom_info[mol][1]
-            # repeat the molecule topology n_mol times and preserve the atom order
-            _df = pd.DataFrame(np.tile(_df.values, (n_mols, 1)), columns = _df.columns)
-            # reset index to consecutive numbering
-            _df = _df.reset_index(drop=True)
-            
-            molecule_topology = molecule_topology.append(_df,  ignore_index=True)
-
-    	# atom id is automatically generated when multipling df
-    	# but resid in not, TO DO: resid handling
-        molecule_topology['id'] = molecule_topology.index+1
-
-        return molecule_topology.set_index(['id'])
+        return ev, keys
     
-    def getProperty(self, prop):
-        df = None
+    def select(self, selection):
+        if selection is None or selection.strip() == '':
+            raise SelectionError("The selection cannot be empty")
         
-        for mol in self.mpt:    
-            _df = self._get_df(mol)[prop]
-            no = self.mpt[mol][0]
-            if df is None:
-                df = pd.concat([_df]*no)
+        if self.__all_data == None: self.generateData() # generate data if not already done
+        
+        np_str, vals = self.__translate(selection)
+        
+        np_vals = {}
+        for i in vals:
+            if i == 'id':
+                natms = len(self.__all_data[0])
+                arr = np.array(list(range(natms)))+1
             else:
-                df = df.append(pd.concat([_df]*no))
+                arr = np.array(self.__all_data[self.columns.index(i)])
+            np_vals[i] = arr
+
+        ids = (np.where(eval(np_str))[0]+1).tolist()
         
-        return df.to_list()
+        if ids == []:
+            raise SelectionError("The atom(s) you selected do not exist")
+        
+        return self.__selectbyID(ids)
+    

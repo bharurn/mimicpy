@@ -10,6 +10,9 @@ used in the package
 class MiMiCPyError(Exception):
    """Generic exception from MiMiCPy"""
 
+class SelectionError(MiMiCPyError):
+    """Error in selecting atoms in MPT"""
+    
 class ParserError(MiMiCPyError):
     """
     Raised when a file could not be parsed

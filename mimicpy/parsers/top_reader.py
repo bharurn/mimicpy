@@ -96,7 +96,7 @@ def atomtypes(itp_file, buff):
 
 class ITPParser:    
     
-    columns = ['number', 'type', 'resid', 'resname', 'name', 'charge','element',	'mass']
+    columns = ['number', 'type', 'resid', 'resname', 'name', 'charge', 'element', 'mass']
     dfs = []
     mols = []
 
