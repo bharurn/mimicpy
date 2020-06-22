@@ -57,7 +57,7 @@ def getOverlaps_Atoms(qmatoms, inp):
         
         out += f"2 {idx} 1 {i + 1}\n" # overlap section string
         
-        if link: elem += '*'
+        if link: elem += '*' # append astericks to link atoms, so they are added as normal elem dict value
         
         if elem not in inp.atoms.keys(): # if new element is found
             # init a new Atom() for that element key

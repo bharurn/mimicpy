@@ -9,7 +9,6 @@ Gromacs MDP script
 """
 
 from .base import Script
-from .._global import _Global as gbl
 from ..utils.errors import ParserError
 
 class MDP(Script):
@@ -42,10 +41,6 @@ class MDP(Script):
         return val
     
     @classmethod
-    def fromFile(cls, script):
-        return cls.fromText(gbl.host.read(script))
-    
-    @classmethod
     def fromText(cls, script):
         kwargs = {}
         for i, line in enumerate(script.splitlines()):
@@ -60,8 +55,8 @@ class MDP(Script):
         return cls(**kwargs)                  
     
     @classmethod
-    def defaultGenion(cls):
-        return cls(name = 'Genion',
+    def defaultEM(cls):
+        return cls(name = 'Minim',
                    integrator = "steep",  # Algorithm (steep = steepest descent minimization)
                    emtol = 1000.0, # Stop minimization when the maximum force < 1000.0 kJ/mol/nm
                    emstep = 0.01,  # Minimization step size
@@ -70,19 +65,12 @@ class MDP(Script):
                    nstlist = 10, # Frequency to update the neighbor list and long range forces
                    cutoff_scheme = "Verlet", # Buffered neighbor searching 
                    ns_type = "grid", # Method to determine neighbor list (simple, grid)
-                   coulombtype = "cutoff", #Treatment of long range electrostatic interactions
+                   coulombtype = "PME", #Treatment of long range electrostatic interactions
                    rcoulomb = 1.0,# Short-range electrostatic cut-off
                    rvdw = 1.0, # Short-range Van der Waals cut-off
                    pbc = 'xyz'
                    )
         
-    @classmethod
-    def defaultEM(cls):
-        em = cls.defaultGenion()
-        em.name = 'Minim'
-        em.coulombtype = "PME"
-        return em
-    
     @classmethod
     def defaultNVT(cls):
         return cls(name = 'NVT', 

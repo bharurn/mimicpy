@@ -21,6 +21,7 @@ from ..utils.errors import MiMiCPyError
 class MM(BaseHandle):
     """
     Prepare MM topology, by writing MPT file, also supports non-std residues
+    Used as starting point to set-up topology folder and _status.yaml for all further actions
     Inherits from .core.base.BaseHandle
     
     """
@@ -32,12 +33,12 @@ class MM(BaseHandle):
         
         self.savestatus = savestatus
         
-        if self._status['prepMM'] != '':
-            self.dir = self._status['prepMM']
-        else:
-            self.dir = topol_dir
-            
-        if self.dir:
+        if topol_dir.strip() != '':
+            self._status['prepMM'] = topol_dir
+        
+        self.dir = self._status['prepMM']
+        
+        if self.dir.strip() != '':
             _global.logger.write('debug', f'Set handle directory as {self.dir}..')
         else:
             _global.logger.write('debug', f'Set handle directory as current directory..')
@@ -45,13 +46,7 @@ class MM(BaseHandle):
         self.toYaml()
         
         self.nonstd_atm_types = {}
-        self.conf1 = 'solv.gro'
-        self.conf2 = 'ions.gro'
-        self.ions = "ions"
         
-        self._ion_kwargs = {'pname': 'NA', 'nname': 'CL', 'neutral': ''} # parameters to pass to gmx genion
-        self._solavte_kwargs = {'cs': 'spc216.gro'} # parameters to pass to gmx solvate
-    
     def addLig(self, pdb, itp, *resnames, buff=1000):
         pdb_df = parse_pdb.parseFile(pdb, buff)
         
@@ -81,39 +76,18 @@ class MM(BaseHandle):
         self.nonstd_atm_types.update( dict(zip(atm_types, elems)) )
         
     
-    def getMPT(self, topol=None, mpt=None, buff=1000, guess_elems=False, toFile=True):
+    def getMPT(self, topol=None, mpt=None, buff=1000, guess_elems=False):
         """Get the MPT topology, used in prepare.QM"""
         
         top = self.getcurrentNone(topol, 'top')
         
-        if not toFile: return MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems)
-        else: mpt_handle = MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems, mode='w')
-        
-        if mpt == None: mpt = _global.host.join(self.dir, 'topol.mpt') # if no mpt file was passed, use default value
-        else: mpt = _global.host.join(self.dir,  mpt)
-        
-        mpt_handle.write(mpt)
-        
-        self.toYaml()
-    
-    def genionParams(self, **kwargs): self._ion_kwargs = kwargs
-    def solvateParams(self, **kwargs): self._solavte_kwargs = kwargs
-    
-    def makeBox(self, gro=None, genion_mdp=mdp.MDP.defaultGenion()):
-        """Run gmx solvate, gmx grompp and gmx genion in that order"""
-        
-        _global.logger.write('info', "Solvating box..")
-        self.gmx('solvate', cp = self.getcurrentNone(gro, 'gro'), o = self.conf1, p = self.topol, dirc=self.dir, **self._solavte_kwargs)
-        
-        _global.logger.write('info', "Adding ions to box..")
-        self.grompp(genion_mdp, self.ions, gro = self.conf1, dirc=self.dir)
-        
-        # send SOL to stdin, so gromacs replaces some SOL molecules with ions 
-        self.gmx('genion', s = self.ions_tpr, o = self.conf2, p = self.topol, dirc=self.dir, **self._ion_kwargs, stdin="SOL")
-        
-        _global.logger.write('info', 'Simulation box prepared..')
-        
-        self.saveToYaml()
+        if not mpt:
+            # if no mpt file was passed, return as MPT object in read mode
+            return MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems)
+        else:
+            mpt_handle = MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems, mode='w')
+            mpt_handle.write(_global.host.join(self.dir,  mpt))
+            self.toYaml()
         
 class QM(BaseHandle):
     """
@@ -138,12 +112,8 @@ class QM(BaseHandle):
         # init scripts and paths/files
         self.inp = cpmd.Input()
         self.qmatoms = None
-        if self._status['prepQM'] == '':
-            self.dir = 'prepareQM'
-        else:
-            self.dir = self._status['prepQM']
+        self.dir = self._status['prepQM']
         self.index = 'index.ndx'
-        self.preprc = 'processed.top'
         self.mimic = 'mimic'
         self.QMMM_grps = 'QMatoms'
     
@@ -220,7 +190,6 @@ class QM(BaseHandle):
             
             self.grompp(mdp, self.mimic, gro=self.gro, n=self.index, dirc=dirc)
             
-        
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together
         # index is also reset, for getOverlaps_Atoms()

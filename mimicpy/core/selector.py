@@ -1,9 +1,13 @@
 from .._global import _Global as gbl
 from ..parsers import gro, parser
+from ..utils.errors import MiMiCPyError
 import xmlrpc.client as xmlrpclib
 import pandas as pd
 import tempfile
 from collections import defaultdict
+from abc import ABC, abstractmethod
+
+###### Selector using Gromacs GRO
 
 class Selector:
     def __init__(self, lines=500):
@@ -11,77 +15,131 @@ class Selector:
         
     def load(self, mpt, gro_file):
         self.mpt = mpt
-        self.gro_df, box = gro.read(gro_file, self.lines)
+        self.coords, box = gro.read(gro_file, self.lines)
         return box
         
     def select(self, selection):
         """Select MPT atoms and merge with GRO"""
-        atoms = self.mpt.select(selection)
-        atoms = atoms.merge(self.gro_df, left_on='id', right_on='id')
-        return atoms
+        sele = self.mpt.select(selection)
+        return sele.merge(self.coords, left_on='id', right_on='id')
 
-class PyMOL(Selector):
-    """PyMOL selector to process a PyMOL selection and combine it with an MPT
-    Can be used by connecting to PyMOL using xmlrpc or by executing in the PyMOL interpreter
-    """
+###### Selector using Visualization packages, currently PyMOL and VMD supported
     
-    def __init__(self, cmd=None, url='http://localhost:9123', load=True, forcelocal=False, lines=500):
-        
-        if cmd is None:
-            self.cmd = xmlrpclib.ServerProxy(url)
-        else:
-            self.cmd = cmd
-        
+class VisPackage(ABC):
+    def __init__(self, cmd, load, forcelocal, lines):
+        self.cmd = cmd
         self.load = load
         self.forcelocal = forcelocal
         self.lines = lines
     
+    @abstractmethod
     def load(self, mpt, gro):
-        if not gbl.host.isLocal() and self.forceLocal:
-            # if remote and want to run pymol locally, download gro to temp file
+        if not gbl.host.isLocal() and self.forceLocal and self.load:
+            # if remote and want to run locally, save gro to temp file locally
             temp = tempfile.NamedTemporaryFile(prefix='mimicpy_temp_', suffix=".gro")
             gro_parser = parser.Parser(gro, self.lines)
             for i in gro_parser: temp.write(i.encode('utf-8'))
             gro_parser.close()
             gro = temp.name
         
-        self.cmd.load(gro)
         self.mpt = mpt
         
         return gro.getBox(gro)
+        
+    @abstractmethod
+    def __sele2df(self, selection):
+        """
+        Select atoms using the Visualization Package
+        and return dataframe, with VisPack columns prefixed with underscore
+        Should be implemented in the respecitve VisPack Class
+        """
+        pass
     
-    def __sele2df(self, sele):
+    def select(self, selection):
+        sele = self.__sele2df(selection)
+        mpt_sele = self.mpt[sele['id']]    
+        # TO DO: check if names/resname, etc. are same and issue warnings accordingly  
+        # the corresp. columns from the vis software will have underscore prefix
+        return mpt_sele.merge(sele, left_on='id', right_on='id')
+
+class PyMOL(VisPackage):
+    """
+    PyMOL selector to process a PyMOL selection and combine it with an MPT
+    Can be used by connecting to PyMOL using xmlrpc or by executing in the PyMOL interpreter
+    
+    """
+    
+    def __init__(self, url='http://localhost:9123', load=True, forcelocal=True, lines=500):
+        
+        try:
+            # first try importing pymol in the pymol enviornment
+            from pymol import cmd
+        except ImportError:
+            # if not try connecting by xmlrpc
+            cmd = xmlrpclib.ServerProxy(url)
+            
+            # xmlrpc will silently fail, try a dummy command to check if connection if working
+            try:
+                cmd.get_view()
+            except ConnectionRefusedError:
+                raise MiMiCPyError(f"Could not connect to PyMOL neither through the software enviornment nor at the address {url}")
+        
+        
+        super().__init__(cmd, load, forcelocal, lines)
+    
+    def load(self, mpt, gro):
+        if self.load: self.cmd.load(gro)
+        return super.load(mpt, gro)
+        
+    def __sele2df(self, selection):
+        sele = self.cmd.get_model(selection, 1)
+        
         if isinstance(sele, dict):
             # sele is dict if using xmlrpc
             # atom key of dict has all we need
-            df_dict = sele['atom']
+            df = pd.DataFrame(sele['atom'])
         else:
-            # sele will br chempy.models.Indexed object if using from pymol
+            # sele will be chempy.models.Indexed object if using from pymol
             # sele.atom is is a list of chempy.Atom objects, each atom has id, symbol, etc.
             df_dict = defaultdict(list)
             params_to_get = ['id', 'symbol', 'name', 'resn', 'resi_number', 'coord']
             for a in sele.atom:
                 for i in params_to_get:
                     df_dict[i] = getattr(a, i)
+            df = pd.DataFrame(df_dict, columns = params_to_get)
         
-        df = pd.DataFrame(df_dict)
         # extract coordinates and covert from ang to nm
         x,y,z = list(zip(*df[['coord']].apply(lambda x: [i/10 for i in x[0]], axis=1)))
         df.insert(2, "x", x, True) 
         df.insert(2, "y", y, True) 
         df.insert(2, "z", z, True)
         df = df.drop(['coord'], axis=1)
-        df = df.rename(columns={"name": "pm_name", "symbol": "pm_symbol", "resn": "pm_resn",\
-                               "resi_number": "pm_resi_number"})
+        return df.rename(columns={"name": "_name", "symbol": "_element", "resn": "_resname",\
+                               "resi_number": "_resid"})
     
-    def select(self, selection=None):
-        if selection is None: selection = 'sele'
-        sele_return = self.cmd.get_model(selection, 1)
-        pymol_sele = self.__sele2df(sele_return)
+class VMD(VisPackage):
     
-        mpt_sele = self.mpt[pymol_sele['id']]
+    def __init__(self, load=True, forcelocal=True, lines=500):
+        try:
+            import vmd
+        except ImportError:
+            raise MiMiCPyError("VMD python package not found. Make sure that you have VMD built with python support")
+            
+        super().__init__(vmd, load, forcelocal, lines)
+    
+    def load(self, mpt, gro):
+        if self.load: self.molid = self.cmd.molecule.load("gro", gro)
+        return super.load(mpt, gro)
+    
+    def __sele2df(self, selection):
+        sele = self.cmd.atomsel(selection, self.molid)
         
-        # TO DO: check if names/resname, etc. are same and issue warnings accordingly
+        params_to_get = ['name', 'type', 'index', 'mass', 'element', 'resname', 'resid', 'x', 'y', 'z']
         
-        return mpt_sele.merge(pymol_sele, left_on='id', right_on='id').set_index(['id'])
+        df_dict = defaultdict(list)
+            
+        for i in params_to_get:
+            df_dict[i] = getattr(sele, i)
         
+        df = pd.DataFrame(df_dict, columns = ["_"+i for i in params_to_get if i not in ['index', 'x', 'y', 'z']])
+        return df.rename(columns={"index": "id"})
