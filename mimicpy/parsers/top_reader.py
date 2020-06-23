@@ -85,7 +85,7 @@ def atomtypes(itp_file, buff):
         e = line.split()[0] # first val is atom type
         _n = line.split()[1]
          
-        if not _n.isnumeric():
+        if not _n.isnumeric(): # better do a proper string comparison (no points, only three digits)
             # should raise an exception here
             continue
         else: n = int(_n)-1 # second is element no.
@@ -106,11 +106,11 @@ class ITPParser:
         ITPParser.mols = []
         ITPParser.dfs = []
 
-    def __init__(self, mols_to_read, atm_types_to_symb, buff, guess):
+    def __init__(self, mols_to_read, atm_types_to_symb, buff, guess_elements):
         self.mols_to_read = mols_to_read
         self.atm_types_to_symb = atm_types_to_symb
         self.buff = buff
-        self.guess = guess
+        self.guess_elements = guess_elements
     
     def read(self, file_name):
         file = Parser(file_name, self.buff)
@@ -150,8 +150,6 @@ class ITPParser:
     def _parseatoms(self, txt, file_name):
         
         df_ = {k:[] for k in self.columns}
-        prev_resn = 1
-        resid = 1
         
         for i, line in enumerate(txt.splitlines()):
             
@@ -167,13 +165,7 @@ class ITPParser:
             c = self.columns
             df_[c[0]].append(int(nr))
             df_[c[1]].append(_type)
-            
-            if resnr != prev_resn:
-                resid += 1
-                resnr = prev_resn
-            
-            df_[c[2]].append(resid)
-            
+            df_[c[2]].append(int(resnr))
             df_[c[3]].append(res)
             df_[c[4]].append(name)
             df_[c[5]].append(float(q))
@@ -181,7 +173,7 @@ class ITPParser:
             
             if _type in self.atm_types_to_symb:
                 elem = self.atm_types_to_symb[_type]
-            elif self.guess:
+            elif self.guess_elements:
                 mass_int = int(mass)
                 
                 if mass_int <= 0:

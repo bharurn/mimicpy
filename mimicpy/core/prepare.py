@@ -126,7 +126,7 @@ class QM(BaseHandle):
     
     def delete(self, selection=None):
         """Delete from QM region using selection langauage"""
-        qdf = QM._cleanqdf( self.selector.select(selection) )
+        qdf = _qmhelper._cleanqdf( self.selector.select(selection) )
         # drop selection, ignore pandas errors to disregard extra residues selected that are not present in self.qmatoms
         self.qmatoms = self.qmatoms.drop(qdf.index, errors='ignore')
     
@@ -180,7 +180,7 @@ class QM(BaseHandle):
             if not mdp.hasparam('dt'): mdp.dt = dt # default value, if not present in mdp
             else: dt = mdp.dt
             
-            self.grompp(mdp, self.mimic, gro=self.gro, n=self.index, dirc=self.dirc)
+            self.grompp(mdp, self.mimic, gro=self.gro, n=self.index, dirc=self.dir)
             
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together

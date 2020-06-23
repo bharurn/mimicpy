@@ -192,7 +192,7 @@ if __name__ == '__main__':
         if parser.mpt is not None:
             mpt = parser.mpt
         elif parser.top is not None:
-            mpt = getmpt(parser.top, None)
+            mpt = getmpt(parser.top, None, None, None, None, None)
         else:
             print("Either -top or -mpt must be specified as an input file\n")
             sys.exit(0)
