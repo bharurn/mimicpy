@@ -3,6 +3,7 @@ import sys
 import time
 import itertools
 import threading
+import os
 
 empty_status = {'prepMM': '', 'prepQM': '', 'run': ['']}
 mimicpy.setLogger(1)
@@ -22,9 +23,9 @@ class Loader:
             sys.stdout.flush()
             time.sleep(0.1)
     
-    def close(self):
+    def close(self, halt=False):
         self.done = True
-        print('Done')
+        if not halt: print('Done')
         
 class MiMiCPyParser():
     
@@ -36,7 +37,7 @@ class MiMiCPyParser():
                        "-mpt\n\tOutput MiMiCPy topology file\n"
                        "\nOptional arguments:\n"
                        "\n-nonstd\n\tNon-standard residues list as text file\n"
-                       "\n-pdb\n\tpdb file to read non-standard residue elements from"
+                       "-pdb\n\tpdb file to read non-standard residue elements from"
                        "\n\tIt must have the element column filled for those residues!"
                        "\n-itp\n\titp file to read non-standard residue atom types from"
                        "\n-reslist\n\tList of nonstandard residues to read from pdb/itp files\n"
@@ -148,6 +149,7 @@ def getmpt(topol, mpt, nonstd, reslist, pdb, itp):
     
     if nonstd:
         nonstd_atm = {}
+        if not os.path.isfile(nonstd): raise FileNotFoundError(f"{nonstd} not found!")
         with open(nonstd, 'r') as f:
             for d in f.read().splitlines():
                 try:
@@ -159,6 +161,7 @@ def getmpt(topol, mpt, nonstd, reslist, pdb, itp):
         mm.nonstd_atm_types = nonstd_atm
     elif reslist or pdb or itp:
         checkargs({'reslist': reslist, 'pdb': pdb, 'itp': itp})
+        if not os.path.isfile(reslist): raise FileNotFoundError(f"{reslist} not found!")
         resname = []
         with open(reslist, 'r') as f:
             resname = f.read().splitlines()
@@ -176,7 +179,12 @@ if __name__ == '__main__':
     
     if parser.subprogram == 'getmpt':
         checkargs({'mpt': parser.mpt, 'top': parser.top})
-        getmpt(parser.top, parser.mpt, parser.nonstd, parser.reslist, parser.pdb, parser.itp)
+        try:
+            getmpt(parser.top, parser.mpt, parser.nonstd, parser.reslist, parser.pdb, parser.itp)
+        except Exception as e:
+            print(e)
+            print("Exiting with error..\n")
+            sys.exit(0)
         print("MPT succesfully prepared..\n")
         
     elif parser.subprogram == 'prepqm':
@@ -194,7 +202,15 @@ if __name__ == '__main__':
         print("Preparing QM region..")
         
         loader = Loader('Reading topology and coordinates')
-        qm = mimicpy.prepare.QM(mpt=mpt, gro=parser.gro, status = empty_status)
+        
+        try:
+            qm = mimicpy.prepare.QM(mpt=mpt, gro=parser.gro, status = empty_status)
+        except Exception as e:
+            print(e)
+            print("Exiting with error..\n")
+            loader.close(halt=True)
+            sys.exit(0)
+        
         loader.close()
         
         qm.index = parser.ndx
