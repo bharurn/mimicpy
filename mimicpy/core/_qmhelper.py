@@ -73,7 +73,7 @@ def getOverlaps_Atoms(qmatoms, inp):
         
     inp.mimic.overlaps = out
     inp.system = cpmd.Section() # init system section of script
-    inp.poisson__solver__tuckerman = ''
+    inp.system.poisson__solver__tuckerman = ''
     inp.system.symmetry = 0
 
     # box size fro mx and mi
