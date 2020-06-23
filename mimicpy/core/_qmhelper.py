@@ -14,7 +14,7 @@ from collections import OrderedDict
 from ..scripts import cpmd
 
 def _cleanqdf(qdf):
-    columns = mpt.columns       
+    columns = mpt.columns.copy() # copy it otherwise original gets edited    
     columns.extend(['x','y','z'])
     lst = [l for l in qdf.columns if l not in columns]
     return qdf.drop(lst, axis=1)

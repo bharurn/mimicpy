@@ -17,6 +17,7 @@ from ..utils.constants import hartree_to_ps, bohr_rad
 from ..scripts import cpmd, mdp
 from ..parsers import pdb as parse_pdb
 from ..utils.errors import MiMiCPyError
+import pandas as pd
 
 class MM(BaseHandle):
     """
@@ -37,11 +38,6 @@ class MM(BaseHandle):
             self._status['prepMM'] = topol_dir
         
         self.dir = self._status['prepMM']
-        
-        if self.dir.strip() != '':
-            _global.logger.write('debug', f'Set handle directory as {self.dir}..')
-        else:
-            _global.logger.write('debug', f'Set handle directory as current directory..')
         
         self.toYaml()
         
@@ -111,7 +107,7 @@ class QM(BaseHandle):
         
         # init scripts and paths/files
         self.inp = cpmd.Input()
-        self.qmatoms = None
+        self.qmatoms = pd.DataFrame()
         self.dir = self._status['prepQM']
         self.index = 'index.ndx'
         self.mimic = 'mimic'
@@ -126,10 +122,7 @@ class QM(BaseHandle):
         qdf.insert(2, 'link', [int(link)]*len(qdf))
         
         # add qdf to self.qmatoms, append if already exists
-        if self.qmatoms is None:
-            self.qmatoms = qdf
-        else:
-            self.qmatoms = self.qmatoms.append(qdf)
+        self.qmatoms = self.qmatoms.append(qdf)
     
     def delete(self, selection=None):
         """Delete from QM region using selection langauage"""
@@ -139,7 +132,7 @@ class QM(BaseHandle):
     
     def clear(self):
         """Empty the QM region to start over"""
-        self.qmatoms = None
+        self.qmatoms = pd.DataFrame()
     
     def getInp(self, mdp=mdp.MDP.defaultMiMiC()):
         """
@@ -153,7 +146,7 @@ class QM(BaseHandle):
             Add MIMIC, SYSTEM, DFT sections of CPMD script
             Add all atoms to CPMD script
         """
-        if self.qmatoms == None:
+        if self.qmatoms.empty:
             raise MiMiCPyError("No QM atoms have been selected")
         
         self.mpt.close() # clear all_data from memory, in case gc doesn't work
@@ -161,11 +154,10 @@ class QM(BaseHandle):
         #Write ndx, tpr file for gromacs
         #output only ndx if mdp is None
         ####
-        dirc = self.dir
         self.setcurrent(key='prepQM')
         
         # write index file
-        _global.host.write(_qmhelper.index(self.qmatoms.index, self.QMMM_grps), f'{dirc}/{self.index}')
+        _global.host.write(_qmhelper.index(self.qmatoms.index, self.QMMM_grps), _global.host.join(self.dir, self.index))
         
         # default vals
         nsteps = 1000
@@ -188,7 +180,7 @@ class QM(BaseHandle):
             if not mdp.hasparam('dt'): mdp.dt = dt # default value, if not present in mdp
             else: dt = mdp.dt
             
-            self.grompp(mdp, self.mimic, gro=self.gro, n=self.index, dirc=dirc)
+            self.grompp(mdp, self.mimic, gro=self.gro, n=self.index, dirc=self.dirc)
             
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together
@@ -211,7 +203,7 @@ class QM(BaseHandle):
         
         q = sum(self.qmatoms['charge'])
         if not round(q, 2).is_integer(): 
-            _global.logger.write('warning', (f'Total charge of QM region ({q}) not an integer up to 2 decimal places.'
+            _global.logger.write('warning', (f'Total charge of QM region (={q}) not an integer up to 2 decimal places.'
                                             ' \nRounding to integer anyways..'))
         
         inp.system.charge = round(q) # system section already created in getQverlap_Atoms()

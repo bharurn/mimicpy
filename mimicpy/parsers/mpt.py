@@ -50,10 +50,10 @@ class MPT:
         
         packer = xdrlib.Packer()
         
-        mol_names, no = list(zip(*self.mol_list)) # unzip list of tuples to get mol_name and nums
+        mol_names, no = list(zip(*self.__mol_list)) # unzip list of tuples to get mol_name and nums
         pack_strlist(packer, mol_names) #pack mol names as string list
         packer.pack_list(no, packer.pack_int) #pack num of mols as list of ints
-        pack_topol_dict(packer, self.topol_dict) #pack topol dict object
+        pack_topol_dict(packer, self.__topol_dict) #pack topol dict object
         gbl.host.write(packer.get_buffer(), fname, asbytes=True)
     
     @classmethod

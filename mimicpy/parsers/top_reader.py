@@ -180,7 +180,7 @@ class ITPParser:
                 
                 if mass_int <= 0:
                     raise ParserError(file=file_name, ftype="topolgy", \
-                                     extra=(f"Cannot determine atomic symbol for atom ID {nr} and name {name} in residue {res} as mass"
+                        extra=(f"Cannot guess atomic symbol for atom with name {name} and type {_type} in residue {res} as mass"
                                              "information is not available from the force field"))
                 # guess atomic no from mass
                 # works well if no isotopes present
@@ -189,10 +189,11 @@ class ITPParser:
                 elif mass_int<36: elem = element_names[mass_int//2 - 1] # He to Cl
                 else: elem = name.title() # from Ar onwards, assume name same as symbol, case insensitive
                 
-                gbl.logger.write('warning', (f"Guessing atomic symbol for atom id {nr} and name {name} in residue {res} as {elem}..") )
+                gbl.logger.write('warning', (f"Guessing atomic symbol for atom with name {name} and type {_type} "
+                                             f"in residue {res} as {elem}..") )
             else:
                 raise ParserError(file=file_name, ftype="topology", \
-                                     extra=f"Cannot determine atomic symbol for atom ID {nr} and name {name} in residue {res}")
+                            extra=f"Cannot determine atomic symbol for atom with name {name} and type {_type} in residue {res}")
             
             df_[c[6]].append(elem)
             df_[c[7]].append(mass)

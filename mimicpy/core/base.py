@@ -38,7 +38,7 @@ class BaseHandle(ABC):
         self.gmxlog = LogString() # log string of standard ouput from all gmx commands
         
         # init logger with gmx log string, and notes redirected to stderr
-        self.logger = Logger(gmxlog=self.log, gmxnotes=sys.stderr)
+        self.logger = Logger(gmxlog=self.gmxlog, gmxnotes=sys.stderr)
         self.__current_cmd = 'gmx'
         
     ###Setting/getting current file/folder in status file
@@ -47,9 +47,14 @@ class BaseHandle(ABC):
     def setcurrent(self, dirc=None, key='run'):
         """Add new directory to _status dict"""
         
+        if not self.savestatus: return
+        
         if dirc == None: # if the argument is None add self.dir
             # meant for prepare classes
             dirc = self.dir
+        
+        if dirc.strip() == '': return
+        
         _global.host.mkdir(dirc)
         if key == 'prepMM' or key == 'prepQM': # add the correct key
             self._status[key] = dirc
@@ -162,7 +167,7 @@ class BaseHandle(ABC):
    
     @staticmethod
     def __readstatus():
-       if _global.host.fileExists(status_file): return None
+       if not _global.host.fileExists(status_file): return None
         
        _global.logger.write('debug', f"Loading status from {status_file}..")
        txt = _global.host.read(status_file)
