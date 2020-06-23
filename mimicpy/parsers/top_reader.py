@@ -18,7 +18,7 @@ def getSection(section, txt):
     # i.e., no comments or double new lines
     
     # find text b/w [ section ] and either [ or # (for #if, etc.) or EOF
-    reg = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)(?:$|\[|#)", re.MULTILINE)
+    reg = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)\s*(?:$|\[|#)", re.MULTILINE)
     r = reg.findall(txt)
     return r
 
@@ -131,7 +131,6 @@ class ITPParser:
             itp_text = self.read(file_name)
         
         itp_text = cleanText(itp_text)
-        
         mol_section = getSection('moleculetype', itp_text)
         atom_section = getSection('atoms', itp_text)
         
