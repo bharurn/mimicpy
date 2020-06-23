@@ -29,6 +29,11 @@ class Section(Script):
         
         return val
     
+    # empty func to satisfy base class abstract method
+    @classmethod
+    def fromText(cls, text):
+         return cls()
+    
 class Atom:
     def __init__(self, coords=[], lmax='s', pp='MT_BLYP', labels=''):
         self.coords = coords
@@ -69,6 +74,7 @@ class Input(Script):
             elif d.upper() == 'ATOMS':
                 atoms = '\n&ATOMS\n'
                 for k, v in getattr(self, d).items():
+                    # link atoms are marked with astericks, like C*, in prepare.QM
                     atoms += f'*{k.replace("*", "")}{str(v)}'
                 atoms += '&END\n'
             else:
@@ -76,3 +82,13 @@ class Input(Script):
                 val += f"\n&{d.upper()}\n{v}&END\n"
         
         return info+val+atoms
+    
+    @classmethod
+    def fromText(cls, text):
+         # TO DO
+         return cls()
+     
+    def getCoords(self, mpt, out):
+        # convert cpmd atom/mimic section to pdb/gro using mpt data
+        # TO DO
+        pass

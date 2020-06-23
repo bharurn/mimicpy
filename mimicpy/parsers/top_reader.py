@@ -18,7 +18,8 @@ def getSection(section, txt):
     # i.e., no comments or double new lines
     
     # find text b/w [ section ] and either [ or # (for #if, etc.) or EOF
-    reg = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)(?:$|\[|#)", re.MULTILINE)
+    #################look for [ section ] ; look for lines ; look for optional spaces and [ or #
+    reg = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)\s*(?:$|\[|#)", re.MULTILINE)
     r = reg.findall(txt)
     return r
 
@@ -84,7 +85,7 @@ def atomtypes(itp_file, buff):
         e = line.split()[0] # first val is atom type
         _n = line.split()[1]
          
-        if not _n.isnumeric():
+        if not _n.isnumeric(): # better do a proper string comparison (no points, only three digits)
             # should raise an exception here
             continue
         else: n = int(_n)-1 # second is element no.
@@ -96,7 +97,7 @@ def atomtypes(itp_file, buff):
 
 class ITPParser:    
     
-    columns = ['number', 'type', 'resid', 'resname', 'name', 'charge','element',	'mass']
+    columns = ['number', 'type', 'resid', 'resname', 'name', 'charge', 'element', 'mass']
     dfs = []
     mols = []
 
@@ -105,11 +106,11 @@ class ITPParser:
         ITPParser.mols = []
         ITPParser.dfs = []
 
-    def __init__(self, mols_to_read, atm_types_to_symb, buff, guess):
+    def __init__(self, mols_to_read, atm_types_to_symb, buff, guess_elements):
         self.mols_to_read = mols_to_read
         self.atm_types_to_symb = atm_types_to_symb
         self.buff = buff
-        self.guess = guess
+        self.guess_elements = guess_elements
     
     def read(self, file_name):
         file = Parser(file_name, self.buff)
@@ -131,10 +132,15 @@ class ITPParser:
             itp_text = self.read(file_name)
         
         itp_text = cleanText(itp_text)
-        
         mol_section = getSection('moleculetype', itp_text)
         atom_section = getSection('atoms', itp_text)
         
+        # check if either one is empty but not both
+        if mol_section == [] and atom_section:
+            gbl.logger.write('warning', f"[ moleculetype ] in file {file_name} is empty. Skipping..")
+        elif atom_section == [] and mol_section:
+            gbl.logger.write('warning', f"[ atoms ] in file {file_name} is empty. Skipping..")
+            
         for m, a in zip(mol_section, atom_section):
             mol = m.split()[0]
             if mol not in self.mols_to_read: continue
@@ -145,16 +151,16 @@ class ITPParser:
         
         df_ = {k:[] for k in self.columns}
         
-        for line in txt.splitlines():
+        for i, line in enumerate(txt.splitlines()):
             
             splt = line.split()
             if len(splt) == 8:
                 nr, _type, resnr, res, name, cgnr, q, mass = splt[:8]
-            elif len(splt) == 7:
+            elif len(splt) == 7: # no mass
                 nr, _type, resnr, res, name, cgnr, q = splt[:7]
                 mass = 0
             else:
-                continue
+                gbl.logger.write('warning', f"Line {i} in [ atoms ] of file {file_name} is not in the correct format. Skipping..")
             
             c = self.columns
             df_[c[0]].append(int(nr))
@@ -167,12 +173,12 @@ class ITPParser:
             
             if _type in self.atm_types_to_symb:
                 elem = self.atm_types_to_symb[_type]
-            elif self.guess:
+            elif self.guess_elements:
                 mass_int = int(mass)
                 
                 if mass_int <= 0:
                     raise ParserError(file=file_name, ftype="topolgy", \
-                                     extra=(f"Cannot determine atomic symbol for atom ID {nr} and name {name} in residue {res} as mass"
+                        extra=(f"Cannot guess atomic symbol for atom with name {name} and type {_type} in residue {res} as mass"
                                              "information is not available from the force field"))
                 # guess atomic no from mass
                 # works well if no isotopes present
@@ -181,10 +187,11 @@ class ITPParser:
                 elif mass_int<36: elem = element_names[mass_int//2 - 1] # He to Cl
                 else: elem = name.title() # from Ar onwards, assume name same as symbol, case insensitive
                 
-                gbl.logger.write('warning', (f"Guessing atomic symbol for atom id {nr} and name {name} in residue {res} as {elem}..") )
+                gbl.logger.write('warning', (f"Guessing atomic symbol for atom with name {name} and type {_type} "
+                                             f"in residue {res} as {elem}..") )
             else:
                 raise ParserError(file=file_name, ftype="topology", \
-                                     extra=f"Cannot determine atomic symbol for atom ID {nr} and name {name} in residue {res}")
+                            extra=f"Cannot determine atomic symbol for atom with name {name} and type {_type} in residue {res}")
             
             df_[c[6]].append(elem)
             df_[c[7]].append(mass)

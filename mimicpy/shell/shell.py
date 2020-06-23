@@ -14,16 +14,19 @@ import re
 from ..utils.errors import SlurmBatchError
 from ..utils.fstring import f
 from .._global import _Global as _gbl
+from abc import ABC, abstractmethod
 
-class Base():
+class Base(ABC):
     """
 
     Base shell class, contains methods common to both local and remote shell
+    Cannot be instantiated, depends on functions from local/remote
 
     """
     
+    @abstractmethod
     def __init__(self, directory,  *loaders):
-        """Init cwd and loaders"""
+        """ Init cwd and loaders """
         
         if directory.strip() == '':
             directory = '.'
@@ -66,6 +69,9 @@ class Base():
         if self.name == 'localhost': return True
         else: return False
     
+    @abstractmethod
+    def hndl(self): pass
+    
     def checkFile(self, file, throw=False):
         """ Check if file exists, for debugging """
         ret = self.fileExists(file)
@@ -81,7 +87,7 @@ class Base():
         with self.open(file, mode) as f:
             out = f.read()
             if not asbytes:
-                # sftp file objects, when read, return only bytes
+                # sftp file objects, when read, returns only bytes
                 # so need to decode it if self is remote
                 try:
                     return out.decode()

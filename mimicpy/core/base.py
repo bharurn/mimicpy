@@ -12,25 +12,54 @@ from .._global import _Global as _global
 from ..utils.errors import GromacsError, MiMiCPyError, EnvNotSetError
 from ..utils.logger import Logger, LogString
 import sys
+from abc import ABC, abstractmethod
 
-class BaseHandle:
+status_file = '_status.yaml'
+
+class BaseHandle(ABC):
     """
     Contains functions/variables common to all handles:
         prepare.MM, prepare.QM, simulate.MD, simulate.MiMiC
     All handles inherit from this class
-    
+    Mainly manages the status variable, and running gmx/cpmd command
     """
     
+    @abstractmethod
     def __init__(self, status=None):
         """Init status and log string"""
         self.savestatus = True
-        if not status:
-            status = {'prepMM': '', 'prepQM': '', 'run': ['']}
-        self._status = status # init _status
-        self.log = LogString() # log string of standard ouput from all gmx commands
+        
+        if not status: # if status passed is none, read from yaml
+            status = BaseHandle.__readstatus()
+            if not status: # if that too is none, create new status variable
+                status = {'prepMM': '', 'prepQM': '', 'run': ['']}
+        
+        self._status = status # set _status
+        self.gmxlog = LogString() # log string of standard ouput from all gmx commands
+        
         # init logger with gmx log string, and notes redirected to stderr
-        self.__logger = Logger(log=self.log, notes=sys.stderr)
+        self.logger = Logger(gmxlog=self.gmxlog, gmxnotes=sys.stderr)
         self.__current_cmd = 'gmx'
+        
+    ###Setting/getting current file/folder in status file
+    ##
+    ##   
+    def setcurrent(self, dirc=None, key='run'):
+        """Add new directory to _status dict"""
+        
+        if not self.savestatus: return
+        
+        if dirc == None: # if the argument is None add self.dir
+            # meant for prepare classes
+            dirc = self.dir
+        
+        if dirc.strip() == '': return
+        
+        _global.host.mkdir(dirc)
+        if key == 'prepMM' or key == 'prepQM': # add the correct key
+            self._status[key] = dirc
+        elif dirc not in self._status['run']: # add to run list
+            self._status['run'].append(dirc)
     
     def getcurrent(self, ext, level=False, exp=True):
         """Find the latest file with extnestion ext using _status"""
@@ -105,7 +134,13 @@ class BaseHandle:
         if dirc.strip() != '': dirc += '/'
             
         return dirc+lst[0] # return with the directory
+    ##
+    ##
+    #####END
     
+    #### Methods dealing with loading from/writing to status file
+    ##
+    ##
     def getStatus(self): return self._status
     
     @classmethod
@@ -119,31 +154,32 @@ class BaseHandle:
     def toYaml(self):
         """Save _status to yaml"""
         if not self.savestatus: return
-        _global.logger.write('debug', f"Saving status to _status.yaml..")
+        _global.logger.write('debug', f"Saving status to {status_file}..")
         y = yaml.dump(self._status)
-        _global.host.write(y, '_status.yaml')
+        _global.host.write(y, status_file)
     
     @classmethod
     def fromYaml(cls, *args, **kwargs):
-       """Transfer _status from _status.yaml to new handle"""
-       _global.logger.write('debug', f"Loading status from _status.yaml..")
-       txt = _global.host.read('_status.yaml')
-       _status = yaml.safe_load(txt)
-       return cls(status=_status, *args, **kwargs)
+       """Transfer _status from status file to new handle"""
+       _status = BaseHandle.__readstatus()
+       if _status is None: _global.logger.write('warning', f"{status_file} does not exist, skipping..")
+       return cls(status=BaseHandle.__readstatus(), *args, **kwargs)
    
-    def setcurrent(self, dirc=None, key='run'):
-        """Add new directory to _status dict"""
+    @staticmethod
+    def __readstatus():
+       if not _global.host.fileExists(status_file): return None
         
-        if dirc == None: # if the argument is None add self.dir
-            # meant for prepare classes
-            dirc = self.dir
-        _global.host.mkdir(dirc)
-        if key == 'prepMM' or key == 'prepQM': # add the correct key
-            self._status[key] = dirc
-        elif dirc not in self._status['run']: # add to run list
-            self._status['run'].append(dirc)
+       _global.logger.write('debug', f"Loading status from {status_file}..")
+       txt = _global.host.read(status_file)
+       return yaml.safe_load(txt)
+    ##
+    ##
+    ###END
     
-    def _gmxhook(self, cmd, text):
+    ###Methods dealing with running gromacs/cpmd through shell
+    ##
+    ##
+    def __gmxhook(self, cmd, text):
         """
         Function called by _global.host eveytime a gmx command is executed
         Used to parse gmx ouput and check for errors/notes/warnings
@@ -152,15 +188,15 @@ class BaseHandle:
             raise GromacsError(cmd, text)
         
         # write log
-        self.__logger.write('log', f"==>Command Run: {cmd}\n")
-        self.__logger.write('log', text)
+        self.logger.write('gmxlog', f"==>Command Run: {cmd}\n")
+        self.logger.write('gmxlog', text)
         
         self.__gmxerrhdnl(cmd, text) # check for errors
         
         notes = BaseHandle.__notes(self.__current_cmd, text) # get notes/warnings
         
         if not notes.isspace() and notes.strip() != '': # write notes
-            self.__logger.write('notes', notes)
+            self.logger.write('gmxnotes', notes)
     
     @staticmethod
     def __gmxerrhdnl(gmx_cmd, text, dont_raise=False):
@@ -267,8 +303,8 @@ class BaseHandle:
         _global.logger.write('debug', f"Running {cmd}..")
         
         self.current_gmx = cmd
-        if mdrun: _global.host.runbg(cmd, hook=self._gmxhook, dirc=dirc) # runbg for mdrun
-        else: _global.host.run(cmd, stdin=stdin, hook=self._gmxhook, dirc=dirc) # run for everything else
+        if mdrun: _global.host.runbg(cmd, hook=self.__gmxhook, dirc=dirc) # runbg for mdrun
+        else: _global.host.run(cmd, stdin=stdin, hook=self.__gmxhook, dirc=dirc) # run for everything else
     
     def grompp(self, mdp, new, **kwargs):
         """
@@ -318,7 +354,7 @@ class BaseHandle:
           
     def cpmd(self, inp, out, onlycmd=False, dirc=''):
         """
-        Function to execute gmx commands in "pythonic" way
+        Function to execute cpmd command in "pythonic" way
         e.g., to execute cpmd cpmd.in path/to/pp > cpmd.oput
         call cpmd('cpmd.in', 'cpmd.out')
         Make sure cpmd_pp is set in _Global before that!
@@ -339,3 +375,6 @@ class BaseHandle:
         
         _global.logger.write('debug', "Running {cmd}..")
         _global.host.runbg(cmd, dirc=dirc)
+    ##
+    ##
+    ###END

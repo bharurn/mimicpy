@@ -34,9 +34,12 @@ def run(cmd, shell_ex, remove_from_out, stdin=None, hook=None):
     
     return out
 
-def runbg(self, cmd, shell_ex, remove_from_out, hook=None):
-    subprocess.Popen(cmd, shell=True, executable=shell_ex, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    # add communication till output not changes like remote
+def runbg(cmd, shell_ex, remove_from_out, hook=None):
+    out = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, universal_newlines=True)
+    
+    for stdout_line in iter(out.stdout.readline, ""):
+        if hook:
+            if hook(cmd, stdout_line): return
 
 def ls(dirc, file_eval, dir_eval):
         

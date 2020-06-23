@@ -16,10 +16,13 @@ from ..parsers.top_reader import ITPParser
 from ..utils.constants import hartree_to_ps, bohr_rad
 from ..scripts import cpmd, mdp
 from ..parsers import pdb as parse_pdb
+from ..utils.errors import MiMiCPyError
+import pandas as pd
 
 class MM(BaseHandle):
     """
     Prepare MM topology, by writing MPT file, also supports non-std residues
+    Used as starting point to set-up topology folder and _status.yaml for all further actions
     Inherits from .core.base.BaseHandle
     
     """
@@ -31,26 +34,15 @@ class MM(BaseHandle):
         
         self.savestatus = savestatus
         
-        if self._status['prepMM'] != '':
-            self.dir = self._status['prepMM']
-        else:
-            self.dir = topol_dir
-            
-        if self.dir:
-            _global.logger.write('debug', f'Set handle directory as {self.dir}..')
-        else:
-            _global.logger.write('debug', f'Set handle directory as current directory..')
+        if topol_dir.strip() != '':
+            self._status['prepMM'] = topol_dir
+        
+        self.dir = self._status['prepMM']
         
         self.toYaml()
         
         self.nonstd_atm_types = {}
-        self.conf1 = 'solv.gro'
-        self.conf2 = 'ions.gro'
-        self.ions = "ions"
         
-        self._ion_kwargs = {'pname': 'NA', 'nname': 'CL', 'neutral': ''} # parameters to pass to gmx genion
-        self._solavte_kwargs = {'cs': 'spc216.gro'} # parameters to pass to gmx solvate
-    
     def addLig(self, pdb, itp, *resnames, buff=1000):
         pdb_df = parse_pdb.parseFile(pdb, buff)
         
@@ -80,39 +72,18 @@ class MM(BaseHandle):
         self.nonstd_atm_types.update( dict(zip(atm_types, elems)) )
         
     
-    def getMPT(self, topol=None, mpt=None, buff=1000, guess_elems=False, toFile=True):
+    def getMPT(self, topol=None, mpt=None, buff=1000, guess_elems=False):
         """Get the MPT topology, used in prepare.QM"""
         
         top = self.getcurrentNone(topol, 'top')
-        mpt_handle = MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems)
         
-        if not toFile: return mpt_handle
-        
-        if mpt == None: mpt = _global.host.join(self.dir, 'topol.mpt') # if no mpt file was passed, use default value
-        else: mpt = _global.host.join(self.dir,  mpt)
-        
-        mpt_handle.write(mpt)
-        
-        self.toYaml()
-    
-    def genionParams(self, **kwargs): self._ion_kwargs = kwargs
-    def solvateParams(self, **kwargs): self._solavte_kwargs = kwargs
-    
-    def makeBox(self, gro=None, genion_mdp=mdp.MDP.defaultGenion()):
-        """Run gmx solvate, gmx grompp and gmx genion in that order"""
-        
-        _global.logger.write('info', "Solvating box..")
-        self.gmx('solvate', cp = self.getcurrentNone(gro, 'gro'), o = self.conf1, p = self.topol, dirc=self.dir, **self._solavte_kwargs)
-        
-        _global.logger.write('info', "Adding ions to box..")
-        self.grompp(genion_mdp, self.ions, gro = self.conf1, dirc=self.dir)
-        
-        # send SOL to stdin, so gromacs replaces some SOL molecules with ions 
-        self.gmx('genion', s = self.ions_tpr, o = self.conf2, p = self.topol, dirc=self.dir, **self._ion_kwargs, stdin="SOL")
-        
-        _global.logger.write('info', 'Simulation box prepared..')
-        
-        self.saveToYaml()
+        if not mpt:
+            # if no mpt file was passed, return as MPT object in read mode
+            return MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems)
+        else:
+            mpt_handle = MPT.fromTop(top, self.nonstd_atm_types, buff, guess_elems, mode='w')
+            mpt_handle.write(_global.host.join(self.dir,  mpt))
+            self.toYaml()
         
 class QM(BaseHandle):
     """
@@ -136,14 +107,11 @@ class QM(BaseHandle):
         
         # init scripts and paths/files
         self.inp = cpmd.Input()
-        self.qmatoms = None
-        if self._status['prepQM'] == '':
-            self.dir = 'prepareQM'
-        else:
-            self.dir = self._status['prepQM']
+        self.qmatoms = pd.DataFrame()
+        self.dir = self._status['prepQM']
         self.index = 'index.ndx'
-        self.preprc = 'processed.top'
         self.mimic = 'mimic'
+        self.QMMM_grps = 'QMatoms'
     
     def add(self, selection=None, link=False):
         """Add dataframe to QM region"""
@@ -154,20 +122,17 @@ class QM(BaseHandle):
         qdf.insert(2, 'link', [int(link)]*len(qdf))
         
         # add qdf to self.qmatoms, append if already exists
-        if self.qmatoms is None:
-            self.qmatoms = qdf
-        else:
-            self.qmatoms = self.qmatoms.append(qdf)
+        self.qmatoms = self.qmatoms.append(qdf)
     
     def delete(self, selection=None):
         """Delete from QM region using selection langauage"""
-        qdf = QM._cleanqdf( self.selector.select(selection) )
+        qdf = _qmhelper._cleanqdf( self.selector.select(selection) )
         # drop selection, ignore pandas errors to disregard extra residues selected that are not present in self.qmatoms
         self.qmatoms = self.qmatoms.drop(qdf.index, errors='ignore')
     
     def clear(self):
         """Empty the QM region to start over"""
-        self.qmatoms = None
+        self.qmatoms = pd.DataFrame()
     
     def getInp(self, mdp=mdp.MDP.defaultMiMiC()):
         """
@@ -181,26 +146,42 @@ class QM(BaseHandle):
             Add MIMIC, SYSTEM, DFT sections of CPMD script
             Add all atoms to CPMD script
         """
+        if self.qmatoms.empty:
+            raise MiMiCPyError("No QM atoms have been selected")
+        
+        self.mpt.close() # clear all_data from memory, in case gc doesn't work
         ####
         #Write ndx, tpr file for gromacs
         #output only ndx if mdp is None
         ####
-        dirc = self.dir
         self.setcurrent(key='prepQM')
         
         # write index file
-        _global.host.write(_qmhelper.index(self.qmatoms.index, mdp.QMMM_grps), f'{dirc}/{self.index}')
+        _global.host.write(_qmhelper.index(self.qmatoms.index, self.QMMM_grps), _global.host.join(self.dir, self.index))
         
+        # default vals
+        nsteps = 1000
+        dt = 0.0001
+            
         if mdp != None:
             _global.logger.write('debug2', "Changing Gromacs integrator to MiMiC..")
             mdp.integrator = 'mimic'
         
             _global.logger.write('debug', f"Writing atoms in QM region to {self.index}..")
-            mdp.QMMM_grps = 'QMatoms'
+            mdp.QMMM_grps = self.QMMM_grps
             
             _global.logger.write('info', "Generating Gromacs .tpr file for MiMiC run..")
-            self.grompp(mdp, self.mimic, gro=self.gro, n=self.index, dirc=dirc)
-        
+            
+            # set no of steps in mdp file
+            if not mdp.hasparam('nsteps'): mdp.nsteps = nsteps # default value, if not present in mdp
+            else: nsteps = mdp.nsteps
+            
+            # set timestep in mdp file
+            if not mdp.hasparam('dt'): mdp.dt = dt # default value, if not present in mdp
+            else: dt = mdp.dt
+            
+            self.grompp(mdp, self.mimic, gro=self.gro, n=self.index, dirc=self.dir)
+            
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together
         # index is also reset, for getOverlaps_Atoms()
@@ -221,8 +202,8 @@ class QM(BaseHandle):
         inp.mimic.multipole__order = 3
         
         q = sum(self.qmatoms['charge'])
-        if not round(q, 2).is_number(): 
-            _global.logger.write('warning', (f'Total charge of QM region ({q}) not an integer up to 2 decimal places.'
+        if not round(q, 2).is_integer(): 
+            _global.logger.write('warning', (f'Total charge of QM region (={q}) not an integer up to 2 decimal places.'
                                             ' \nRounding to integer anyways..'))
         
         inp.system.charge = round(q) # system section already created in getQverlap_Atoms()
@@ -232,16 +213,14 @@ class QM(BaseHandle):
         inp.cpmd.mimic = ''
         inp.cpmd.parallel__constraints = ''
         
-        # set no of steps from mdp file
-        if not mdp.hasparam('nsteps'): mdp.nsteps = 1000 # default value, if not present in mdp
-        inp.cpmd.maxsteps = mdp.nsteps
-        
         inp.dft = cpmd.Section()
         inp.dft.functional__blyp = '' # TO DO: update to new XC_DRIVER code
         
-        # set timestep from mdp file
-        if not mdp.hasparam('dt'): mdp.dt = 0.0001 # default value, if not present in mdp
-        inp.cpmd.timestep = round(mdp.dt/hartree_to_ps) # convert to atomic units and round off
+        # set no of steps
+        inp.cpmd.maxsteps = nsteps
+        
+        # set timestep
+        inp.cpmd.timestep = round(dt/hartree_to_ps) # convert to atomic units and round off
         
         self.inp = inp
         

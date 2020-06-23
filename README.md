@@ -1,7 +1,7 @@
 # MiMiCPy
 MiMiCPy is the python library for preparing and executing QM/MM simulations with the MiMiC CPMD/Gromacs interface developed at Forschungszentrum Juelich and EPFL. [1] For more details on compiling the MiMiC source code, please refer [2].
 
-MiMiCPy is primarily a python wrapper around MiMiC for easy running of simulations, and preparing input files with support for custom selection language and integration with molecular visualization software packages like PyMOL. A collection of command line tools based on top of the library is also being being developed.
+MiMiCPy is primarily a python wrapper around MiMiC for efficient running of simulations, and preparing input files with support for custom selection language and integration with molecular visualization software packages like PyMOL. It also includes the MiMiCPy CLI tools, a collection of command line tools to the run the core functionalities of the library through the command line.
 
 ## Installation
 MiMiCPy is not available on pip/conda yet. To install run the following command in the terminal:

@@ -9,7 +9,6 @@ Slurm jobscripts
 """
 
 from .base import Script
-from .._global import _Global as _global
 
 class Slurm(Script):
     def __init__(self, name='jobscript', shebang='/bin/bash', cmd_hdr='srun', cmds = [], **kwargs):
@@ -27,11 +26,7 @@ class Slurm(Script):
         if name: self._name = name
         if shebang: self._shebang = shebang
         if cmd_hdr: self._cmd_hdr = cmd_hdr
-    
-    @classmethod    
-    def fromFile(cls, script):
-        return cls.fromText(_global.host.read(script))
-                
+        
     @classmethod    
     def fromText(cls, text):
         shebang = "/usr/sh"
