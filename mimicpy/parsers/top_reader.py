@@ -18,6 +18,7 @@ def getSection(section, txt):
     # i.e., no comments or double new lines
     
     # find text b/w [ section ] and either [ or # (for #if, etc.) or EOF
+    #################look for [ section ] ; look for lines ; look for optional spaces and [ or #
     reg = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)\s*(?:$|\[|#)", re.MULTILINE)
     r = reg.findall(txt)
     return r
@@ -134,6 +135,12 @@ class ITPParser:
         mol_section = getSection('moleculetype', itp_text)
         atom_section = getSection('atoms', itp_text)
         
+        # check if either one is empty but not both
+        if mol_section == [] and atom_section:
+            gbl.logger.write('warning', f"[ moleculetype ] in file {file_name} is empty. Skipping..")
+        elif atom_section == [] and mol_section:
+            gbl.logger.write('warning', f"[ atoms ] in file {file_name} is empty. Skipping..")
+            
         for m, a in zip(mol_section, atom_section):
             mol = m.split()[0]
             if mol not in self.mols_to_read: continue
@@ -146,16 +153,16 @@ class ITPParser:
         prev_resn = 1
         resid = 1
         
-        for line in txt.splitlines():
+        for i, line in enumerate(txt.splitlines()):
             
             splt = line.split()
             if len(splt) == 8:
                 nr, _type, resnr, res, name, cgnr, q, mass = splt[:8]
-            elif len(splt) == 7:
+            elif len(splt) == 7: # no mass
                 nr, _type, resnr, res, name, cgnr, q = splt[:7]
                 mass = 0
             else:
-                continue
+                gbl.logger.write('warning', f"Line {i} in [ atoms ] of file {file_name} is not in the correct format. Skipping..")
             
             c = self.columns
             df_[c[0]].append(int(nr))
