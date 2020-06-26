@@ -6,6 +6,7 @@ This initializer script of mimicpy
 
 """
 
-from . import mpt
+from .mpt import MPT
 from . import pdb
+from . import gro
 from . import top

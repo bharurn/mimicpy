@@ -28,26 +28,30 @@ class Selector:
 class VisPackage(ABC):
     def __init__(self, cmd, load, forcelocal, lines):
         self.cmd = cmd
-        self.load = load
+        self._load = load
         self.forcelocal = forcelocal
         self.lines = lines
     
-    @abstractmethod
-    def load(self, mpt, gro):
+    def load(self, mpt, gro_file):
         if not gbl.host.isLocal() and self.forceLocal and self.load:
             # if remote and want to run locally, save gro to temp file locally
             temp = tempfile.NamedTemporaryFile(prefix='mimicpy_temp_', suffix=".gro")
-            gro_parser = parser.Parser(gro, self.lines)
+            gro_parser = parser.Parser(gro_file, self.lines)
             for i in gro_parser: temp.write(i.encode('utf-8'))
             gro_parser.close()
-            gro = temp.name
+            gro_file = temp.name
         
         self.mpt = mpt
+        if self._load: self._vis_pack_load(gro_file)
         
-        return gro.getBox(gro)
-        
+        return gro.getBox(gro_file)
+    
     @abstractmethod
-    def __sele2df(self, selection):
+    def _vis_pack_load(self, gro_file):
+        pass
+
+    @abstractmethod
+    def _sele2df(self, selection):
         """
         Select atoms using the Visualization Package
         and return dataframe, with VisPack columns prefixed with underscore
@@ -56,11 +60,11 @@ class VisPackage(ABC):
         pass
     
     def select(self, selection):
-        sele = self.__sele2df(selection)
+        sele = self._sele2df(selection)
         mpt_sele = self.mpt[sele['id']]    
         # TO DO: check if names/resname, etc. are same and issue warnings accordingly  
         # the corresp. columns from the vis software will have underscore prefix
-        return mpt_sele.merge(sele, left_on='id', right_on='id')
+        return mpt_sele.merge(sele, left_on='id', right_on='id').set_index(['id'])
 
 class PyMOL(VisPackage):
     """
@@ -87,11 +91,10 @@ class PyMOL(VisPackage):
         
         super().__init__(cmd, load, forcelocal, lines)
     
-    def load(self, mpt, gro):
-        if self.load: self.cmd.load(gro)
-        return super.load(mpt, gro)
+    def _vis_pack_load(self, gro_file):
+        self.cmd.load(gro_file)
         
-    def __sele2df(self, selection):
+    def _sele2df(self, selection):
         sele = self.cmd.get_model(selection, 1)
         
         if isinstance(sele, dict):
@@ -105,7 +108,7 @@ class PyMOL(VisPackage):
             params_to_get = ['id', 'symbol', 'name', 'resn', 'resi_number', 'coord']
             for a in sele.atom:
                 for i in params_to_get:
-                    df_dict[i] = getattr(a, i)
+                    df_dict[i].append(getattr(a, i))
             df = pd.DataFrame(df_dict, columns = params_to_get)
         
         # extract coordinates and covert from ang to nm
@@ -127,11 +130,10 @@ class VMD(VisPackage):
             
         super().__init__(vmd, load, forcelocal, lines)
     
-    def load(self, mpt, gro):
-        if self.load: self.molid = self.cmd.molecule.load("gro", gro)
-        return super.load(mpt, gro)
+    def _vis_pack_load(self, gro_file):
+        self.molid = self.cmd.molecule.load("gro", gro_file)
     
-    def __sele2df(self, selection):
+    def _sele2df(self, selection):
         sele = self.cmd.atomsel(selection, self.molid)
         
         params_to_get = ['name', 'type', 'index', 'mass', 'element', 'resname', 'resid', 'x', 'y', 'z']

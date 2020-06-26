@@ -46,8 +46,8 @@ def parseBlocktillSection(file, *sections):
     return itp_txt
 
 def cleanText(txt):
-    txt_ = re.sub(re.compile(";(.*)\n" ) ,"\n" , txt) # strip comments
-    return re.sub(re.compile("\n{2,}" ) ,"\n" , txt_) # remove double new lines
+    from ..utils.strs import clean
+    return clean(txt, ';')
         
 def molecules(tail):    
     _mols = []

@@ -2,9 +2,6 @@
 
 """
 
-This module contains list of modules accesible from core
+__init__ for core module
 
 """
-
-from .prepare import MM, QM
-from .simulate import MD, MiMiC

@@ -12,7 +12,7 @@ from stat import S_ISDIR, S_ISREG
 from shutil import copyfile
 import re
 from ..utils.errors import SlurmBatchError
-from ..utils.fstring import f
+from ..utils.strs import f
 from .._global import _Global as _gbl
 from abc import ABC, abstractmethod
 

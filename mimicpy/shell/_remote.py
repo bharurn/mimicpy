@@ -95,7 +95,7 @@ class Shell:
         self.ssh_bg.run(f'cd {self.pwd()}/{dirc}')
         self.ssh_bg.run(self.loader_str)
         if not hook:
-            hook = Shell.defaulthook
+            hook = defaultHook
             
         out = self.ssh_bg.run(cmd.split(';')[-1], hook, query_rate)
         

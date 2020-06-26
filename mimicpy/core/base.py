@@ -2,7 +2,7 @@
 
 """
 
-This module contains the BaseHandle class which is inherited by all handles
+This module contains the BaseHandle class
 
 """
 
@@ -18,28 +18,43 @@ status_file = '_status.yaml'
 
 class BaseHandle(ABC):
     """
-    Contains functions/variables common to all handles:
-        prepare.MM, prepare.QM, simulate.MD, simulate.MiMiC
-    All handles inherit from this class
-    Mainly manages the status variable, and running gmx/cpmd command
+    Contains functions/variables common to:
+        simulate.MD, simulate.MiMiC
+    Mainly manages the status variable, and running gmx command
     """
     
     @abstractmethod
-    def __init__(self, status=None):
+    def __init__(self, topol_dir=None, status=None, settings=None):
         """Init status and log string"""
         self.savestatus = True
         
         if not status: # if status passed is none, read from yaml
             status = BaseHandle.__readstatus()
             if not status: # if that too is none, create new status variable
-                status = {'prepMM': '', 'prepQM': '', 'run': ['']}
+                status = {'prepMM': '', 'run': ['']}
         
         self._status = status # set _status
-        self.gmxlog = LogString() # log string of standard ouput from all gmx commands
         
+        if topol_dir != None:
+            self._status['prepMM'] = topol_dir
+            
+        self.gmxlog = LogString() # log string of standard ouput from all gmx commands
         # init logger with gmx log string, and notes redirected to stderr
         self.logger = Logger(gmxlog=self.gmxlog, gmxnotes=sys.stderr)
         self.__current_cmd = 'gmx'
+        
+        self.jobscript = None
+        if settings: self.setSlurmSettings()
+    
+    def setSlurmSettings(self, settings):
+        """Set the Slurm settings from a jobscript"""
+        _global.logger.write('debug', f"Setting Slurm job settings from jobscript {settings.name}..")
+        self.jobscript = settings
+        if _global.host.loaders != []: # transfer host loaders to jobscript
+            _global.logger.write('debug', f"Transferring loader commands from host to job script..")
+            self.jobscript.addMany(_global.host.loaders)
+        
+        return self.jobscript # return the jobscript to user for debugging
         
     ###Setting/getting current file/folder in status file
     ##
@@ -56,7 +71,7 @@ class BaseHandle(ABC):
         if dirc.strip() == '': return
         
         _global.host.mkdir(dirc)
-        if key == 'prepMM' or key == 'prepQM': # add the correct key
+        if key == 'prepMM': # add the correct key
             self._status[key] = dirc
         elif dirc not in self._status['run']: # add to run list
             self._status['run'].append(dirc)
@@ -141,8 +156,6 @@ class BaseHandle(ABC):
     #### Methods dealing with loading from/writing to status file
     ##
     ##
-    def getStatus(self): return self._status
-    
     @classmethod
     def continueFrom(cls, session, *args, **kwargs):
         """Transfer _status from session to new handle"""
@@ -176,7 +189,7 @@ class BaseHandle(ABC):
     ##
     ###END
     
-    ###Methods dealing with running gromacs/cpmd through shell
+    ###Methods dealing with running gromacs through shell
     ##
     ##
     def __gmxhook(self, cmd, text):
@@ -351,30 +364,6 @@ class BaseHandle(ABC):
         else: # otherwise, just use the gro file
             self.gmx('grompp', f = f'{new}.mdp', c = gro[1],\
                      p = self.getcurrent('top'), o = f"{new}.tpr", **kwargs)
-          
-    def cpmd(self, inp, out, onlycmd=False, dirc=''):
-        """
-        Function to execute cpmd command in "pythonic" way
-        e.g., to execute cpmd cpmd.in path/to/pp > cpmd.oput
-        call cpmd('cpmd.in', 'cpmd.out')
-        Make sure cpmd_pp is set in _Global before that!
-        """
-        
-        # check for env variables
-        if _global.cpmd is None or _global.cpmd.strip() == '':
-            raise EnvNotSetError('CPMD executable', 'cpmd')
-        
-        if _global.cpmd_pp is None or _global.cpmd_pp.strip() == '':
-            raise EnvNotSetError('CPMD pseudopotential', 'cpmd_pp')
-        
-        cmd = f"{_global.cpmd} {inp} {_global.cpmd_pp} > {out}"
-        
-        if onlycmd: return cmd # return only cmd
-        
-        _global.logger.write('debug', cmd)
-        
-        _global.logger.write('debug', "Running {cmd}..")
-        _global.host.runbg(cmd, dirc=dirc)
     ##
     ##
     ###END
