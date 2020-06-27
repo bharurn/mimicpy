@@ -2,6 +2,7 @@ import mimicpy
 from pymol import cmd
 
 # TO DO: Error handling
+mimicpy.setLogger(1)
 
 class Main:
     
@@ -14,5 +15,5 @@ class Main:
         Main.qm.add(selection)
         Main.qm.getInp(ndx, cpmd)
 
-cmd.extend('load', Main.load)
+cmd.extend('mpyload', Main.load)
 cmd.extend('prepqm', Main.prepqm)

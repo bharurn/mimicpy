@@ -73,20 +73,23 @@ class PyMOL(VisPackage):
     
     """
     
-    def __init__(self, url='http://localhost:9123', load=True, forcelocal=True, lines=500):
+    def __init__(self, pymol_handle=None, url='http://localhost:9123', load=True, forcelocal=True, lines=500):
         
-        try:
-            # first try importing pymol in the pymol enviornment
-            from pymol import cmd
-        except ImportError:
-            # if not try connecting by xmlrpc
-            cmd = xmlrpclib.ServerProxy(url)
-            
-            # xmlrpc will silently fail, try a dummy command to check if connection if working
+        if pymol_handle:
+            cmd = pymol_handle
+        else:
             try:
-                cmd.get_view()
-            except ConnectionRefusedError:
-                raise MiMiCPyError(f"Could not connect to PyMOL neither through the software enviornment nor at the address {url}")
+                # first try importing pymol in the pymol enviornment
+                from pymol import cmd
+            except ImportError:
+                # if not try connecting by xmlrpc
+                cmd = xmlrpclib.ServerProxy(url)
+            
+                # xmlrpc will silently fail, try a dummy command to check if connection if working
+                try:
+                    cmd.get_view()
+                except ConnectionRefusedError:
+                    raise MiMiCPyError(f"Could not connect to PyMOL. Run MiMiCPy in the PyMOL environment or verify that it is running at {url}")
         
         
         super().__init__(cmd, load, forcelocal, lines)
@@ -122,12 +125,17 @@ class PyMOL(VisPackage):
     
 class VMD(VisPackage):
     
-    def __init__(self, load=True, forcelocal=True, lines=500):
-        try:
-            import vmd
-        except ImportError:
-            raise MiMiCPyError("VMD python package not found. Make sure that you have VMD built with python support")
-            
+    def __init__(self, vmd_handle=None, load=True, forcelocal=True, lines=500):
+        if vmd_handle:
+            vmd = vmd_handle
+        else:
+            try:
+                import vmd
+            except ImportError:
+                raise MiMiCPyError("VMD python package not found. Make sure that you have VMD built with python support")
+        
+        self.molid = 0 # set mol id in case load=False
+        
         super().__init__(vmd, load, forcelocal, lines)
     
     def _vis_pack_load(self, gro_file):
@@ -138,10 +146,14 @@ class VMD(VisPackage):
         
         params_to_get = ['name', 'type', 'index', 'mass', 'element', 'resname', 'resid', 'x', 'y', 'z']
         
-        df_dict = defaultdict(list)
+        df_dict = {}
             
         for i in params_to_get:
             df_dict[i] = getattr(sele, i)
         
-        df = pd.DataFrame(df_dict, columns = ["_"+i for i in params_to_get if i not in ['index', 'x', 'y', 'z']])
+        df = pd.DataFrame(df_dict, columns=params_to_get)
+        
+        df = df.rename(columns={"name": "_name", "element": "_element", "resname": "_resname",\
+                               "resid": "_resid", 'mass': '_mass', 'type': '_type'})
+        
         return df.rename(columns={"index": "id"})
