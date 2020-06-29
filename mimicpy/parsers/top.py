@@ -1,5 +1,6 @@
 from . import top_reader
 from .._global import _Global as gbl
+from . import pdb as parse_pdb
 
 class TopolDict:
     def __init__(self, dict_df, repeating):
@@ -75,3 +76,31 @@ def read(topol_file, nonstd_atm_types={}, buff=1000, guess_elems=True):
     
     mol_df = dict(zip(itp_parser.mols, itp_parser.dfs))
     return mols_data, TopolDict.fromDict(mol_df)
+
+def nonStdTypes(pdb, itp, *resnames, buff=1000):
+    pdb_df = parse_pdb.parseFile(pdb, buff)
+    
+    # get chain info
+    chains = pdb_df['chainID'].unique().tolist()
+    chains.remove(' ') # remove elements wtih no chain info from lisy
+    
+    # either select only first chain of residue or all residues with no chain info
+    pdb_df = pdb_df[(pdb_df['chainID'] == chains[0]) | (pdb_df['chainID'] == ' ')]
+    
+    # get elems
+    elems = [a for name in resnames for a in pdb_df['element'][pdb_df['resname']==name].to_list()]
+    
+    # get atom types
+    top_reader.ITPParser.clear()
+    
+    # fake class to satisfy atomtypes dict
+    class defdict:
+        def __contains__(self, item): return True
+        def __getitem__(self,key): return ' '
+    
+    itp_parser = top_reader.ITPParser(resnames, defdict(), buff, False)
+    itp_parser.parse(itp)
+    atm_types = [a for df in itp_parser.dfs for a in df['type'].to_list()]
+    
+    # assert len(atm_types) == len(elems) before zipping
+    return dict(zip(atm_types, elems))

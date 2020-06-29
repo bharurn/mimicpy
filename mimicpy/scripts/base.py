@@ -28,13 +28,15 @@ class Script(ABC):
             self.__dict__[key] = value
         else:
             # rest are script params and stored in __orddict__
-            self.__orddict__[key] = value
+            # all params are lower case
+            self.__orddict__[key.replace(' ', '--').replace('-', '_').lower()] = value
         
     def __getattr__(self, key):
         if key.startswith('_') or key == 'hasparams' or key == 'params':
             # if asking fro protected/private attrs, hasparams() or params() look in the normal __dict__
             return self.__getattribute__('__dict__')[key]
         else:
+            key = key.lower()
             # else look in __orddict__
             if key not in self.__getattribute__('__orddict__'):
                 raise ScriptError(key) # raise param not found error

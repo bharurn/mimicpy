@@ -13,18 +13,23 @@ from ..scripts.cpmd import Atom
 from collections import OrderedDict 
 from ..scripts import cpmd
 
-def _cleanqdf(qdf):
+def cleanqdf(qdf):
     columns = mpt.columns.copy() # copy it otherwise original gets edited    
     columns.extend(['x','y','z'])
-    lst = [l for l in qdf.columns if l not in columns]
-    return qdf.drop(lst, axis=1)
+    col_to_drop = [l for l in qdf.columns if l not in columns]
+    return qdf.drop(col_to_drop, axis=1)
 
-def index(qmids, name):
+def index(qmids, name, space_len=6, col_len=15):
     """Write list of atoms to index, and returns as sting"""
+    
+    max_len = len(str(max(qmids)))
+    spaces = space_len if max_len <= space_len else max_len
+    
     index = f'[ {name} ]\n' # name of atoms group
-    for i in qmids:
-        index += f'{i} '
-        
+    for i, idx in enumerate(qmids):
+        if i%col_len == 0: index += '\n'
+        index += "{:{}}".format(idx, spaces)
+    
     return index
 
 def getOverlaps_Atoms(qmatoms, inp):

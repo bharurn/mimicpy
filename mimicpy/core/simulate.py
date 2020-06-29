@@ -9,7 +9,9 @@ This module contains handles to run MD and MiMiC simulations
 
 from .base import BaseHandle
 from .._global import _Global as _global
-from collections import defaultdict
+from ..utils.errors import EnvNotSetError
+from ..utils.constants import hartree_to_ps
+from . import _qmhelper
 
 class MD(BaseHandle):
     """
@@ -17,22 +19,6 @@ class MD(BaseHandle):
     Inherits from .core.base.BaseHandle
     
     """
-    def __init__(self, status=defaultdict(list), settings=None):
-        """Class constructor"""
-        super().__init__(status)
-        self.jobscript = None
-        if settings: self.setSlurmSettings()
-    
-    def setSlurmSettings(self, settings):
-        """Set the Slurm settings from a jobscript"""
-        _global.logger.write('debug', f"Setting Slurm job settings from jobscript {settings.name}..")
-        self.jobscript = settings
-        if _global.host.loaders != []: # transfer host loaders to jobscript
-            _global.logger.write('debug', f"Transferring loader commands from host to job script..")
-            self.jobscript.addMany(_global.host.loaders)
-        
-        return self.jobscript # return the jobscript to user for debugging
-            
     def mdrun(self, new, **kwargs):
         """Execute gmx mdrun"""
         
@@ -118,18 +104,42 @@ class MD(BaseHandle):
         
         return out
         
-class MiMiC(MD):
+class MiMiC(BaseHandle):
     """
     Runs MiMiC runs by running both gmx mdrun and cpmd
     Inherits from .core.base.BaseHandle
     
     """
     
+    def __cpmd(self, inp, out, onlycmd=False, dirc=''):
+        """
+        Function to execute cpmd command in "pythonic" way
+        e.g., to execute cpmd cpmd.in path/to/pp > cpmd.oput
+        call cpmd('cpmd.in', 'cpmd.out')
+        Make sure cpmd_pp is set in _Global before that!
+        """
+        
+        # check for env variables
+        if _global.cpmd is None or _global.cpmd.strip() == '':
+            raise EnvNotSetError('CPMD executable', 'cpmd')
+        
+        if _global.cpmd_pp is None or _global.cpmd_pp.strip() == '':
+            raise EnvNotSetError('CPMD pseudopotential', 'cpmd_pp')
+        
+        cmd = f"{_global.cpmd} {inp} {_global.cpmd_pp} > {out}"
+        
+        if onlycmd: return cmd # return only cmd
+        
+        _global.logger.write('debug', cmd)
+        
+        _global.logger.write('debug', "Running {cmd}..")
+        _global.host.runbg(cmd, dirc=dirc)
+    
     # functions to set individual slurm parameters for gmx and cpmd
     def setGMXSettings(self, **kwargs): self.gmx_opt = kwargs
     def setCPMDSettings(self, **kwargs): self.cpmd_opt = kwargs
     
-    def run(self, inp, tpr=None, dirc=''):
+    def run(self, mdp, inp, tpr=None, dirc=''):
         """
         Writes inp to CPMD file
         And runs gmx mdrun and cpmd depending
@@ -140,13 +150,37 @@ class MiMiC(MD):
         _global.host.mkdir(f"{new}/cpmd") # cpmd
         _global.host.mkdir(f"{new}/gmx") # and gmx directories
         
+        ######create mimic tpr file
+        _global.logger.write('debug2', "Changing Gromacs integrator to MiMiC..")
+        mdp.integrator = 'mimic'
+    
+        _global.logger.write('debug', f"Writing atoms in QM region to {self.index}..")
+        QMMM_grps = 'QMatoms'
+        
+        # set no of steps in mdp file
+        if not mdp.hasparam('nsteps'): mdp.nsteps = 1000 # default value, if not present in mdp
+        # set timestep in mdp file
+        if not mdp.hasparam('dt'): mdp.dt = 0.001 # default value, if not present in mdp
+        
+        # write index file
+        _global.host.write(_qmhelper.index(inp._ndx, self.QMMM_grps), _global.host.join(self.dir, self.index))
+        mdp.QMMM_grps = QMMM_grps
+        
+        _global.logger.write('info', "Generating Gromacs TPR file for MiMiC run..")
+        
+        self.grompp(mdp, 'mimic.tpr', gro=self.gro, n=self.index, dirc=f'{new}/gmx')
+        ######
+        
+        ####write cpmd file
         inp.mimic.paths = f"1\n{_global.host.pwd()+new}/gmx" # set path in cpmd script
+        # set no of steps
+        inp.cpmd.maxsteps = mdp.nsteps
+        # set timestep
+        inp.cpmd.timestep = round(mdp.dt/hartree_to_ps) # convert to atomic units and round off
+        
         _global.logger.write('debug2', "Set PATH in MIMIC section as {inp.mimic.paths}")
         _global.host.write(str(inp), f"{new}/cpmd/{new}.inp")
-        
-        tpr = self.getcurrentNone('mimic-tpr') # look for mimic tpr in prepQM folder
-        
-        _global.host.cp(tpr, f'{new}/gmx/mimic.tpr')
+        ####
         
         # below is similar procedure to simulate.MD.run()
         if self.jobscript:
@@ -154,7 +188,7 @@ class MiMiC(MD):
             if not hasattr(self, 'cpmd_opt'): self.cpmd_opt = {}
             
             self.jobscript.add(self.gmx('mdrun', deffnm=f'gmx/mimic', onlycmd=True, dirc='new'), **self.gmx_opt)
-            self.jobscript.add(self.cpmd(f"cpmd/{new}.inp", f"cpmd/{new}.out", onlycmd=True, dirc='new'), **self.cpmd_opt)
+            self.jobscript.add(self.__cpmd(f"cpmd/{new}.inp", f"cpmd/{new}.out", onlycmd=True, dirc='new'), **self.cpmd_opt)
             jid = _global.host.sbatch(self.jobscript, dirc=dirc)
             _global.logger.write('info', "MiMiC run submmitted as a Slurm job "
                  f"{self.jobscript.name}.sh with the job ID {jid}.."
@@ -162,7 +196,7 @@ class MiMiC(MD):
             return jid
         else:
             self.gmx('mdrun', deffnm=f'gmx/mimic', dirc='new')
-            self.cpmd(f"cpmd/{new}.inp", f"cpmd/{new}.out", dirc='new')
+            self.__cpmd(f"cpmd/{new}.inp", f"cpmd/{new}.out", dirc='new')
             _global.logger.write('info', "MiMiC simulation is now running in the background..")
             
             if not _global.host.isLocal():

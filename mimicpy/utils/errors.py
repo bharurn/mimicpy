@@ -76,7 +76,7 @@ class ScriptError(MiMiCPyError):
     Raised when a requested parameter of a script
     object does not exist
     """
-    def __init__(self, cmd, msg):
+    def __init__(self, msg):
         self.msg = msg
         
     def __str__(self):

@@ -2,11 +2,6 @@ from .._global import _Global as gbl
 import numpy as np
 import pandas as pd
 
-def getBox(gro):
-    # fast access of last line, requires UNIX shell
-    tail = gbl.host.run(f'tail -n 1 {gro}')
-    return [float(v) for v in tail.split()]
-
 def read(file, lines=500):
     d = gbl.host.open(file, 'rb')
     
