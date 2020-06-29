@@ -174,9 +174,12 @@ class VMD(VisPackage):
         params_to_get = ['name', 'type', 'index', 'mass', 'element', 'resname', 'resid', 'x', 'y', 'z']
         
         df_dict = {}
-            
+        
         for i in params_to_get:
             df_dict[i] = getattr(sele, i)
+            
+            if i == 'index':
+                df_dict[i] = [j+1 for j in df_dict[i]]
             
             if i in ['x', 'y', 'z']:
                 df_dict[i] = [j/10 for j in df_dict[i]]
