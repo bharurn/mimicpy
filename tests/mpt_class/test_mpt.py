@@ -26,3 +26,4 @@ def test_prop():
     mpt = getFakeMPT()
     
     assert mpt['type'] == ['CA', 'CA', 'CT', 'H', 'N*']
+    assert mpt['resname'] == ['UNK1']*3+ ['UNK2']*2
