@@ -10,6 +10,7 @@ from .core import simulate, selector
 from .core.prepare import Prepare
 from .shell import shell
 from ._version import __version__
+from ._authors import __authors__
 from ._global import _Global as gbl
 from .utils.logger import Logger
 from .utils.errors import MiMiCPyError
