@@ -12,13 +12,16 @@ class TopolDict:
         keys = list(df.keys())
         df2 = df.copy()
         repeating = {}
-        for i in range(len(keys)):
+        i = 0
+        while i < len(keys):
             key_i = keys[i]
             for j in range(i+1, len(keys)):
                 key_j = keys[j]
                 if df[key_i].equals(df[key_j]):
                     repeating[key_j] = key_i
                     del df2[key_j]
+            i += 1
+            keys = list(df2.keys())
         return cls(df2, repeating)
     
     def __getitem__(self, key):
