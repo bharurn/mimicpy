@@ -139,17 +139,25 @@ class MPT:
            selection eg., resname is SER and id < 25 and mol not Protein_chain_B
            will be translated to np_vals['resname'] == 'SER' and np_vals['id'] < 25 and np_vals['mol'] != 'Protein_chain_B'
          """
-    
+         
+        selection = selection.replace('(', ' ( ').replace(')', ' ) ') # put space between brackets
+         
         ev = '' # converted string
         i = 0 # counter to keep track of word position
+        n_brack = 0 # brackets counter
         keys = []
         for s in selection.split():
             if i == 0: # if starting of set
-                if s not in self.__columns and s != 'id':
+                if s in self.__columns or s == 'id':
+                    ev += f"(np_vals['{s}']"
+                    keys.append(s)
+                elif s == '(':
+                    ev += s
+                    i = -1 # don't increment
+                    n_brack += 1
+                else:
                     raise SelectionError(f"{s} is not a valid selection keyword")
                     
-                ev += f"(np_vals['{s}']"
-                keys.append(s)
             elif i == 1:
                 if s == 'is':
                     ev += '=='
@@ -167,16 +175,27 @@ class MPT:
             elif i == 3:
                 # if and/or encountered, reset i to -1 (will become 0 due to i+= 1 at end)
                 # so we can start parsing again
+                # if ) encpuntered, set i to 2 so we can parse and/or again
                 if s == 'or':
                     ev += f' | '
                     i = -1
                 elif s == 'and':
                     ev += f' & '
                     i = -1
+                elif s == ')':
+                    ev += ')'
+                    i = 2
+                    n_brack -= 1
                 else:
-                    raise SelectionError(f"{s} not a valid boolean operator")
+                    raise SelectionError(f"{s} is not a valid boolean operator")
     
             i += 1
+        
+        # check brackets
+        if n_brack > 0:
+            raise SelectionError("Missing closing bracket is selection")
+        elif n_brack < 0:
+            raise SelectionError("Missing open bracket is selection")
     
         # return the translated string and the keywords used
         return ev, keys
