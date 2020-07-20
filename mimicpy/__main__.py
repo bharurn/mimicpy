@@ -185,8 +185,7 @@ def getmpt(topol, mpt, nonstd, reslist, pdb, itp):
     else:
         return mimicpy.parsers.MPT.fromTop(topol, nonstd_atm, mode='r')
 
-if __name__ == '__main__':
-    
+def main():
     print('\n\t   ****MiMiCPy CLI****\n')
     
     parser = MiMiCPyParser()

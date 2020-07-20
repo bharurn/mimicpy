@@ -14,17 +14,27 @@ def get_reqs():
     
     return reqs
 
-import mimicpy
+def get_details(detail, deflt):
+    path = 'mimicpy/_'+detail
+    if not os.path.isfile(path):
+        return deflt
+        
+    with open(path) as f:
+        txt = f.read()
+        if len(txt.splitlines()) == 1 and '=' in txt:
+            return f.read().split('=')[1].strip()
+        else:
+            return deflt
 
 setup(
     name='mimicpy',
-    version=mimicpy.__version__,
+    version=get_details('version', 1.0),
     zip_safe=False,
     description='Python tools to prepare MiMiC QM/MM runs.',
-    author=mimicpy.__authors__,
+    author=get_details('authors', "--"),
     author_email='b.raghavan@fz-juelich.de',
     packages=get_package(),
-    #install_requires=get_reqs(),
+    install_requires=get_reqs(),
     entry_points = {
         'console_scripts': ['mimicpy = mimicpy.__main__:main'],
     })
