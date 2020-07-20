@@ -123,19 +123,19 @@ def prepqm(qm, ndx, cpmd):
     if prefix == 'q'or prefix == 'quit':
         try:
             qm.getInp(ndx, cpmd)
-        except mimicpy.utils.errors.MiMiCPyError:
-            pass
+        except mimicpy.utils.errors.MiMiCPyError as e:
+            print(e)
         return False
     elif prefix == 'add':
         try:
             qm.add(rest)
-        except mimicpy.utils.errors.SelectionError as e:
+        except (mimicpy.utils.errors.SelectionError, mimicpy.utils.errors.MiMiCPyError) as e:
             print(e, end='\n\n')
         return True
     elif prefix == 'del':
         try:
             qm.delete(rest)
-        except mimicpy.utils.errors.SelectionError as e:
+        except (mimicpy.utils.errors.SelectionError, mimicpy.utils.errors.MiMiCPyError) as e:
             print(e, end='\n\n')
         return True
     elif prefix == 'clear':
@@ -180,10 +180,18 @@ def getmpt(topol, mpt, nonstd, reslist, pdb, itp):
             loader.close()
             
     if mpt:
-        mpt_obj = mimicpy.parsers.MPT.fromTop(topol, nonstd_atm, mode='w')
+        try:
+            mpt_obj = mimicpy.parsers.MPT.fromTop(topol, nonstd_atm, mode='w')
+        except (mimicpy.utils.errors.ParserError, FileNotFoundError) as e:
+            print(e)
+            return False
         mpt_obj.write(mpt)
     else:
-        return mimicpy.parsers.MPT.fromTop(topol, nonstd_atm, mode='r')
+        try:
+            return mimicpy.parsers.MPT.fromTop(topol, nonstd_atm, mode='r')
+        except (mimicpy.utils.errors.ParserError, FileNotFoundError) as e:
+            print(e)
+            return False
 
 def main():
     print('\n\t   ****MiMiCPy CLI****\n')
@@ -192,13 +200,12 @@ def main():
     
     if parser.subprogram == 'getmpt':
         checkargs({'mpt': parser.mpt, 'top': parser.top})
-        try:
-            getmpt(parser.top, parser.mpt, parser.nonstd, parser.reslist, parser.pdb, parser.itp)
-        except Exception as e:
-            print(e)
+        ret = getmpt(parser.top, parser.mpt, parser.nonstd, parser.reslist, parser.pdb, parser.itp)
+        if not ret:
             print("Exiting with error..\n")
             sys.exit(0)
-        print("MPT succesfully prepared..\n")
+        else:
+            print("MPT successfully prepared..\n")
         
     elif parser.subprogram == 'prepqm':
         
@@ -218,7 +225,7 @@ def main():
         
         try:
             qm = mimicpy.Prepare(mpt, parser.gro)
-        except Exception as e:
+        except (mimicpy.utils.errors.MiMiCPyError, FileNotFoundError) as e:
             print(e)
             print("Exiting with error..\n")
             loader.close(halt=True)

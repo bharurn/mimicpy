@@ -16,6 +16,7 @@ class MPT:
         self.__topol_dict = topol_dict
         self.__all_data = None
         self.__columns = columns
+        self.natms = None
         
         if mode == 'r':
             # preload data into memory
@@ -88,6 +89,7 @@ class MPT:
         # generate everything as python lists, much faster than np or df
         # generating resid is slow, otherwise everthing is fast enough
         self.__all_data = [self.__getProperty(i) for i in self.__columns]
+        self.natms = len(self.__all_data[0])
         
     def __selectbyID(self, ids):
         if self.__all_data == None: self.__generateData() # generate data if not already done
@@ -212,8 +214,7 @@ class MPT:
         np_vals = {}
         for i in vals:
             if i == 'id':
-                natms = len(self.__all_data[0])
-                arr = np.array(list(range(natms)))+1
+                arr = np.array(list(range(self.natms)))+1
             else:
                 arr = np.array(self.__getProperty(i))
             np_vals[i] = arr

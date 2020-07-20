@@ -36,12 +36,11 @@ class Prepare:
     
     def add(self, selection=None, link=False):
         """Add dataframe to QM region"""
-        
         qdf = _qmhelper.cleanqdf( self.selector.select(selection) )
         
         # add a new column link which is integer of link argument
         qdf.insert(2, 'link', [int(link)]*len(qdf))
-        
+       
         # add qdf to self.qmatoms, append if already exists
         self.qmatoms = self.qmatoms.append(qdf)
     
@@ -118,7 +117,7 @@ class Prepare:
         
         # default values
         inp.cpmd.maxsteps = 1000
-        inp.cpmd.timestep = 0.001
+        inp.cpmd.timestep = 4
         
         if inp_file is None:
             _global.logger.write('info', "Created CPMD input script..")

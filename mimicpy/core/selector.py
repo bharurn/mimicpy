@@ -17,12 +17,21 @@ class Selector:
     def load(self, mpt, gro_file):
         self.mpt = mpt
         self.coords, box = gro.read(gro_file, self.lines)
+        
+        if self.mpt.natms != len(self.coords):
+            raise MiMiCPyError("The no. of atoms in topology and coordinate do not match")
+            
         return box
         
     def select(self, selection):
         """Select MPT atoms and merge with GRO"""
         sele = self.mpt.select(selection)
-        return sele.merge(self.coords, left_on='id', right_on='id')
+        df = sele.merge(self.coords, left_on='id', right_on='id')
+        
+        if df.empty:
+            raise MiMiCPyError("The atoms selected from topology do not exist in the coordinate file")
+        else:
+            return df
 
 ###### Selector using Visualization packages, currently PyMOL and VMD supported
     
@@ -53,7 +62,12 @@ class VisPackage(ABC):
         mpt_sele = self.mpt[sele['id']]    
         # TO DO: check if names/resname, etc. are same and issue warnings accordingly  
         # the corresp. columns from the vis software will have underscore prefix
-        return mpt_sele.merge(sele, left_on='id', right_on='id').set_index(['id'])
+        df = mpt_sele.merge(sele, left_on='id', right_on='id').set_index(['id'])
+        
+        if df.empty:
+            raise MiMiCPyError("The atoms IDs in selected from the visualization software do not exist in the mpt file")
+        else:
+            return df   
     ##
     ######
     
