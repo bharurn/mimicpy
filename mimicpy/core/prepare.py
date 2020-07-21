@@ -13,6 +13,7 @@ from . import _qmhelper
 from ..parsers.mpt import MPT
 from ..utils.constants import bohr_rad
 from ..scripts import cpmd
+from ..scripts.mdp import MDP
 from ..utils.errors import MiMiCPyError
 import pandas as pd
 
@@ -54,43 +55,50 @@ class Prepare:
         """Empty the QM region to start over"""
         self.qmatoms = pd.DataFrame()
     
-    def getInp(self, ndx=None, inp_file=None):
+    def getInp(self, inp=cpmd.Input(), mdp=None, ndx_file=None, cpmd_file=None):
         """
         Create the QM region from the atoms added
         Steps done:
-            Assign QM atoms as list to inp._ndx
-            If named fiven, writes index files of atoms in QM region with name QMatoms
+            If named given, writes index files of atoms in QM region with name QMatoms
             Sort self.qmatoms by link and elements
             Read element symbols and all charge info from self.qmatoms
             Add MIMIC, SYSTEM, DFT sections of CPMD script
             Add all atoms to CPMD script
         """
+        
+        if isinstance(mdp, str):
+            mdp = MDP.fromFile(mdp)
+        
+        maxsteps, timestep, mdp_errors = _qmhelper.check_mdp(mdp)
+        
+        if mdp_errors != "":
+            _global.logger.write('warning', '') # newline
+            _global.logger.write('warning', "Notes about the MDP file parameters:")
+            _global.logger.write('warning', mdp_errors)
+            _global.logger.write('warning', '') # newline
+        
         if self.qmatoms.empty:
             raise MiMiCPyError("No QM atoms have been selected")
         
         self.mpt.close() # clear all_data from memory, in case gc doesn't work soon enough
-        ####
-        #Write ndx, tpr file for gromacs
-        #output only ndx if mdp is None
-        ####
         
-        inp = cpmd.Input()
-        inp._ndx = self.qmatoms.index.to_list()
+        ndx = _qmhelper.index(self.qmatoms.index, 'QMatoms') # get ndx data
         
         # write index file
-        if ndx != None:
-            _global.host.write(_qmhelper.index(self.qmatoms.index, 'QMatoms'), ndx)
-            _global.logger.write('info', f"Wrote Gromacs index file to {ndx}..")
+        if ndx_file != None:
+            _global.host.write(ndx, ndx_file)
+            _global.logger.write('info', f"Wrote Gromacs index file to {ndx_file}..")
             
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together
         # index is also reset, for getOverlaps_Atoms()
         sorted_qm = self.qmatoms.sort_values(by=['link', 'element']).reset_index()
         
-        inp=cpmd.Input()
+        if isinstance(inp, str):
+            inp = cpmd.Input.fromFile(inp)
         
         inp.mimic = cpmd.Section()
-        inp.mimic.paths = "1\n---" #path will be set by simulate.MiMiC.run()
+        inp.mimic.paths = f"1\n{_global.host.pwd()}"
         inp.mimic.box = '  '.join([str(s/bohr_rad) for s in self._mm_box])
         
         inp = _qmhelper.getOverlaps_Atoms(sorted_qm, inp) # get the overlaps and add atoms section of inp
@@ -112,17 +120,17 @@ class Prepare:
         inp.cpmd.mimic = ''
         inp.cpmd.parallel__constraints = ''
         
-        inp.dft = cpmd.Section()
+        if not inp.checkSection('dft'): inp.dft = cpmd.Section()
         inp.dft.functional__blyp = '' # TO DO: update to new XC_DRIVER code
         
         # default values
-        inp.cpmd.maxsteps = 1000
-        inp.cpmd.timestep = 4
+        inp.cpmd.maxsteps = maxsteps
+        inp.cpmd.timestep = round(timestep)
         
-        if inp_file is None:
+        if cpmd_file is None:
             _global.logger.write('info', "Created CPMD input script..")
         else:
-            _global.host.write(str(inp), inp_file)
-            _global.logger.write('info', f"Wrote CPMD input script to {inp_file}..")
+            _global.host.write(str(inp), cpmd_file)
+            _global.logger.write('info', f"Wrote CPMD input script to {cpmd_file}..")
         
-        return inp
+        return ndx, inp

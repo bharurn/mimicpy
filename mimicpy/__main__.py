@@ -48,6 +48,9 @@ class MiMiCPyParser():
                       "-mpt\n\tMiMiCPy topology file\n"
                       "\nOnly one of the above need to be specified\n\n"
                       "-gro\n\tGromacs coordinate file\n"
+                      "\nOptional input options:\n\n"
+                      "-icpmd\n\tCPMD input script to add ATOMS and MIMIC section to"
+                      "\n-mdp\n\tMDP input script to extract run info and error checking\n"
                       "\nOutput options:\n\n"
                       "-cpmd\n\tCPMD input script name, deafult: cpmd.inp\n"
                       "-ndx\n\tGromacs index file name, default: index.ndx\n"
@@ -112,17 +115,18 @@ def checkargs(args):
         print(f'\nError in arguments passed. Exiting..\n')
         sys.exit(0)
 
-def prepqm(qm, ndx, cpmd):
+def prepqm(qm, ndx, cpmd, icpmd, mdp):
     command = input('Please enter the selection below. Type help to get help message.\n>  ')
     command = command.split()
     prefix = command[0].lower()
     rest = " ".join(command[1:])
+    
     if ndx == None: ndx = 'index.ndx'
     if cpmd == None: cpmd = 'cpmd.inp'
     
     if prefix == 'q'or prefix == 'quit':
         try:
-            qm.getInp(ndx, cpmd)
+            qm.getInp(icpmd, mdp, ndx, cpmd)
         except mimicpy.utils.errors.MiMiCPyError as e:
             print(e)
         return False
@@ -235,7 +239,7 @@ def main():
         
         while True:
             try:
-                ret = prepqm(qm, parser.ndx, parser.cpmd)
+                ret = prepqm(qm, parser.ndx, parser.cpmd, parser.icpmd, parser.mdp)
             except (KeyboardInterrupt, EOFError):
                 print("\nExiting without saving..")
                 ret = False

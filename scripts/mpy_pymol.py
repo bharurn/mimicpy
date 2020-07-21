@@ -13,7 +13,7 @@ class Main:
     @staticmethod
     def prepqm(selection, cpmd='cpmd.inp', ndx='index.ndx'):
         Main.qm.add(selection)
-        Main.qm.getInp(ndx, cpmd)
+        Main.qm.getInp(ndx_file=ndx, cpmd_file=cpmd)
 
 cmd.extend('mpyload', Main.load)
 cmd.extend('prepqm', Main.prepqm)
