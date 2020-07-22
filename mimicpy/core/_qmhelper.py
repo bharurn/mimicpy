@@ -12,12 +12,14 @@ from ..utils.constants import bohr_rad, hartree_to_ps
 from ..scripts.cpmd import Atom
 from collections import OrderedDict 
 from ..scripts import cpmd
-from .._global import _Global as _global
 
 def cleanqdf(qdf):
     columns = mpt.columns.copy() # copy it otherwise original gets edited    
     columns.extend(['x','y','z'])
     col_to_drop = [l for l in qdf.columns if l not in columns]
+    
+    qdf.index = qdf.index.set_names(['id']) # rename index, so it is id when we reset index
+    
     return qdf.drop(col_to_drop, axis=1)
 
 def index(qmids, name, space_len=6, col_len=15):

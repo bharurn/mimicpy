@@ -1,7 +1,7 @@
 from mimicpy.parsers.mpt import MPT
 import pytest
 
-def getFakeTopol():
+def getMockTopol():
     import pandas as pd
     
     df1 = pd.DataFrame({'type': ['CA', 'CA', 'CT', 'H', 'N*'],\
@@ -27,7 +27,7 @@ def getFakeTopol():
    
 def test_topol_dict():
     from mimicpy.parsers.top import TopolDict
-    df1, df2 = getFakeTopol()
+    df1, df2 = getMockTopol()
     topol_dict = TopolDict.fromDict({'MOL1':df1, 'MOL2':df1, 'NA1': df2, 'NA2':df2})
     
     assert topol_dict.repeating == {'MOL2': 'MOL1', 'NA2': 'NA1'}
@@ -37,7 +37,7 @@ def test_topol_dict():
     assert topol_dict.repeating == {'MOL2': 'MOL1', 'MOL3': 'MOL1', 'NA2': 'NA1', 'NA3': 'NA1', 'NA4': 'NA1'}
 
 def test_prop():
-    df1, df2 = getFakeTopol()
+    df1, df2 = getMockTopol()
     
     from mimicpy.parsers.top import TopolDict
     topol_dict = TopolDict.fromDict({'MOL1':df1, 'NA1':df2, 'NA2':df2, 'MOL2':df1})
@@ -54,7 +54,7 @@ def test_prop():
     assert mpt['charge'] == [0.5, -0.5, 0.2, 0, 2]*2 + [1] + [0.5, -0.5, 0.2, 0, 2] + [1]*4
 
 def test_select():
-    df1, df2 = getFakeTopol()
+    df1, df2 = getMockTopol()
     
     from mimicpy.parsers.top import TopolDict
     topol_dict = TopolDict.fromDict({'MOL1':df1, 'NA1':df2, 'MOL2':df1})

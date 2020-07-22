@@ -55,7 +55,7 @@ class Prepare:
         """Empty the QM region to start over"""
         self.qmatoms = pd.DataFrame()
     
-    def getInp(self, inp=cpmd.Input(), mdp=None, ndx_file=None, cpmd_file=None):
+    def getInp(self, inp=None, mdp=None, ndx_file=None, cpmd_file=None):
         """
         Create the QM region from the atoms added
         Steps done:
@@ -88,7 +88,7 @@ class Prepare:
         if ndx_file != None:
             _global.host.write(ndx, ndx_file)
             _global.logger.write('info', f"Wrote Gromacs index file to {ndx_file}..")
-            
+              
         # sort by link column first, then element symbol
         # ensures that all link atoms are last, and all elements are bunched together
         # index is also reset, for getOverlaps_Atoms()
@@ -96,6 +96,8 @@ class Prepare:
         
         if isinstance(inp, str):
             inp = cpmd.Input.fromFile(inp)
+        elif inp == None:
+            inp = cpmd.Input()
         
         inp.mimic = cpmd.Section()
         inp.mimic.paths = f"1\n{_global.host.pwd()}"

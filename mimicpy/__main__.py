@@ -261,3 +261,5 @@ def main():
         cpmd.toCoords(mpt, parser.coords)
         
         print(f"Wrote output to {parser.coords}")
+
+if __name__ == '__main__': main()
