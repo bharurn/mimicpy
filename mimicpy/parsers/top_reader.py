@@ -45,9 +45,14 @@ def parseBlocktillSection(file, *sections):
         
     return itp_txt
 
-def cleanText(txt):
+def cleanText(txt, keep_hash=False):
     from ..utils.strs import clean
-    return clean(txt, ';')
+    # remove comments and preprocessor directives
+    txt = clean(txt, ';')
+    if keep_hash:
+        return txt
+    else:
+        return clean(txt, '#')
         
 def molecules(tail):    
     _mols = []
@@ -65,7 +70,7 @@ def molecules(tail):
 def atomtypes(itp_file, buff):
     
     file = Parser(itp_file, buff)
-    itp_txt = cleanText(parseBlocktillSection(file, 'atomtypes'))
+    itp_txt = cleanText(parseBlocktillSection(file, 'atomtypes'), keep_hash=True)
     
     atomtypes_txt = getSection('atomtypes', itp_txt)
     
@@ -177,9 +182,14 @@ class ITPParser:
                 mass_int = int(mass)
                 
                 if mass_int <= 0:
-                    raise ParserError(file=file_name, ftype="topolgy", \
-                        extra=(f"Cannot guess atomic symbol for atom with name {name} and type {_type} in residue {res} as mass"
-                                             "information is not available from the force field"))
+                    if name in element_names:
+                        elem = name
+                    elif  _type in element_names:
+                        _type = name
+                    else:
+                        raise ParserError(file=file_name, ftype="topolgy", \
+                        extra=(f"Cannot guess atomic symbol for atom with name {name} and type {_type} in residue {res} as mass "
+                                             "information is not available from the force field and name/type is unknown"))
                 # guess atomic no from mass
                 # works well if no isotopes present
                 

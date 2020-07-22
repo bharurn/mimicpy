@@ -1,5 +1,7 @@
 import mimicpy
+from mimicpy.utils.errors import ParserError
 import pickle
+import pytest
 
 def test_dppc():
     log = mimicpy.utils.logger.LogString()
@@ -37,6 +39,10 @@ def test_4aj3():
     warns = mimicpy.utils.logger.LogString()
     mimicpy.redirectWarnings(warns)
     
+    with pytest.raises(ParserError) as e:
+        assert mimicpy.parsers.top.read('4aj3/topol.top', guess_elems=False)
+    assert "Cannot determine atomic symbol for atom with name C6N and type NAP_CA in residue NAP" in str(e.value) 
+   
     mol_list, topol_dict = mimicpy.parsers.top.read('4aj3/topol.top', guess_elems=True)
     
     assert mol_list==[('Protein', 1), ('NAP', 1), ('ICT', 1), ('SOL', 47708), ('NA', 18), ('SOL', 18)]
