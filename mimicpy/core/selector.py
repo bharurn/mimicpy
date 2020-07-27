@@ -101,12 +101,15 @@ class PyMOL(VisPackage):
     
     """
     
-    def __init__(self, url='http://localhost:9123', forcelocal=True, lines=500):
+    def __init__(self, url=None, forcelocal=True, lines=500):
         
-        try:
-            # first try importing pymol in the pymol enviornment
-            from pymol import cmd
-        except ImportError:
+        if url is None:
+            try:
+                # first try importing pymol in the pymol enviornment
+                from pymol import cmd
+            except ImportError:
+                raise MiMiCPyError(f"Could not connect to PyMOL, make sure PyMOL is installed")
+        else:
             # if not try connecting by xmlrpc
             cmd = xmlrpclib.ServerProxy(url)
         
@@ -133,19 +136,21 @@ class PyMOL(VisPackage):
         
         sele = self.cmd.get_model(selection, 1)
         
+        params_to_get = ['id', 'symbol', 'name', 'resn', 'resi_number', 'coord']
+        
         if isinstance(sele, dict):
             # sele is dict if using xmlrpc
             # atom key of dict has all we need
-            df = pd.DataFrame(sele['atom'])
+            df_dict = sele['atom']
         else:
             # sele will be chempy.models.Indexed object if using from pymol
             # sele.atom is is a list of chempy.Atom objects, each atom has id, symbol, etc.
             df_dict = defaultdict(list)
-            params_to_get = ['id', 'symbol', 'name', 'resn', 'resi_number', 'coord']
             for a in sele.atom:
                 for i in params_to_get:
                     df_dict[i].append(getattr(a, i))
-            df = pd.DataFrame(df_dict, columns = params_to_get)
+        
+        df = pd.DataFrame(df_dict, columns = params_to_get)
         
         # extract coordinates and covert from ang to nm
         x,y,z = list(zip(*df[['coord']].apply(lambda x: [i/10 for i in x[0]], axis=1)))
