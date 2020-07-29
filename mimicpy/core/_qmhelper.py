@@ -35,9 +35,7 @@ def index(qmids, name, space_len=6, col_len=15):
     
     return index
 
-def check_mdp(mdp):
-    nsteps = 1000
-    dt = 0.0001
+def check_mdp(mdp, nsteps = 1000, dt = 0.0001):
     
     if mdp is None:
         return nsteps, dt/hartree_to_ps, ""

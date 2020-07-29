@@ -141,8 +141,10 @@ class MPT:
            selection eg., resname is SER and id < 25 and mol not Protein_chain_B
            will be translated to np_vals['resname'] == 'SER' and np_vals['id'] < 25 and np_vals['mol'] != 'Protein_chain_B'
          """
-         
-        selection = selection.replace('(', ' ( ').replace(')', ' ) ') # put space between brackets
+        
+        add_space = lambda string, a: string.replace(a, f' {a} ') # put space between and after character
+        
+        selection = add_space(add_space(selection,'('),')') # put space before/after brackets
          
         ev = '' # converted string
         i = 0 # counter to keep track of word position
