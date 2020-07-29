@@ -117,8 +117,7 @@ class PyMOL(VisPackage):
             try:
                 cmd.get_view()
             except ConnectionRefusedError:
-                raise MiMiCPyError(f"Could not connect to PyMOL"
-                        "\nRun MiMiCPy in the PyMOL environment or verify that PyMol is running seperately at {url}")
+                raise MiMiCPyError(f"Could not connect to PyMOL xmlrpc server at address {url}")
         
         
         super().__init__(cmd, forcelocal, lines)
