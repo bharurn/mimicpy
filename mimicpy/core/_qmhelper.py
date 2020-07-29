@@ -18,7 +18,7 @@ def cleanqdf(qdf):
     columns.extend(['x','y','z'])
     col_to_drop = [l for l in qdf.columns if l not in columns]
     
-    qdf.index = qdf.index.set_names(['id']) # rename index, so it is id when we reset index
+    qdf.index = qdf.index.set_names(['id']) # rename index, so it is id when we reset index in prepare.getInp()
     
     return qdf.drop(col_to_drop, axis=1)
 
