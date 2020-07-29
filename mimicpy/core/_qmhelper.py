@@ -8,7 +8,7 @@ pptop() and getOverlaps_Atoms() adapted from the prepare_qmmm python script by V
 """
 
 from ..parsers import mpt
-from ..utils.constants import bohr_rad
+from ..utils.constants import bohr_rad, hartree_to_ps
 from ..scripts.cpmd import Atom
 from collections import OrderedDict 
 from ..scripts import cpmd
@@ -17,6 +17,9 @@ def cleanqdf(qdf):
     columns = mpt.columns.copy() # copy it otherwise original gets edited    
     columns.extend(['x','y','z'])
     col_to_drop = [l for l in qdf.columns if l not in columns]
+    
+    qdf.index = qdf.index.set_names(['id']) # rename index, so it is id when we reset index in prepare.getInp()
+    
     return qdf.drop(col_to_drop, axis=1)
 
 def index(qmids, name, space_len=6, col_len=15):
@@ -31,6 +34,38 @@ def index(qmids, name, space_len=6, col_len=15):
         index += "{:{}}".format(idx, spaces)
     
     return index
+
+def check_mdp(mdp, nsteps = 1000, dt = 0.0001):
+    
+    if mdp is None:
+        return nsteps, dt/hartree_to_ps, ""
+    
+    mdp_errors = []
+        
+    if not mdp.hasparam('integrator') or mdp.integrator != 'mimic':
+        mdp_errors.append("\tintegrator = mimic not set")
+    
+    if not mdp.hasparam('qmmm_grps') or mdp.qmmm_grps != 'QMatoms':
+        mdp_errors.append("\tQMMM-grps = QMatoms not set")
+        
+    if mdp.hasparam('constraints') and mdp.constraints != 'none':
+        mdp_errors.append("\tMolecule should not be constrained by Gromacs, set constraints = none")
+    
+    if mdp.hasparam('tcoupl') and mdp.tcoupl != 'no':
+        mdp_errors.append("\tTemperature coupling will not be active, set tcoupl = no")
+    
+    if mdp.hasparam('pcoupl') and mdp.pcoupl != 'no':
+        mdp_errors.append("\tPressure coupling will not be active, set pcoupl = no")
+    
+    #check for other errors in mdp file
+    
+    if mdp.hasparam('nsteps'):    
+        nsteps = int(mdp.nsteps)
+    
+    if mdp.hasparam('dt'):    
+        dt = float(mdp.dt)
+    
+    return nsteps, dt/hartree_to_ps, "\n".join(mdp_errors)
 
 def getOverlaps_Atoms(qmatoms, inp):
     """
@@ -77,7 +112,7 @@ def getOverlaps_Atoms(qmatoms, inp):
             if mi[i] == None or c < mi[i]: mi[i] = c
         
     inp.mimic.overlaps = out
-    inp.system = cpmd.Section() # init system section of script
+    if not inp.checkSection('system'): inp.system = cpmd.Section() # init system section of script
     inp.system.poisson__solver__tuckerman = ''
     inp.system.symmetry = 0
 

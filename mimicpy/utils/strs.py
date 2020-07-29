@@ -17,6 +17,11 @@ def f(s):
     return s.format(s, **v)
 
 def clean(txt, comment=None):
-    if comment:
-        txt = re.sub(re.compile(f"{comment}(.*)\n" ) ,"\n" , txt) # strip comments
+    if comment: # can be single string, or list of strings
+        if isinstance(comment, str):
+            comment = [comment]
+        
+        for c in comment:
+            txt = re.sub(re.compile(f"{c}(.*)\n" ) ,"\n" , txt) # strip comments
+            
     return re.sub(re.compile("\n{2,}" ) ,"\n" , txt) # remove double new lines

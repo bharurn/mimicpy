@@ -17,12 +17,21 @@ class Selector:
     def load(self, mpt, gro_file):
         self.mpt = mpt
         self.coords, box = gro.read(gro_file, self.lines)
+        
+        if self.mpt.natms != len(self.coords):
+            raise MiMiCPyError("The no. of atoms in topology and coordinate do not match")
+            
         return box
         
     def select(self, selection):
         """Select MPT atoms and merge with GRO"""
         sele = self.mpt.select(selection)
-        return sele.merge(self.coords, left_on='id', right_on='id')
+        df = sele.merge(self.coords, left_on='id', right_on='id')
+        
+        if df.empty:
+            raise MiMiCPyError("The atoms selected from topology do not exist in the coordinate file")
+        else:
+            return df
 
 ###### Selector using Visualization packages, currently PyMOL and VMD supported
     
@@ -53,7 +62,12 @@ class VisPackage(ABC):
         mpt_sele = self.mpt[sele['id']]    
         # TO DO: check if names/resname, etc. are same and issue warnings accordingly  
         # the corresp. columns from the vis software will have underscore prefix
-        return mpt_sele.merge(sele, left_on='id', right_on='id').set_index(['id'])
+        df = mpt_sele.merge(sele, left_on='id', right_on='id').set_index(['id'])
+        
+        if df.empty:
+            raise MiMiCPyError("The atoms IDs in selected from the visualization software do not exist in the mpt file")
+        else:
+            return df   
     ##
     ######
     
@@ -87,12 +101,15 @@ class PyMOL(VisPackage):
     
     """
     
-    def __init__(self, url='http://localhost:9123', forcelocal=True, lines=500):
+    def __init__(self, url=None, forcelocal=True, lines=500):
         
-        try:
-            # first try importing pymol in the pymol enviornment
-            from pymol import cmd
-        except ImportError:
+        if url is None:
+            try:
+                # first try importing pymol in the pymol enviornment
+                from pymol import cmd
+            except ImportError:
+                raise MiMiCPyError(f"Could not connect to PyMOL, make sure PyMOL is installed")
+        else:
             # if not try connecting by xmlrpc
             cmd = xmlrpclib.ServerProxy(url)
         
@@ -100,8 +117,7 @@ class PyMOL(VisPackage):
             try:
                 cmd.get_view()
             except ConnectionRefusedError:
-                raise MiMiCPyError(f"Could not connect to PyMOL"
-                        "\nRun MiMiCPy in the PyMOL environment or verify that PyMol is running seperately at {url}")
+                raise MiMiCPyError(f"Could not connect to PyMOL xmlrpc server at address {url}")
         
         
         super().__init__(cmd, forcelocal, lines)
@@ -119,19 +135,21 @@ class PyMOL(VisPackage):
         
         sele = self.cmd.get_model(selection, 1)
         
+        params_to_get = ['id', 'symbol', 'name', 'resn', 'resi_number', 'coord']
+        
         if isinstance(sele, dict):
             # sele is dict if using xmlrpc
             # atom key of dict has all we need
-            df = pd.DataFrame(sele['atom'])
+            df_dict = sele['atom']
         else:
             # sele will be chempy.models.Indexed object if using from pymol
             # sele.atom is is a list of chempy.Atom objects, each atom has id, symbol, etc.
             df_dict = defaultdict(list)
-            params_to_get = ['id', 'symbol', 'name', 'resn', 'resi_number', 'coord']
             for a in sele.atom:
                 for i in params_to_get:
                     df_dict[i].append(getattr(a, i))
-            df = pd.DataFrame(df_dict, columns = params_to_get)
+        
+        df = pd.DataFrame(df_dict, columns = params_to_get)
         
         # extract coordinates and covert from ang to nm
         x,y,z = list(zip(*df[['coord']].apply(lambda x: [i/10 for i in x[0]], axis=1)))

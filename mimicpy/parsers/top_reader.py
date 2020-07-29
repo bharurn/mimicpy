@@ -4,6 +4,7 @@ from ..utils.constants import element_names
 from .._global import _Global as gbl
 from .parser import Parser
 from ..utils.errors import ParserError
+from ..utils.strs import clean
 
 include_file_regex = re.compile(r"#include\s+[\"\'](.+)\s*[\"\']", re.MULTILINE)
  
@@ -45,10 +46,6 @@ def parseBlocktillSection(file, *sections):
         
     return itp_txt
 
-def cleanText(txt):
-    from ..utils.strs import clean
-    return clean(txt, ';')
-        
 def molecules(tail):    
     _mols = []
     
@@ -65,7 +62,7 @@ def molecules(tail):
 def atomtypes(itp_file, buff):
     
     file = Parser(itp_file, buff)
-    itp_txt = cleanText(parseBlocktillSection(file, 'atomtypes'))
+    itp_txt = clean(parseBlocktillSection(file, 'atomtypes'), ';')
     
     atomtypes_txt = getSection('atomtypes', itp_txt)
     
@@ -131,7 +128,7 @@ class ITPParser:
         if itp_text == None:
             itp_text = self.read(file_name)
         
-        itp_text = cleanText(itp_text)
+        itp_text = clean(itp_text, [';', '#'])
         mol_section = getSection('moleculetype', itp_text)
         atom_section = getSection('atoms', itp_text)
         
@@ -177,9 +174,14 @@ class ITPParser:
                 mass_int = int(mass)
                 
                 if mass_int <= 0:
-                    raise ParserError(file=file_name, ftype="topolgy", \
-                        extra=(f"Cannot guess atomic symbol for atom with name {name} and type {_type} in residue {res} as mass"
-                                             "information is not available from the force field"))
+                    if name in element_names:
+                        elem = name
+                    elif  _type in element_names:
+                        _type = name
+                    else:
+                        raise ParserError(file=file_name, ftype="topolgy", \
+                        extra=(f"Cannot guess atomic symbol for atom with name {name} and type {_type} in residue {res} as mass "
+                                             "information is not available from the force field and name/type is unknown"))
                 # guess atomic no from mass
                 # works well if no isotopes present
                 
