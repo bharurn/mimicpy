@@ -60824,7 +60824,7 @@ Protein             3
 
 ; Include Position restraint file
 #ifdef POSRES
-#include "posre.itp"
+;#include "posre.itp"
 #endif
 
 ; Include water topology

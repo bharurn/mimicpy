@@ -1,7 +1,7 @@
 #include "gromos53a6.ff/forcefield.itp"
 ; Include Position restraint file
 #ifdef POSRES
-#include "posre.itp"
+;#include "posre.itp"
 #endif
 
 ; Include DPPC chain topology
