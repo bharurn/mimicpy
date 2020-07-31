@@ -7,11 +7,17 @@ import pandas as pd
 class Gro:
     ''' reads gro files '''
 
-    def __init__(self, file):
+    def __init__(self, file, mode='r'):
         self.file = file
+        if mode == 'r':
+            self.coords, self.box = self.__read()
+        elif mode == 'w':
+            pass
+        else: # Raise Exception
+            pass
 
 
-    def read(self, buffer=1000):
+    def __read(self, buffer=1000):
         ''' reads coordinates and box dimensions '''
 
         def mapped(value):
@@ -66,3 +72,11 @@ class Gro:
         box = box.tolist()
 
         return coords, box
+
+
+    def get_coords(self):
+        return self.coords
+
+
+    def get_box(self):
+        return self.box

@@ -29,6 +29,12 @@ class TopolDict:
     def __init__(self, dict_df, repeating):
         self.dict_df = dict_df
         self.repeating = repeating
+        
+    def keys(self):
+        restore = self.dict_df.copy()
+        restore.update(self.repeating)
+        all_keys = restore.keys()
+        return all_keys
 
 
     def __getitem__(self, key):

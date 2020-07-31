@@ -50,3 +50,6 @@ def test_4aj3():
     mol_list, topol_dict = top.read()
     
     assert mol_list==[('Protein', 1), ('NAP', 1), ('ICT', 1), ('SOL', 47708), ('NA', 18), ('SOL', 18)]
+    assert set(topol_dict.keys()) == {'Protein', 'NAP', 'ICT', 'SOL', 'NA', 'SOL'}
+    assert set(topol_dict['NAP']['element']) == {'C', 'H', 'O', 'N', 'P'}
+    assert set(topol_dict['ICT']['element']) == {'C', 'H', 'O'}

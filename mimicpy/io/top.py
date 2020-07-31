@@ -6,8 +6,14 @@ from .topol_dict import TopolDict
 class Top:
     ''' reads top files '''
 
-    def __init__(self, file):
+    def __init__(self, file, mode='r'):
         self.file = file
+        if mode == 'r':
+            self.coords, self.box = self.__read()
+        elif mode == 'w':
+            pass
+        else: # Raise Exception
+            pass
 
 
     def read(self, buffer=1000, nonstandard_atom_types=None):
@@ -41,15 +47,14 @@ class Top:
         if nonstandard_atom_types is not None:
             atom_types.update(nonstandard_atom_types)
 
-        atoms = []
+        atoms = {}
 
         for itp in topology_files:
             itp = Itp(itp)
             atom_info = itp.read(molecule_types, atom_types, buffer)
             if atom_info:
-                atoms.append(atom_info)
+                atoms.update(atom_info)
 
-        atoms = [a[0] for a in atoms]
-        topol_dict = TopolDict.from_dict(dict(zip(molecule_types, atoms)))
+        topol_dict = TopolDict.from_dict(atoms)
 
         return molecules, topol_dict
