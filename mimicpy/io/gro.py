@@ -11,8 +11,8 @@ class Gro:
         self.file = file
         self.mode = mode
         self.buffer = buffer
-        self.coords = None
-        self.box = None
+        self._coords = None
+        self._box = None
         if mode == 'r':
             self.__read()
         elif mode == 'w':
@@ -72,21 +72,21 @@ class Gro:
         coords = pd.DataFrame(coords.reshape(number_of_atoms, number_of_rows), columns=cols)
         coords['id'] = coords.index.to_numpy()+1
 
-        self.coords = coords.set_index(['id'])
-        self.box = box.tolist()
+        self._coords = coords.set_index(['id'])
+        self._box = box.tolist()
 
-
-    def get_coords(self):
+    @property
+    def coords(self):
         if self.mode == 'r':
-            return self.coords
+            return self._coords
         self.mode = 'r'
         self.__read()
-        return self.coords
+        return self._coords
 
-
-    def get_box(self):
+    @property
+    def box(self):
         if self.mode == 'r':
-            return self.box
+            return self._box
         self.mode = 'r'
         self.__read()
-        return self.box
+        return self._box
