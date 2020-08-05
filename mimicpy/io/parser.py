@@ -1,21 +1,26 @@
-''' Module for generic file parser '''
+""" Module for generic file parser """
+
 
 class Parser:
-    ''' implements methods for iterable objects '''
+    """ implements methods for iterable objects """
 
-    def __init__(self, file, buffer):
+    def __init__(self, file, buffer=1000):
         self.file = open(file, 'rb')
         self.buffer = buffer
         self.is_closed = False
 
+
     def __iter__(self):
         return self
+
 
     def __next__(self):
         return self._next()
 
+
     def __del__(self):
         self._del()
+
 
     def _next(self):
         if self.is_closed:
@@ -25,6 +30,7 @@ class Parser:
             self._del()
             raise StopIteration()
         return out.decode()
+
 
     def _del(self):
         self.is_closed = True

@@ -1,15 +1,15 @@
-''' Module for itp files '''
+""" Module for itp files """
 
+from os.path import dirname
 import re
 import pandas as pd
-from os.path import dirname
 from .parser import Parser
 from ..utils.strs import clean
 from ..utils.elements import elements
 
 
 class Itp:
-    ''' reads itp files '''
+    """ reads itp files """
 
     columns = ['number', 'type', 'resid', 'resname', 'name', 'charge', 'element', 'mass']
 
@@ -19,16 +19,16 @@ class Itp:
 
     @staticmethod
     def section_is_in_string(section, string):
-        if section == '*': # why?
+        if section == '*':  # Why?
             section = ''
         return bool('[' in string and ']' in string and section in string)
 
 
     @staticmethod
     def get_section(section, string, comments=';'):
-        # clean string
-        # find text b/w [ section ] and either [ or # or EOF
-        # look for [ section ] / look for lines / look for optional spaces and [ or #
+        # Clean string
+        # Find text b/w [ section ] and either [ or # or EOF
+        # Look for [ section ] / look for lines / look for optional spaces and [ or #
         string = clean(string, comments)
         section_regex = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)\s*(?:$|\[|#)", re.MULTILINE)
         section = section_regex.findall(string)
@@ -51,7 +51,7 @@ class Itp:
             part_of_itp += chunk
             sections_in_chunk = get_section_headers(chunk)
             read_sections += sections_in_chunk
-            # all wanted section headers have been passed and last section has been read completely
+            # All wanted section headers have been passed and last section has been read completely
             if set(sections).issubset(read_sections) and read_sections[-1] != sections[-1]:
                 break
 
@@ -93,8 +93,8 @@ class Itp:
                     return atom_types
 
             return {}
-        else:
-            atomtypes_section = atomtypes_section[0]
+
+        atomtypes_section = atomtypes_section[0]
 
         atom_types = {}
 
@@ -103,7 +103,7 @@ class Itp:
             atom_type = line[0]
             atom_number = line[1]
             if not atom_number.isnumeric():
-                # raise Exception
+                # Raise exception
                 continue
             atom_types[atom_type] = elements[int(atom_number)]
 
@@ -112,18 +112,25 @@ class Itp:
 
     def read(self, requested_molecules, atom_types, buffer=1000):
 
-        def guess_element_from(mass, name, atom_type): # Make a huge fuss about guessing elements
-                mass_int = int(mass)
-                
-                if mass_int <= 0:
-                    if name in elements:
-                        elem = name
-                    elif  atom_type in elements:
-                        atom_type = name
-                if mass_int<=1: elem = 'H' # for H
-                elif mass_int<36: elem = elements[mass_int//2] # He to Cl
-                else: elem = name.title() # from Ar onwards, assume name same as symbol, case insensitive
-                return elem
+        def guess_element_from(mass, name, atom_type):  # Make a huge fuss about guessing elements
+            mass_int = int(mass)
+
+            if mass_int <= 0:  # Cannot guess from mass
+                if name in elements.values():  # Guess from atom name
+                    element = name
+                elif atom_type in elements.values():  # Guess from atom type
+                    element = atom_type
+
+            elif mass_int <= 1:  # Guess H from mass
+                element = 'H'
+
+            elif mass_int < 36:  # Guess He to Cl from mass
+                element = elements[mass_int//2]
+
+            else:  # Assume name is element symbol from Ar onwards
+                element = name.title()  # Case insensitive
+
+            return element
 
         def read_atoms(atom_section):
             cols = self.columns
@@ -136,7 +143,7 @@ class Itp:
                 elif len(line) == 7:
                     number, atom_type, resid, resname, name, _, charge = line[:7]
                     mass = 0
-                else: # Give warning
+                else:  # Give warning
                     pass
 
                 number = int(number)
@@ -147,7 +154,7 @@ class Itp:
                 if atom_type in atom_types:
                     element = atom_types[atom_type]
                 else:
-                    element = guess_element_from(mass, name, atom_type )
+                    element = guess_element_from(mass, name, atom_type)
 
                 atom_info[cols[0]].append(number)
                 atom_info[cols[1]].append(atom_type)
@@ -177,6 +184,6 @@ class Itp:
             if mol not in requested_molecules:
                 continue
             molecules.append(mol)
-            atom_infos.append(read_atoms(atoms))        
+            atom_infos.append(read_atoms(atoms))
 
         return dict(zip(molecules, atom_infos))

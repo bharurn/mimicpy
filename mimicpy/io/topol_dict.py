@@ -1,11 +1,12 @@
-''' Module for MiMiCPy-specific molecule:topology dictionary '''
+""" Module for MiMiCPy-specific molecule:topology dictionary """
+
 
 class TopolDict:
-    ''' provides a dictionary with non-repeating topology information '''
+    """ provides a dictionary with non-repeating topology information """
 
     @classmethod
     def from_dict(cls, dict_df):
-        ''' creates a TopolDict from a standard dictionary '''
+        """ creates a TopolDict from a standard dictionary """
 
         keys = list(dict_df.keys())
         repeating = {}
@@ -29,12 +30,6 @@ class TopolDict:
     def __init__(self, dict_df, repeating):
         self.dict_df = dict_df
         self.repeating = repeating
-        
-    def keys(self):
-        restore = self.dict_df.copy()
-        restore.update(self.repeating)
-        all_keys = restore.keys()
-        return all_keys
 
 
     def __getitem__(self, key):
@@ -58,3 +53,10 @@ class TopolDict:
 
     def __repr__(self):
         return repr(self.__getall__())
+
+
+    def keys(self):
+        restore = self.dict_df.copy()
+        restore.update(self.repeating)
+        all_keys = restore.keys()
+        return all_keys

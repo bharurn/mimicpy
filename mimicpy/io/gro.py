@@ -1,24 +1,27 @@
-''' Module for gro files '''
+""" Module for gro files """
 
 import numpy as np
 import pandas as pd
 
 
 class Gro:
-    ''' reads gro files '''
+    """ reads gro files """
 
-    def __init__(self, file, mode='r'):
+    def __init__(self, file, mode='r', buffer=1000):
         self.file = file
+        self.mode = mode
+        self.buffer = buffer
+        self.coords = None
+        self.box = None
         if mode == 'r':
-            self.coords, self.box = self.__read()
+            self.__read()
         elif mode == 'w':
             pass
-        else: # Raise Exception
+        else:  # Raise exception
             pass
 
-
     def __read(self, buffer=1000):
-        ''' reads coordinates and box dimensions '''
+        """ reads coordinates and box dimensions """
 
         def mapped(value):
             if value.isnumeric():
@@ -43,7 +46,7 @@ class Gro:
                 cols = ['x', 'y', 'z']
             elif number_of_rows == 6:
                 cols = ['x', 'y', 'z', 'v_x', 'v_y', 'v_z']
-            else: # raise exception
+            else:  # Raise exception
                 pass
 
             values = string_to_array(first_atom_line)
@@ -63,20 +66,27 @@ class Gro:
             elif len(values) == expected_len+3:
                 coords = values[:-3]
                 box = values[-3:]
-            else: #raise exception
+            else:  # Raise exception
                 pass
 
         coords = pd.DataFrame(coords.reshape(number_of_atoms, number_of_rows), columns=cols)
         coords['id'] = coords.index.to_numpy()+1
-        coords = coords.set_index(['id'])
-        box = box.tolist()
 
-        return coords, box
+        self.coords = coords.set_index(['id'])
+        self.box = box.tolist()
 
 
     def get_coords(self):
+        if self.mode == 'r':
+            return self.coords
+        self.mode = 'r'
+        self.__read()
         return self.coords
 
 
     def get_box(self):
+        if self.mode == 'r':
+            return self.box
+        self.mode = 'r'
+        self.__read()
         return self.box
