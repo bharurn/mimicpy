@@ -82,10 +82,3 @@ class Top:
         self.mode = 'r'
         self.__read()
         return self.topol_dict
-
-    def get_info(self):
-        if self.mode == 'r':
-            return self.molecules, self.topol_dict
-        self.mode = 'r'
-        self.__read()
-        return self.molecules, self.topol_dict

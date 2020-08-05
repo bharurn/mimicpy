@@ -20,7 +20,7 @@ class Gro:
         else:  # Raise exception
             pass
 
-    def __read(self, buffer=1000):
+    def __read(self):
         """ reads coordinates and box dimensions """
 
         def mapped(value):
@@ -39,7 +39,7 @@ class Gro:
             f.readline()
             number_of_atoms = int(f.readline().decode())
             first_atom_line = f.readline().decode()
-            buffered_lines = len(first_atom_line) * buffer
+            buffered_lines = len(first_atom_line) * self.buffer
 
             number_of_rows = len(first_atom_line.split()) - 3
             if number_of_rows == 3:
@@ -54,7 +54,7 @@ class Gro:
 
             while i < number_of_atoms:
                 string = f.read(buffered_lines).decode()
-                i += buffer
+                i += self.buffer
                 values = np.append(values, string_to_array(string))
 
             values = values[~np.isnan(values)]
