@@ -13,8 +13,8 @@ def test_dppc():
     
     top = Top('dppc/topol.top')
 #    mol_list, topol_dict = top.read()
-    mol_list = top.get_molecules()
-    topol_dict = top.get_topol_dict()
+    mol_list = top.molecules
+    topol_dict = top.topol_dict
  #   mol_list, topol_dict = mimicpy.parsers.top.read('dppc/topol.top', guess_elems=False)
     
     files = ['topol.top', 'gromos53a6.ff/forcefield.itp', 'gromos53a6.ff/ffnonbonded.itp', 'dppc.itp', 'gromos53a6.ff/spc.itp']
@@ -49,7 +49,7 @@ def test_4aj3():
     assert "Cannot determine atomic symbol for atom with name C6N and type NAP_CA in residue NAP" in str(e.value) 
    
     top = Top('4aj3/topol.top', mode='w')
-    mol_list, topol_dict = top.get_molecules(), top.get_topol_dict()
+    mol_list, topol_dict = top.molecules, top.topol_dict
     
     assert mol_list==[('Protein', 1), ('NAP', 1), ('ICT', 1), ('SOL', 47708), ('NA', 18), ('SOL', 18)]
     assert set(topol_dict.keys()) == {'Protein', 'NAP', 'ICT', 'SOL', 'NA', 'SOL'}

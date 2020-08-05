@@ -13,8 +13,8 @@ class Top:
         self.mode = mode
         self.buffer = buffer
         self.nonstandard_atom_types = nonstandard_atom_types
-        self.molecules = None
-        self.topol_dict = None
+        self._molecules = None
+        self._topol_dict = None
         if mode == 'r':
             self.__read()
         elif mode == 'w':
@@ -64,21 +64,22 @@ class Top:
 
         topol_dict = TopolDict.from_dict(atoms)
 
-        self.molecules = molecules
-        self.topol_dict = topol_dict
+        self._molecules = molecules
+        self._topol_dict = topol_dict
 
 
-    def get_molecules(self):
+    @property
+    def molecules(self):
         if self.mode == 'r':
-            return self.molecules
+            return self._molecules
         self.mode = 'r'
         self.__read()
-        return self.molecules
+        return self._molecules
 
-
-    def get_topol_dict(self):
+    @property
+    def topol_dict(self):
         if self.mode == 'r':
-            return self.topol_dict
+            return self._topol_dict
         self.mode = 'r'
         self.__read()
-        return self.topol_dict
+        return self._topol_dict
