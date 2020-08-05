@@ -64,7 +64,7 @@ class Gro:
         expected_len = number_of_atoms * number_of_rows
         if len(values) == expected_len:
             coords = values
-            box = f.readline().decode().split()
+            box = f.readline().split()
         elif len(values) == expected_len+3:
             coords = values[:-3]
             box = values[-3:]
