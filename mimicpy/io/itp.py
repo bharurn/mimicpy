@@ -13,19 +13,50 @@ class Itp:
 
     columns = ['number', 'type', 'resid', 'resname', 'name', 'charge', 'element', 'mass']
 
-    def __init__(self, file):
+    def __init__(self, file, requested_molecules=None, atom_types=None, buffer=1000, mode='r'):
         self.file = file
+        self.requested_molecules = requested_molecules
+        self.atom_types_dict = atom_types
+        self.buffer = 1000
+        self.mode = mode
+        
+        self._topol = None
+        
+        self._topology_files = None
+        self._molecules = None
+        
+        if mode == 'r':
+            self.__read()
+        elif mode == 'w':
+            pass
+        elif mode == 't': # as topol.top
+            self.__read_as_topol()
+        else:  # Raise exception
+            pass
+    
+    ### Static Helper Methods
+    #
+    @staticmethod
+    def __get_molecules(topology):
+        molecules = []
 
+        for line in topology.splitlines()[::-1]:
+            if Itp.__section_is_in_string('molecules', line):
+                break
+            if line.strip() == '' or line.startswith(';'):
+                continue
+            molecule_name, number_of_molecules = line.split()
+            molecules += [(molecule_name, int(number_of_molecules))]
+
+        return molecules[::-1]
 
     @staticmethod
-    def section_is_in_string(section, string):
-        if section == '*':  # Why?
-            section = ''
+    def __section_is_in_string(section, string):
         return bool('[' in string and ']' in string and section in string)
 
 
     @staticmethod
-    def get_section(section, string, comments=';'):
+    def __get_section(section, string, comments=';'):
         # Clean string
         # Find text b/w [ section ] and either [ or # or EOF
         # Look for [ section ] / look for lines / look for optional spaces and [ or #
@@ -36,9 +67,9 @@ class Itp:
 
 
     @staticmethod
-    def parse_block_till_section(itp, *sections, comments=[';', '#']):
+    def __parse_block_till_section(itp, *sections, comments=[';', '#']):
 
-        def get_section_headers(string):
+        def __get_section_headers(string):
             string = clean(string, comments)
             section_header_regex = re.compile(fr"\[\s*(.*?)\s*\]", re.MULTILINE)
             section_headers = section_header_regex.findall(string)
@@ -49,46 +80,47 @@ class Itp:
 
         for chunk in itp:
             part_of_itp += chunk
-            sections_in_chunk = get_section_headers(chunk)
+            sections_in_chunk = __get_section_headers(chunk)
             read_sections += sections_in_chunk
             # All wanted section headers have been passed and last section has been read completely
             if set(sections).issubset(read_sections) and read_sections[-1] != sections[-1]:
                 break
 
         return part_of_itp
-
-
-    def load_molecules_and_atoms(self, buffer=1000):
-        itp_file = Parser(self.file, buffer)
+    
+    ##Non static Helper Methods -- These use self.file and/or self.buffer
+    #
+    def __load_molecules_and_atoms(self):
+        itp_file = Parser(self.file, self.buffer)
         itp_text = ''
 
         while not itp_file.is_closed:
-            block = self.parse_block_till_section(itp_file, 'moleculetype', 'atoms')
-            if any([self.section_is_in_string(section, block) for section in ['moleculetype', 'atoms']]):
+            block = self.__parse_block_till_section(itp_file, 'moleculetype', 'atoms')
+            if any([self.__section_is_in_string(section, block) for section in ['moleculetype', 'atoms']]):
                 itp_text += block
 
         return itp_text
 
-
-    def get_included_topology_files(self, string, comments=';'):
+    def __get_included_topology_files(self, string, comments=';'):
         string = clean(string, comments)
         include_file_regex = re.compile(r"#include\s+[\"\'](.+)\s*[\"\']", re.MULTILINE)
         included_itps = include_file_regex.findall(string)
         included_itps = [(dirname(self.file) + '/' + itp) for itp in included_itps]
         return included_itps
-
-
-    def get_atomtypes(self, buffer=1000):
-        itp_file = Parser(self.file, buffer)
-        itp_text = self.parse_block_till_section(itp_file, 'atomtypes')
-        atomtypes_section = self.get_section('atomtypes', itp_text)
+    
+    ### Read functions
+    #
+    def __read_atomtypes(self):
+        itp_file = Parser(self.file, self.buffer)
+        itp_text = self.__parse_block_till_section(itp_file, 'atomtypes')
+        atomtypes_section = self.__get_section('atomtypes', itp_text)
 
         if atomtypes_section == []: # What if atomtypes are in several itps?
-            included_itps = self.get_included_topology_files(itp_text)
+            included_itps = self.__get_included_topology_files(itp_text)
 
             for included_itp in included_itps:
                 itp = Itp(included_itp)
-                atom_types = itp.get_atomtypes(buffer=buffer)
+                atom_types = itp.__read_atomtypes()
                 if atom_types != {}:
                     return atom_types
 
@@ -108,9 +140,11 @@ class Itp:
             atom_types[atom_type] = elements[int(atom_number)]
 
         return atom_types
-
-
-    def read(self, requested_molecules, atom_types, buffer=1000):
+    
+    def __read(self):
+        
+        if self.atom_types_dict is None or self.requested_molecules is None:
+            pass # raise MiMiCPyError
 
         def guess_element_from(mass, name, atom_type):  # Make a huge fuss about guessing elements
             mass_int = int(mass)
@@ -151,8 +185,8 @@ class Itp:
                 charge = float(charge)
                 mass = float(mass)
 
-                if atom_type in atom_types:
-                    element = atom_types[atom_type]
+                if atom_type in self.atom_types_dict:
+                    element = self.atom_types_dict[atom_type]
                 else:
                     element = guess_element_from(mass, name, atom_type)
 
@@ -168,9 +202,9 @@ class Itp:
             atoms = pd.DataFrame(atom_info).set_index(cols[0])
             return atoms
 
-        itp_text = self.load_molecules_and_atoms(buffer)
-        molecule_section = self.get_section('moleculetype', itp_text)
-        atom_section = self.get_section('atoms', itp_text, comments=[';', '#'])
+        itp_text = self.__load_molecules_and_atoms()
+        molecule_section = self.__get_section('moleculetype', itp_text)
+        atom_section = self.__get_section('atoms', itp_text, comments=[';', '#'])
 
         if molecule_section == [] and atom_section == []:
             return None
@@ -181,9 +215,53 @@ class Itp:
         for molecule, atoms in zip(molecule_section, atom_section):
 
             mol = molecule.split()[0]
-            if mol not in requested_molecules:
+            if mol not in self.requested_molecules:
                 continue
             molecules.append(mol)
             atom_infos.append(read_atoms(atoms))
 
-        return dict(zip(molecules, atom_infos))
+        self._topol = dict(zip(molecules, atom_infos))
+    
+    def __read_as_topol(self):
+        top_parser = Parser(self.file)
+        topology = ''.join(top_parser)
+
+        self._molecules = self.__get_molecules(topology)
+
+        self._topology_files = self.__get_included_topology_files(topology)
+        self._topology_files.append(self.file)
+
+    ###Property getters
+    #
+    @property
+    def topol(self):
+        if self.mode == 'r':
+            return self._topol
+        
+        self.mode = 'r'
+        self.__read()
+        return self._topol
+    
+    @property
+    def molecules(self):
+        if self.mode == 't':
+            return self._molecules
+        
+        self.mode = 't'
+        self.__read_as_topol()
+        return self._molecules
+    
+    @property
+    def topology_files(self):
+        if self.mode == 't':
+            return self._topology_files
+        
+        self.mode = 't'
+        self.__read_as_topol()
+        return self._topology_files
+    
+    @property
+    def atom_types(self):
+        return self.__read_atomtypes()
+    #
+    ###

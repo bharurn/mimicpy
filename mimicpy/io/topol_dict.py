@@ -3,7 +3,7 @@
 
 class TopolDict:
     """ provides a dictionary with non-repeating topology information """
-
+    
     @classmethod
     def from_dict(cls, dict_df):
         """ creates a TopolDict from a standard dictionary """
@@ -28,6 +28,9 @@ class TopolDict:
 
 
     def __init__(self, dict_df, repeating):
+        # check columns to make sure it is correct
+        # raise Error if not
+        
         self.dict_df = dict_df
         self.repeating = repeating
 
