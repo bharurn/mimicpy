@@ -21,6 +21,7 @@ class Gro:
         else:  # Raise exception
             pass
 
+
     def __read(self):
         """ reads coordinates and box dimensions """
 
@@ -77,6 +78,7 @@ class Gro:
         self._coords = coords.set_index(['id'])
         self._box = box.tolist()
 
+
     @property
     def coords(self):
         if self.mode == 'r':
@@ -84,6 +86,7 @@ class Gro:
         self.mode = 'r'
         self.__read()
         return self._coords
+
 
     @property
     def box(self):

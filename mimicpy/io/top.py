@@ -55,6 +55,7 @@ class Top:
         self.__read()
         return self._molecules
 
+
     @property
     def topol_dict(self):
         if self.mode == 'r':
