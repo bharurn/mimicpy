@@ -14,7 +14,7 @@ class Top:
         self.nonstandard_atom_types = nonstandard_atom_types
         self._molecules = None
         self._topol_dict = None
-        
+
         if mode == 'r':
             self.__read()
         elif mode == 'w':
@@ -25,21 +25,20 @@ class Top:
 
     def __read(self):
         """ reads molecule and atom information """
-        
+
         top = Itp(self.file, mode='t')
-        
         atom_types = top.atom_types
-        
+
         if self.nonstandard_atom_types is not None:
             atom_types.update(self.nonstandard_atom_types)
 
         atoms = {}
-        
-        molecule_types = [m[0] for m in top.molecules]
+        molecule_types = top.molecule_types
 
         for itp in top.topology_files:
             itp = Itp(itp, molecule_types, atom_types, self.buffer)
-            if itp.topol != None: atoms.update(itp.topol)
+            if itp.topol is not None:
+                atoms.update(itp.topol)
 
         topol_dict = TopolDict.from_dict(atoms)
 
