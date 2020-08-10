@@ -14,6 +14,7 @@ class Gro:
         self.buffer = buffer
         self._coords = None
         self._box = None
+
         if mode == 'r':
             self.__read()
         elif mode == 'w':
@@ -37,15 +38,15 @@ class Gro:
         def string_to_array(string):
             return np.array(list(map(mapped, string.split())))
 
-        f = Parser(self.file)
-        
-        f.readline()
-        number_of_atoms = int(f.readline())
-        first_atom_line = f.readline()
-        f.buffer = len(first_atom_line) * self.buffer
+        gro = Parser(self.file)
+
+        gro.readline()
+        number_of_atoms = int(gro.readline())
+        first_atom_line = gro.readline()
+        gro.buffer = len(first_atom_line) * self.buffer
 
         number_of_rows = len(first_atom_line.split()) - 3
-        
+
         if number_of_rows == 3:
             cols = ['x', 'y', 'z']
         elif number_of_rows == 6:
@@ -54,18 +55,16 @@ class Gro:
             pass
 
         values = string_to_array(first_atom_line)
-        i = 0
 
-        for string in f:
-           i += self.buffer
-           values = np.append(values, string_to_array(string))
+        for string in gro:
+            values = np.append(values, string_to_array(string))
 
         values = values[~np.isnan(values)]
 
         expected_len = number_of_atoms * number_of_rows
         if len(values) == expected_len:
             coords = values
-            box = f.readline().split()
+            box = gro.readline().split()
         elif len(values) == expected_len+3:
             coords = values[:-3]
             box = values[-3:]

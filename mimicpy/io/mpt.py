@@ -1,7 +1,10 @@
+""" Module for MiMiCPy-specific topology """
+
 import xdrlib
 import pandas as pd
 import numpy as np
 from .top import Top
+from .itp import Itp
 from .topol_dict import TopolDict
 from .._global import _Global as gbl
 from ..utils.errors import SelectionError, MiMiCPyError
@@ -11,7 +14,6 @@ ENCODER = 'utf-8'
 
 
 def _get_itp_columns():
-    from .itp import Itp
     columns = Itp.columns.copy()
     return columns
 
@@ -24,6 +26,10 @@ def _get_mpt_columns():
 
 
 class Mpt:
+    """ provides static methods for topology-specific xdr packing/unpacking,
+        class methods to create new Mpt objects from top or mpt files,
+        public methods for atom selection, writing and closing mpt files
+    """
 
     columns = _get_mpt_columns()
 
@@ -32,6 +38,7 @@ class Mpt:
         self.topol_dict = topol_dict
         self._expanded_data = None
         self._number_of_atoms = None
+
         if mode == 'r':
             self.__generate_data()
         elif mode == 'w':
@@ -42,14 +49,13 @@ class Mpt:
 
     @staticmethod
     def __pack_strlist(packer, lst):
-        """ Pack list of strings as comma seperated string """
         s = ",".join(lst).encode(ENCODER)
         packer.pack_string(s)
 
 
     @staticmethod
     def __pack_df(packer, df):
-        packer.pack_list(df.index.to_list(), packer.pack_int)
+        packer.pack_list(df.index.to_list(), packer.pack_int)  # Pack index
         for i, col in enumerate(df.columns):
             lst = df[col].to_list()
             if i in [0, 2, 3, 5]:  # Pack string columns, .i.e, atom name, type, resname, etc.
@@ -62,7 +68,7 @@ class Mpt:
 
     @staticmethod
     def __pack_topol_dict(packer, topol_dict):
-        #  Pack repearting dict
+        #  Pack repeating dict
         Mpt.__pack_strlist(packer, topol_dict.repeating.keys())
         Mpt.__pack_strlist(packer, topol_dict.repeating.values())
 
@@ -78,7 +84,7 @@ class Mpt:
 
 
     @staticmethod
-    def unpack_df(unpacker):
+    def __unpack_df(unpacker):
         lst1 = unpacker.unpack_list(unpacker.unpack_int)  # Unpack atom number list
         lst2 = Mpt.__unpack_strlist(unpacker)  # Unpack atom types list
         lst3 = unpacker.unpack_list(unpacker.unpack_int)  # Unpack resid list
@@ -108,7 +114,7 @@ class Mpt:
                 mol = unpacker.unpack_string().decode(ENCODER)
             except EOFError:
                 break
-            df = Mpt.unpack_df(unpacker)
+            df = Mpt.__unpack_df(unpacker)
             dict_df[mol] = df
 
         return TopolDict(dict_df, repeating)
@@ -116,6 +122,7 @@ class Mpt:
 
     @classmethod
     def from_top(cls, top_file, mode='r', buffer=1000, nonstandard_atom_types=None):
+        """ Create a Mpt object from a top file """
         top = Top(top_file, mode=mode, buffer=buffer, nonstandard_atom_types=nonstandard_atom_types)
         molecules = top.molecules
         topol_dict = top.topol_dict
@@ -124,6 +131,7 @@ class Mpt:
 
     @classmethod
     def from_mpt(cls, file):
+        """ Create a Mpt object from an excisting mpt file """
         unpacker = xdrlib.Unpacker(gbl.host.read(file, asbytes=True))
         molecule_names = Mpt.__unpack_strlist(unpacker)
         number_of_molecules = unpacker.unpack_list(unpacker.unpack_int)
@@ -134,8 +142,8 @@ class Mpt:
 
     def __getitem__(self, key):
         """ Select an atom by passing the atom ID to key.
-            Atom ID can be a single int, list or a slice. The indexing starts from 1.
-            If a string is passed as key then that property is returned.
+            Atom ID can be a single int, list, or a slice. The indexing starts from 1.
+            If a string is passed as key, then that property is returned.
         """
 
         if isinstance(key, str):
@@ -205,76 +213,76 @@ class Mpt:
         return resn_list
 
 
-    def __translate(self, selection):
+    def __translate(self, selection):  # Maybe use state pattern
         """ Tanslate selection langauge to numpy boolean.
-            Selection eg., resname is SER and id < 25 and mol not Protein_chain_B
-            will be translated to np_vals['resname'] == 'SER' and np_vals['id'] < 25 and np_vals['mol'] != 'Protein_chain_B'
+            Selection 'resname is SER and id < 25 and mol not Protein_chain_B'
+            will be translated to
+            np_vals['resname'] == 'SER' and np_vals['id'] < 25 and np_vals['mol'] != 'Protein_chain_B'
          """
 
         add_space = lambda string, a: string.replace(a, f' {a} ')
         selection = add_space(add_space(selection, '('), ')')
 
-        ev = ''
-        i = 0
-        n_brack = 0
-        keys = []
+        np_selection_expression = ''
+        word_position = 0
+        open_brackets = 0
+        selectors = []
         for s in selection.split():
-            if i == 0:
+            if word_position == 0:
                 if s in self.columns or s == 'id':
-                    ev += f"(np_vals['{s}']"
-                    keys.append(s)
+                    np_selection_expression += f"(np_vals['{s}']"
+                    selectors.append(s)
                 elif s == '(':
-                    ev += s
-                    i = -1
-                    n_brack += 1
+                    np_selection_expression += s
+                    word_position = -1
+                    open_brackets += 1
                 else:
                     raise SelectionError(f"{s} is not a valid selection keyword")
 
-            elif i == 1:
+            elif word_position == 1:
                 if s == 'is':
-                    ev += '=='
+                    np_selection_expression += '=='
                 elif s == 'not':
-                    ev += '!='
+                    np_selection_expression += '!='
                 elif s == '>' or s == '>=' or s == '<' or s == '<=':
-                    ev += s
+                    np_selection_expression += s
                 else:
                     raise SelectionError(f"{s} is not a valid logical operator")
 
-            elif i == 2:
+            elif word_position == 2:
                 if s.isnumeric():
-                    ev += f"{s})"
+                    np_selection_expression += f"{s})"
                 else:
-                    ev += f"'{s}')"
+                    np_selection_expression += f"'{s}')"
 
-            elif i == 3:
-                # If and' or 'or' encountered, reset i to -1
-                # if ) encpuntered, reset i to 2 to parse 'and' or 'or' again
+            elif word_position == 3:
+                # If and' or 'or' encountered, reset word_position to -1
+                # if ) encpuntered, reset word_position to 2 to parse 'and' or 'or' again
                 if s == 'or':
-                    ev += f' | '
-                    i = -1
+                    np_selection_expression += f' | '
+                    word_position = -1
                 elif s == 'and':
-                    ev += f' & '
-                    i = -1
+                    np_selection_expression += f' & '
+                    word_position = -1
                 elif s == ')':
-                    ev += ')'
-                    i = 2
-                    n_brack -= 1
+                    np_selection_expression += ')'
+                    word_position = 2
+                    open_brackets -= 1
                 else:
                     raise SelectionError(f"{s} is not a valid boolean operator")
 
-            i += 1
+            word_position += 1
 
-        # Check brackets
-        if n_brack > 0:
+        if open_brackets > 0:
             raise SelectionError("Missing closing bracket is selection")
-        if n_brack < 0:
+        if open_brackets < 0:
             raise SelectionError("Missing open bracket is selection")
 
-        # return the translated string and the keywords used
-        return ev, keys
+        return np_selection_expression, selectors
 
 
-    def select(self, selection):
+    def select(self, selection):  # Maybe move to a new module
+        """ Select atoms based on selection language expression """
         if selection is None or selection.strip() == '':
             raise SelectionError("The selection cannot be empty")
 
@@ -326,6 +334,6 @@ class Mpt:
         gbl.host.write(packer.get_buffer(), file_name, asbytes=True)
 
 
-    def close(self):
+    def close(self):  # Where is this important? Why only reset these two attributes?
         self._expanded_data = None
         self.topol_dict = None

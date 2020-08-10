@@ -275,5 +275,3 @@ class Itp:
     @property
     def atom_types(self):
         return self.__read_atomtypes()
-    #
-    ###

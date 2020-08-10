@@ -2,16 +2,12 @@
 
 
 class Parser:
-    """ implements methods for iterable objects """
+    """ implements methods for iterable objects and readline """
 
     def __init__(self, file, buffer=1000):
         self.file = open(file, 'rb')
         self.buffer = buffer
         self.is_closed = False
-
-
-    def readline(self):
-        return self.file.readline().decode()
 
 
     def __iter__(self):
@@ -39,3 +35,7 @@ class Parser:
     def _del(self):
         self.is_closed = True
         self.file.close()
+
+
+    def readline(self):
+        return self.file.readline().decode()
