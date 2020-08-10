@@ -8,9 +8,11 @@ class Parser:
         self.file = open(file, 'rb')
         self.buffer = buffer
         self.is_closed = False
-    
+
+
     def readline(self):
         return self.file.readline().decode()
+
 
     def __iter__(self):
         return self
