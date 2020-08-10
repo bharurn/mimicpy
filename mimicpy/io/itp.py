@@ -33,7 +33,7 @@ class Itp:
         else:  # Raise exception
             pass
 
-    ### Static Helper Methods
+    ### Static helper methods
     #
     @staticmethod
     def __get_molecules(topology):
@@ -88,7 +88,7 @@ class Itp:
 
         return part_of_itp
 
-    ### Non-static Helper Methods -- These use self.file and/or self.buffer
+    ### Non-static helper methods -- These use self.file and/or self.buffer
     #
     def __load_molecules_and_atoms(self):
         itp_file = Parser(self.file, self.buffer)
@@ -146,7 +146,7 @@ class Itp:
     def __read(self):
 
         if self.atom_types_dict is None or self.requested_molecules is None:
-            pass # raise MiMiCPyError
+            pass  # Raise MiMiCPyError
 
         def guess_element_from(mass, name, atom_type):  # Make a huge fuss about guessing elements
             mass_int = int(mass)
@@ -234,7 +234,7 @@ class Itp:
         self._topology_files = self.__get_included_topology_files(topology)
         self._topology_files.append(self.file)
 
-    ###Property getters
+    ### Property getters
     #
     @property
     def topol(self):

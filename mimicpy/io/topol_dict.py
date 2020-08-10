@@ -6,7 +6,7 @@ class TopolDict:
     
     @classmethod
     def from_dict(cls, dict_df):
-        """ creates a TopolDict from a standard dictionary """
+        """ Create a TopolDict from a standard dictionary """
 
         keys = list(dict_df.keys())
         repeating = {}

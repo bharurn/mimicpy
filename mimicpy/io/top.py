@@ -24,7 +24,7 @@ class Top:
 
 
     def __read(self):
-        """ reads molecule and atom information """
+        """ Read molecule and atom information """
 
         top = Itp(self.file, mode='t')
         atom_types = top.atom_types

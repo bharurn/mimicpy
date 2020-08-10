@@ -23,7 +23,7 @@ class Gro:
 
 
     def __read(self):
-        """ reads coordinates and box dimensions """
+        """ Read coordinates and box dimensions """
 
         def mapped(value):
             if value.isnumeric():
