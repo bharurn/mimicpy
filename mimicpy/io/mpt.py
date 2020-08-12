@@ -178,9 +178,6 @@ class Mpt:
 
 
     def __get_property(self, prop):
-        if self.topol_dict is None:
-            raise MiMiCPyError("MPT file is closed")
-
         if self._expanded_data is not None:
             return self._expanded_data[self.columns.index(prop)]
 
@@ -199,9 +196,6 @@ class Mpt:
 
 
     def __get_residue_id(self):
-        if self.topol_dict is None:
-            raise MiMiCPyError("MPT file is closed")
-
         resn_so_far = 0
         resn_list = []
         for mol, n_mols in self.molecules:
@@ -332,8 +326,3 @@ class Mpt:
         self.__pack_topol_dict(packer, self.topol_dict)
 
         gbl.host.write(packer.get_buffer(), file_name, asbytes=True)
-
-
-    def close(self):  # Where is this important? Why only reset these two attributes?
-        self._expanded_data = None
-        self.topol_dict = None

@@ -80,7 +80,7 @@ class Prepare:
         if self.qmatoms.empty:
             raise MiMiCPyError("No QM atoms have been selected")
         
-        self.mpt.close() # clear all_data from memory, in case gc doesn't work soon enough
+        del self.mpt # clear mpt from memory, gc won't work soon enough
         
         ndx = _qmhelper.index(self.qmatoms.index, 'QMatoms') # get ndx data
         
