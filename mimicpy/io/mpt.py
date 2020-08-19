@@ -44,7 +44,7 @@ class Mpt:
         elif mode == 'w':
             pass
         else:
-            raise MiMiCPyError(f"{mode} not a mode. Only r or w can be used")
+            raise MiMiCPyError(f"{mode} not a mode. Only r or w can be used.")
 
 
     @staticmethod
@@ -85,15 +85,18 @@ class Mpt:
 
     @staticmethod
     def __unpack_df(unpacker):
-        lst1 = unpacker.unpack_list(unpacker.unpack_int)  # Unpack atom number list
-        lst2 = Mpt.__unpack_strlist(unpacker)  # Unpack atom types list
-        lst3 = unpacker.unpack_list(unpacker.unpack_int)  # Unpack resid list
-        lst4 = Mpt.__unpack_strlist(unpacker)  # Unpack residue names
-        lst5 = Mpt.__unpack_strlist(unpacker)  # Unpack atom names
-        lst6 = unpacker.unpack_list(unpacker.unpack_float)  # Unpack charges
-        lst7 = Mpt.__unpack_strlist(unpacker)  # Unpack elements
-        lst8 = unpacker.unpack_list(unpacker.unpack_float)  # Unpack masses
-        df = pd.DataFrame([lst1, lst2, lst3, lst4, lst5, lst6, lst7, lst8]).T
+        atom_numbers = unpacker.unpack_list(unpacker.unpack_int)
+        atom_types = Mpt.__unpack_strlist(unpacker)
+        residue_ids = unpacker.unpack_list(unpacker.unpack_int)
+        residue_names = Mpt.__unpack_strlist(unpacker)
+        atom_names = Mpt.__unpack_strlist(unpacker)
+        charges = unpacker.unpack_list(unpacker.unpack_float)
+        elements = Mpt.__unpack_strlist(unpacker)
+        masses = unpacker.unpack_list(unpacker.unpack_float)
+        df = pd.DataFrame([atom_numbers, atom_types,
+                           residue_ids, residue_names,
+                           atom_names, charges,
+                           elements, masses]).T
         df.columns = _get_itp_columns()
         return df.set_index(df.columns[0])
 
