@@ -139,7 +139,7 @@ class Mpt:
         molecule_names = Mpt.__unpack_strlist(unpacker)
         number_of_molecules = unpacker.unpack_list(unpacker.unpack_int)
         molecules = list(zip(molecule_names, number_of_molecules))
-        topol_dict = cls.__unpack_topol_dict(unpacker)
+        topol_dict = Mpt.__unpack_topol_dict(unpacker)
         return cls(molecules, topol_dict)
 
 
@@ -326,6 +326,6 @@ class Mpt:
 
         Mpt.__pack_strlist(packer, molecule_names)
         packer.pack_list(number_of_molecules, packer.pack_int)
-        self.__pack_topol_dict(packer, self.topol_dict)
+        Mpt.__pack_topol_dict(packer, self.topol_dict)
 
         gbl.host.write(packer.get_buffer(), file_name, asbytes=True)
