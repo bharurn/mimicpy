@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 from .parser import Parser
+from ..utils.errors import MiMiCPyError, ParserError
 
 
 class Gro:
@@ -19,8 +20,8 @@ class Gro:
             self.__read()
         elif mode == 'w':
             pass
-        else:  # Raise exception
-            pass
+        else:
+            raise MiMiCPyError(f"{mode} not a mode. Only r or w can be used.")
 
 
     def __read(self):
@@ -51,8 +52,8 @@ class Gro:
             cols = ['x', 'y', 'z']
         elif number_of_rows == 6:
             cols = ['x', 'y', 'z', 'v_x', 'v_y', 'v_z']
-        else:  # Raise exception
-            pass
+        else:
+            ParserError(self.file, details='Gro file not in the right format.')
 
         values = string_to_array(first_atom_line)
 
