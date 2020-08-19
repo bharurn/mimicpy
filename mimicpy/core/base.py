@@ -9,7 +9,7 @@ This module contains the BaseHandle class
 import re
 import yaml
 from .._global import _Global as _global
-from ..utils.errors import GromacsError, MiMiCPyError, EnvNotSetError
+from ..utils.errors import MiMiCPyError
 from ..utils.logger import Logger, LogString
 import sys
 from abc import ABC, abstractmethod
@@ -198,7 +198,8 @@ class BaseHandle(ABC):
         Used to parse gmx ouput and check for errors/notes/warnings
         """
         if 'not recognisable' in text.lower() or 'not found' in text.lower(): # when gmx exec not found
-            raise GromacsError(cmd, text)
+            pass
+#            raise GromacsError(cmd, text)
         
         # write log
         self.logger.write('gmxlog', f"==>Command Run: {cmd}\n")
@@ -236,8 +237,8 @@ class BaseHandle(ABC):
                   
             if dont_raise:
                 err += f"Error running Gromacs {gmx_cmd}!\n{err}"
-            else:
-                raise GromacsError(gmx_cmd, err) # raise exception
+            else: pass
+#                raise GromacsError(gmx_cmd, err) # raise exception
         
         if dont_raise:
             return err
@@ -278,7 +279,8 @@ class BaseHandle(ABC):
         self.__current_cmd = cmd
         
         if _global.gmx is None or _global.gmx.strip() == '': # make sure gmx path is set
-            raise EnvNotSetError('Gromacs executable', 'gmx')
+            pass
+#            raise EnvNotSetError('Gromacs executable', 'gmx')
             
         gmx_ex = _global.gmx.strip()
         

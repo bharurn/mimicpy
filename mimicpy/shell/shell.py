@@ -11,7 +11,6 @@ import os
 from stat import S_ISDIR, S_ISREG
 from shutil import copyfile
 import re
-from ..utils.errors import SlurmBatchError
 from ..utils.strs import f
 from .._global import _Global as _gbl
 from abc import ABC, abstractmethod
@@ -139,18 +138,22 @@ class Base(ABC):
         self.write(str(job), jbs)
         
         if job.noCommands():
-            raise SlurmBatchError(jbs, "No commands found!")
+            pass
+#            raise SlurmBatchError(jbs, "No commands found!")
         
         jid = 0
         def _sbatch_err(txt):
             if 'error' in txt.lower():
-                raise SlurmBatchError(jbs, txt)
+                pass
+#                raise SlurmBatchError(jbs, txt)
             else:
                 match = re.search(r'Submitted batch job (\w*)', txt)
                 if match:
                     global jid
                     jid = match.groups()[0]
-                else: raise SlurmBatchError(jbs, txt)
+                else:
+                    pass
+#                    raise SlurmBatchError(jbs, txt)
         
         self.run(f'sbatch {job.name}.sh', hook=_sbatch_err, dirc=dirc, fresh=True)
         

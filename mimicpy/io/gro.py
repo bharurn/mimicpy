@@ -53,7 +53,7 @@ class Gro:
         elif number_of_rows == 6:
             cols = ['x', 'y', 'z', 'v_x', 'v_y', 'v_z']
         else:
-            ParserError(self.file, details='Gro file not in the right format.')
+            raise ParserError(self.file, details='Gro file is not formatted properly.')
 
         values = string_to_array(first_atom_line)
 
@@ -69,8 +69,8 @@ class Gro:
         elif len(values) == expected_len+3:
             coords = values[:-3]
             box = values[-3:]
-        else:  # Raise exception
-            pass
+        else:
+            raise ParserError(self.file, details='Gro file is not formatted properly.')
 
         coords = pd.DataFrame(coords.reshape(number_of_atoms, number_of_rows), columns=cols)
         coords['id'] = coords.index.to_numpy()+1
