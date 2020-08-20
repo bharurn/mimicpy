@@ -6,6 +6,7 @@ import pandas as pd
 from .parser import Parser
 from ..utils.strs import clean
 from ..utils.elements import elements
+from ..utils.errors import MiMiCPyError, ParserError
 
 
 class Itp:
@@ -26,12 +27,12 @@ class Itp:
 
         if mode == 'r':
             self.__read()
+        elif mode == 't':
+            self.__read_as_topol()
         elif mode == 'w':
             pass
-        elif mode == 't': # As topol.top file
-            self.__read_as_topol()
-        else:  # Raise exception
-            pass
+        else:
+            raise MiMiCPyError(f"{mode} is not a mode. Only r, t, or w can be used.")
 
     ### Static helper methods
     #
@@ -136,17 +137,13 @@ class Itp:
             atom_type = line[0]
             atom_number = line[1]
             if not atom_number.isnumeric():
-                # Raise exception
-                continue
+                raise ParserError(self.file, 'forcefield parameters', details='Atomic number information is missing')
             atom_types[atom_type] = elements[int(atom_number)]
 
         return atom_types
 
 
     def __read(self):
-
-        if self.atom_types_dict is None or self.requested_molecules is None:
-            pass  # Raise MiMiCPyError
 
         def guess_element_from(mass, name, atom_type):  # Make a huge fuss about guessing elements
             mass_int = int(mass)

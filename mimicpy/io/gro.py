@@ -21,7 +21,7 @@ class Gro:
         elif mode == 'w':
             pass
         else:
-            raise MiMiCPyError(f"{mode} not a mode. Only r or w can be used.")
+            raise MiMiCPyError(f"{mode} is not a mode. Only r or w can be used.")
 
 
     def __read(self):

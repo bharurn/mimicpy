@@ -38,7 +38,7 @@ class TopolDict:
             return self.dict_df[key]
         if key in self.repeating:
             return self.dict_df[self.repeating[key]]
-        raise KeyError(f"Molecule {key} not in topology")
+        raise KeyError(f"Molecule {key} is not in topology.")
 
 
     def __getall__(self):

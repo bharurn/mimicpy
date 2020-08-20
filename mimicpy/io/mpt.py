@@ -44,7 +44,7 @@ class Mpt:
         elif mode == 'w':
             pass
         else:
-            raise MiMiCPyError(f"{mode} not a mode. Only r or w can be used.")
+            raise MiMiCPyError(f"{mode} is not a mode. Only r or w can be used.")
 
 
     @staticmethod
@@ -234,17 +234,17 @@ class Mpt:
                     word_position = -1
                     open_brackets += 1
                 else:
-                    raise SelectionError(f"{s} is not a valid selection keyword")
+                    raise SelectionError(f"{s} is not a valid selection keyword.")
 
             elif word_position == 1:
                 if s == 'is':
                     np_selection_expression += '=='
                 elif s == 'not':
                     np_selection_expression += '!='
-                elif s == '>' or s == '>=' or s == '<' or s == '<=':
+                elif s in ('>', '>=', '<', '<='):
                     np_selection_expression += s
                 else:
-                    raise SelectionError(f"{s} is not a valid logical operator")
+                    raise SelectionError(f"{s} is not a valid logical operator.")
 
             elif word_position == 2:
                 if s.isnumeric():
@@ -254,7 +254,7 @@ class Mpt:
 
             elif word_position == 3:
                 # If and' or 'or' encountered, reset word_position to -1
-                # if ) encpuntered, reset word_position to 2 to parse 'and' or 'or' again
+                # if ) encountered, reset word_position to 2 to parse 'and' or 'or' again
                 if s == 'or':
                     np_selection_expression += f' | '
                     word_position = -1
@@ -266,14 +266,14 @@ class Mpt:
                     word_position = 2
                     open_brackets -= 1
                 else:
-                    raise SelectionError(f"{s} is not a valid boolean operator")
+                    raise SelectionError(f"{s} is not a valid boolean operator.")
 
             word_position += 1
 
         if open_brackets > 0:
-            raise SelectionError("Missing closing bracket is selection")
+            raise SelectionError("Closing bracket is missing in selection.")
         if open_brackets < 0:
-            raise SelectionError("Missing open bracket is selection")
+            raise SelectionError("Open bracket is missing in selection.")
 
         return np_selection_expression, selectors
 
@@ -281,7 +281,7 @@ class Mpt:
     def select(self, selection):  # Maybe move to a new module
         """ Select atoms based on selection language expression """
         if selection is None or selection.strip() == '':
-            raise SelectionError("The selection cannot be empty")
+            raise SelectionError("The selection cannot be empty.")
 
         if self._expanded_data is None:
             self.__generate_data()
@@ -299,7 +299,7 @@ class Mpt:
         ids = (np.where(eval(np_str))[0]+1).tolist()
 
         if ids == []:
-            raise SelectionError("The selection did not return any atoms")
+            raise SelectionError("The selection did not return any atoms.")
 
         return self.__select_by_id(ids)
 

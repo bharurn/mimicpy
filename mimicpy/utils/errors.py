@@ -20,12 +20,12 @@ class ParserError(MiMiCPyError):
         if self.file_type:
             self.file_type = ' as ' + file_type
         if self.line_number:
-            self.line_number = f' at line number {line_number}'
+            self.line_number = f" at line number {line_number}"
         if self.details:
             self.details = ': ' + details
 
     def __str__(self):
-        error_message = f'Error parsing {self.file}{self.file_type}{self.line_number}{self.details}'
+        error_message = f"Error parsing {self.file}{self.file_type}{self.line_number}{self.details}"
         return error_message
 
 class ExecutionError(MiMiCPyError):

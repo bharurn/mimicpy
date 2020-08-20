@@ -71,21 +71,21 @@ def test_select():
     
     with pytest.raises(SelectionError) as e:
         assert mpt.select('_type is CA')
-    assert str(e.value) == "_type is not a valid selection keyword"
+    assert str(e.value) == "_type is not a valid selection keyword."
     
     with pytest.raises(SelectionError) as e:
         assert mpt.select('name if CA')
-    assert str(e.value) == "if is not a valid logical operator"
+    assert str(e.value) == "if is not a valid logical operator."
     
     with pytest.raises(SelectionError) as e:
         assert mpt.select('name is CA ot name is CT')
-    assert str(e.value) == "ot is not a valid boolean operator"
+    assert str(e.value) == "ot is not a valid boolean operator."
     
     with pytest.raises(SelectionError) as e:
         assert mpt.select('name is CA) or name is CT')
-    assert str(e.value) == "Missing open bracket is selection"
+    assert str(e.value) == "Open bracket is missing in selection."
     
     with pytest.raises(SelectionError) as e:
         assert mpt.select('name is CA or ( name is CT')
-    assert str(e.value) == "Missing closing bracket is selection"
+    assert str(e.value) == "Closing bracket is missing in selection."
     

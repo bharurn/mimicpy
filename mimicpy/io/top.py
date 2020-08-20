@@ -2,6 +2,7 @@
 
 from .itp import Itp
 from .topol_dict import TopolDict
+from ..utils.errors import MiMiCPyError
 
 
 class Top:
@@ -19,8 +20,8 @@ class Top:
             self.__read()
         elif mode == 'w':
             pass
-        else:  # Raise exception
-            pass
+        else:
+            raise MiMiCPyError(f"{mode} is not a mode. Only r or w can be used.")
 
 
     def __read(self):
