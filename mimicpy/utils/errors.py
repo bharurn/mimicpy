@@ -1,16 +1,16 @@
-""" Module for custom exceptions """
+"""Module for custom exceptions"""
 
 
 class MiMiCPyError(Exception):
-    """ Generic exception from MiMiCPy """
+    """Generic exception from MiMiCPy"""
 
 
 class SelectionError(MiMiCPyError):
-    """ Error in selecting atoms in Mpt """
+    """Error in selecting atoms in Mpt"""
 
 
 class ParserError(MiMiCPyError):
-    """ Error in paring a file """
+    """Error in parsing a file"""
     def __init__(self, file='', file_type='', line_number='', details=''):
         self.file = file
         self.file_type = file_type
@@ -25,8 +25,17 @@ class ParserError(MiMiCPyError):
             self.details = ': ' + details
 
     def __str__(self):
-        error_message = f"Error parsing {self.file}{self.file_type}{self.line_number}{self.details}"
-        return error_message
+        return f"Error parsing {self.file}{self.file_type}{self.line_number}{self.details}."
+
+
+class ScriptError(MiMiCPyError):
+    """Requested parameter does not exist in script object"""
+    def __init__(self, parameter):
+        self.parameter = parameter
+
+    def __str__(self):
+        return f"{self.parameter} has not been set as parameter of the script."
+
 
 class ExecutionError(MiMiCPyError):
     """
@@ -52,16 +61,7 @@ class EnvNotSetError(MiMiCPyError):
     def __str__(self):
         return f"{self.env} not set! Please set it with the keyword {self.cmd}."
 
-class ScriptError(MiMiCPyError):
-    """
-    Raised when a requested parameter of a script
-    object does not exist
-    """
-    def __init__(self, msg):
-        self.msg = msg
 
-    def __str__(self):
-        return f"{self.msg} not a paramater of the script"
 
 def defaultHook(cmd, out):
     """Default error checking hook called by host"""

@@ -6,8 +6,8 @@ This initializer script of mimicpy
 
 """
 
-from .core import simulate, selector
-from .core.prepare import Prepare
+from .core import selector
+from .core.prepare import Preparation
 from .shell import shell
 from ._version import __version__
 from ._authors import __authors__

@@ -1,8 +1,8 @@
 """ Module for MiMiCPy-specific topology """
 
 import xdrlib
-import pandas as pd
 import numpy as np
+import pandas as pd
 from .top import Top
 from .itp import Itp
 from .topol_dict import TopolDict
@@ -36,6 +36,7 @@ class Mpt:
     def __init__(self, molecules, topol_dict, mode='r'):
         self.molecules = molecules
         self.topol_dict = topol_dict
+        self.mode = mode
         self._expanded_data = None
         self._number_of_atoms = None
 
@@ -45,6 +46,15 @@ class Mpt:
             pass
         else:
             raise MiMiCPyError(f"{mode} is not a mode. Only r or w can be used.")
+
+
+    @property
+    def number_of_atoms(self):
+        if self.mode == 'r':
+            return self._number_of_atoms
+        self.mode = 'r'
+        self.__generate_data()
+        return self._number_of_atoms
 
 
     @staticmethod
@@ -133,9 +143,9 @@ class Mpt:
 
 
     @classmethod
-    def from_mpt(cls, file):
+    def from_mpt(cls, mpt_file):
         """ Create a Mpt object from an excisting mpt file """
-        unpacker = xdrlib.Unpacker(gbl.host.read(file, asbytes=True))
+        unpacker = xdrlib.Unpacker(gbl.host.read(mpt_file, asbytes=True))
         molecule_names = Mpt.__unpack_strlist(unpacker)
         number_of_molecules = unpacker.unpack_list(unpacker.unpack_int)
         molecules = list(zip(molecule_names, number_of_molecules))
@@ -143,9 +153,18 @@ class Mpt:
         return cls(molecules, topol_dict)
 
 
+    @classmethod
+    def from_file(cls, file, mode='r', buffer=1000, nonstandard_atom_types=None):
+        """ Create a Mpt object from top or mpt file """
+        if file.split('.')[-1] == 'top':
+            return Mpt.from_top(file, mode, buffer, nonstandard_atom_types)
+        if file.split('.')[-1] == 'mpt':
+            return Mpt.from_mpt(file)
+
+
     def __getitem__(self, key):
         """ Select an atom by passing the atom ID to key.
-            Atom ID can be a single int, list, or a slice. The indexing starts from 1.
+            Atom ID can be a single int, list, or a slice. Index starts from 1.
             If a string is passed as key, then that property is returned.
         """
 
@@ -305,7 +324,7 @@ class Mpt:
 
 
     def write(self, file_name):
-        """ Write mpt file based on XDR format. Format given below:
+        """ Write mpt file based on XDR. Format given below:
         ##Header
          molecule names from self.molecules
          number of each molecule from self.molecules

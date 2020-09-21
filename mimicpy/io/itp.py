@@ -17,9 +17,9 @@ class Itp:
     def __init__(self, file, requested_molecules=None, atom_types=None, buffer=1000, mode='r'):
         self.file = file
         self.requested_molecules = requested_molecules
-        self.atom_types_dict = atom_types  # Maybe better not to use object types in names since
-        self.buffer = buffer               # the same information could also be stored differentely.
-        self.mode = mode                   # But each time I try to change the name: AttributeError.
+        self.atom_types_dict = atom_types
+        self.buffer = buffer
+        self.mode = mode
         self._topol = None
         self._topology_files = None
         self._molecules = None
@@ -34,8 +34,48 @@ class Itp:
         else:
             raise MiMiCPyError(f"{mode} is not a mode. Only r, t, or w can be used.")
 
-    ### Static helper methods
-    #
+
+    @property
+    def topol(self):
+        if self.mode == 'r':
+            return self._topol
+        self.mode = 'r'
+        self.__read()
+        return self._topol
+
+
+    @property
+    def molecules(self):
+        if self.mode == 't':
+            return self._molecules
+        self.mode = 't'
+        self.__read_as_topol()
+        return self._molecules
+
+
+    @property
+    def molecule_types(self):
+        if self.mode == 't':
+            return self._molecule_types
+        self.mode = 't'
+        self.__read_as_topol()
+        return self._molecule_types
+
+
+    @property
+    def topology_files(self):
+        if self.mode == 't':
+            return self._topology_files
+        self.mode = 't'
+        self.__read_as_topol()
+        return self._topology_files
+
+
+    @property
+    def atom_types(self):
+        return self.__read_atomtypes()
+
+
     @staticmethod
     def __get_molecules(topology):
         molecules = []
@@ -70,7 +110,7 @@ class Itp:
     @staticmethod
     def __parse_block_till_section(itp, *sections, comments=[';', '#']):
 
-        def __get_section_headers(string):  # Would also work with the variable from the outter method namespace
+        def get_section_headers(string):
             string = clean(string, comments)
             section_header_regex = re.compile(fr"\[\s*(.*?)\s*\]", re.MULTILINE)
             section_headers = section_header_regex.findall(string)
@@ -81,7 +121,7 @@ class Itp:
 
         for chunk in itp:
             part_of_itp += chunk
-            sections_in_chunk = __get_section_headers(chunk)
+            sections_in_chunk = get_section_headers(chunk)
             read_sections += sections_in_chunk
             # All wanted section headers have been passed and last section has been read completely
             if set(sections).issubset(read_sections) and read_sections[-1] != sections[-1]:
@@ -89,15 +129,14 @@ class Itp:
 
         return part_of_itp
 
-    ### Non-static helper methods -- These use self.file and/or self.buffer
-    #
+
     def __load_molecules_and_atoms(self):
         itp_file = Parser(self.file, self.buffer)
         itp_text = ''
 
         while not itp_file.is_closed:
-            block = self.__parse_block_till_section(itp_file, 'moleculetype', 'atoms')
-            if any([self.__section_is_in_string(section, block) for section in ['moleculetype', 'atoms']]):
+            block = Itp.__parse_block_till_section(itp_file, 'moleculetype', 'atoms')
+            if any([Itp.__section_is_in_string(section, block) for section in ['moleculetype', 'atoms']]):
                 itp_text += block
 
         return itp_text
@@ -110,18 +149,17 @@ class Itp:
         included_itps = [(dirname(self.file) + '/' + itp) for itp in included_itps]
         return included_itps
 
-    ### Read functions
-    #
+
     def __read_atomtypes(self):
         itp_file = Parser(self.file, self.buffer)
-        itp_text = self.__parse_block_till_section(itp_file, 'atomtypes')
-        atomtypes_section = self.__get_section('atomtypes', itp_text)
+        itp_text = Itp.__parse_block_till_section(itp_file, 'atomtypes')
+        atomtypes_section = Itp.__get_section('atomtypes', itp_text)
 
         if atomtypes_section == []: # What if atomtypes are in several itps?
             included_itps = self.__get_included_topology_files(itp_text)
 
             for included_itp in included_itps:
-                itp = Itp(included_itp)
+                itp = Itp(included_itp, self.requested_molecules)
                 atom_types = itp.__read_atomtypes()
                 if atom_types != {}:
                     return atom_types
@@ -134,6 +172,7 @@ class Itp:
 
         for line in atomtypes_section.splitlines():
             line = line.split()
+            print(line)
             atom_type = line[0]
             atom_number = line[1]
             if not atom_number.isnumeric():
@@ -184,7 +223,7 @@ class Itp:
                 charge = float(charge)
                 mass = float(mass)
 
-                if atom_type in self.atom_types_dict:
+                if self.atom_types_dict is not None and atom_type in self.atom_types_dict:
                     element = self.atom_types_dict[atom_type]
                 else:
                     element = guess_element_from(mass, name, atom_type)
@@ -202,8 +241,8 @@ class Itp:
             return atoms
 
         itp_text = self.__load_molecules_and_atoms()
-        molecule_section = self.__get_section('moleculetype', itp_text)
-        atom_section = self.__get_section('atoms', itp_text, comments=[';', '#'])
+        molecule_section = Itp.__get_section('moleculetype', itp_text)
+        atom_section = Itp.__get_section('atoms', itp_text, comments=[';', '#'])
 
         if molecule_section == [] and atom_section == []:
             return None
@@ -226,49 +265,8 @@ class Itp:
         top_parser = Parser(self.file)
         topology = ''.join(top_parser)
 
-        self._molecules = self.__get_molecules(topology)
+        self._molecules = Itp.__get_molecules(topology)
         self._molecule_types = [m[0] for m in self._molecules]
+        self.requested_molecules = self._molecule_types
         self._topology_files = self.__get_included_topology_files(topology)
         self._topology_files.append(self.file)
-
-    ### Property getters
-    #
-    @property
-    def topol(self):
-        if self.mode == 'r':
-            return self._topol
-        self.mode = 'r'
-        self.__read()
-        return self._topol
-
-
-    @property
-    def molecules(self):
-        if self.mode == 't':
-            return self._molecules
-        self.mode = 't'
-        self.__read_as_topol()
-        return self._molecules
-
-
-    @property
-    def molecule_types(self):
-        if self.mode == 't':
-            return self._molecule_types
-        self.mode = 't'
-        self.__read_as_topol()
-        return self._molecule_types
-
-
-    @property
-    def topology_files(self):
-        if self.mode == 't':
-            return self._topology_files
-        self.mode = 't'
-        self.__read_as_topol()
-        return self._topology_files
-
-
-    @property
-    def atom_types(self):
-        return self.__read_atomtypes()

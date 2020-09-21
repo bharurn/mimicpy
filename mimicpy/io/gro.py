@@ -24,6 +24,24 @@ class Gro:
             raise MiMiCPyError(f"{mode} is not a mode. Only r or w can be used.")
 
 
+    @property
+    def coords(self):
+        if self.mode == 'r':
+            return self._coords
+        self.mode = 'r'
+        self.__read()
+        return self._coords
+
+
+    @property
+    def box(self):
+        if self.mode == 'r':
+            return self._box
+        self.mode = 'r'
+        self.__read()
+        return self._box
+
+
     def __read(self):
         """ Read coordinates and box dimensions """
 
@@ -77,21 +95,3 @@ class Gro:
 
         self._coords = coords.set_index(['id'])
         self._box = box.tolist()
-
-
-    @property
-    def coords(self):
-        if self.mode == 'r':
-            return self._coords
-        self.mode = 'r'
-        self.__read()
-        return self._coords
-
-
-    @property
-    def box(self):
-        if self.mode == 'r':
-            return self._box
-        self.mode = 'r'
-        self.__read()
-        return self._box

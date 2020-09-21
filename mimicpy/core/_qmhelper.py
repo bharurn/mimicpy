@@ -1,26 +1,16 @@
-# This is part of MiMiCPy
 
-"""
-
-This module contains helper function for prepare.QM to handle QM region prep
-pptop() and getOverlaps_Atoms() adapted from the prepare_qmmm python script by Viacheslav Bolnykh
-
-"""
-
-from ..parsers import mpt
+from ..io import mpt
 from ..utils.constants import bohr_rad, hartree_to_ps
 from ..scripts.cpmd import Atom
 from collections import OrderedDict 
 from ..scripts import cpmd
 
 def cleanqdf(qdf):
-    columns = mpt.columns.copy() # copy it otherwise original gets edited    
+    columns = mpt.columns.copy() 
     columns.extend(['x','y','z'])
-    col_to_drop = [l for l in qdf.columns if l not in columns]
-    
-    qdf.index = qdf.index.set_names(['id']) # rename index, so it is id when we reset index in prepare.getInp()
-    
-    return qdf.drop(col_to_drop, axis=1)
+    columns_to_drop = [l for l in qdf.columns if l not in columns]
+    qdf.index = qdf.index.set_names(['id'])
+    return qdf.drop(columns_to_drop, axis=1)
 
 def index(qmids, name, space_len=6, col_len=15):
     """Write list of atoms to index, and returns as sting"""
@@ -97,7 +87,7 @@ def getOverlaps_Atoms(qmatoms, inp):
         
         out += f"2 {idx} 1 {i + 1}\n" # overlap section string
         
-        if link: elem += '*' # append astericks to link atoms, so they are added as normal elem dict value
+        if link: elem += '_link' # append astericks to link atoms, so they are added as normal elem dict value
         
         if elem not in inp.atoms.keys(): # if new element is found
             # init a new Atom() for that element key
@@ -107,7 +97,7 @@ def getOverlaps_Atoms(qmatoms, inp):
         inp.atoms[elem].coords.append([float(v)/bohr_rad for v in coords])
         
         for i, coord in enumerate(coords): # find max and min coords in all 3 directions
-            c = float(coord)
+            c = float(coord)  # Maybe use numpy here
             if mx[i] == None or c > mx[i]: mx[i] = c
             if mi[i] == None or c < mi[i]: mi[i] = c
         
@@ -116,7 +106,7 @@ def getOverlaps_Atoms(qmatoms, inp):
     inp.system.poisson__solver__tuckerman = ''
     inp.system.symmetry = 0
 
-    # box size fro mx and mi
+    # box size from mx and mi
     # add 0.7 nm for Poisson solver's requirement
     qm_box = list(map(lambda x,y: (x - y + 0.7)/bohr_rad, mx, mi))
     qm_box[1] = round(qm_box[1]/qm_box[0], 1)
