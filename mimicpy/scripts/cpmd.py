@@ -3,7 +3,7 @@ from collections import OrderedDict
 import re
 import pandas as pd
 from .script import Script
-from ..utils.strs import clean
+from ..utils.strings import clean
 from ..utils.constants import BOHR_RADIUS
 from .._global import _Global as _global
 #from ..parsers.mpt import MPT

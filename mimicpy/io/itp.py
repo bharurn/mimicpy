@@ -4,8 +4,8 @@ from os.path import dirname
 import re
 import pandas as pd
 from .parser import Parser
-from ..utils.strs import clean
-from ..utils.elements import elements
+from ..utils.strings import clean
+from ..utils.elements import ELEMENTS
 from ..utils.errors import MiMiCPyError, ParserError
 
 
@@ -172,12 +172,11 @@ class Itp:
 
         for line in atomtypes_section.splitlines():
             line = line.split()
-            print(line)
             atom_type = line[0]
             atom_number = line[1]
             if not atom_number.isnumeric():
                 raise ParserError(self.file, 'forcefield parameters', details='Atomic number information is missing')
-            atom_types[atom_type] = elements[int(atom_number)]
+            atom_types[atom_type] = ELEMENTS[int(atom_number)]
 
         return atom_types
 
@@ -188,16 +187,16 @@ class Itp:
             mass_int = int(mass)
 
             if mass_int <= 0:  # Cannot guess from mass
-                if name in elements.values():  # Guess from atom name
+                if name in ELEMENTS.values():  # Guess from atom name
                     element = name
-                elif atom_type in elements.values():  # Guess from atom type
+                elif atom_type in ELEMENTS.values():  # Guess from atom type
                     element = atom_type
 
             elif mass_int <= 1:  # Guess H from mass
                 element = 'H'
 
             elif mass_int < 36:  # Guess He to Cl from mass
-                element = elements[mass_int//2]
+                element = ELEMENTS[mass_int//2]
 
             else:  # Assume name is element symbol from Ar onwards
                 element = name.title()  # Case insensitive

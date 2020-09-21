@@ -1,7 +1,7 @@
 import mimicpy
 from mimicpy.io.mpt import Mpt
 from mimicpy.scripts.mdp import Mdp
-from mimicpy.utils.errors import MiMiCPyError
+from mimicpy.utils.errors import MiMiCPyError, SelectionError
 import pandas as pd
 import pytest
 
@@ -72,15 +72,11 @@ def test_prepare():
     mock_gro = 'io/test_files/acetone.gro'
     prep = mimicpy.Preparation(mock_mpt, mock_gro, MockSelector())
 
-    prep.add('resid is 1')
-    prep.delete() # delete all atoms
+    with pytest.raises(SelectionError) as e:
+        assert prep.add()
+    assert str(e.value) == "The selection cannot be empty."
 
-    with pytest.raises(MiMiCPyError) as e:
-        assert prep.getInp()
-    assert str(e.value) == "No QM atoms have been selected"
-
-    prep.add()
-    prep.clear() # again should clear everything
+    prep.clear()
 
     mock_mdp = Mdp(name='test', tcoupl='yes')
 
