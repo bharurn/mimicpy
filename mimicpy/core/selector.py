@@ -1,5 +1,5 @@
 from .._global import _Global as gbl
-from ..io import gro, parser
+#from ..io import gro, parser
 from ..utils.errors import MiMiCPyError
 from ._tclvmd import TclVMDConnector
 import xmlrpc.client as xmlrpclib
@@ -14,24 +14,14 @@ class GroSelector:
     def __init__(self, mpt, gro):
         self.mpt = mpt
         self.gro = gro
-
         if self.mpt.number_of_atoms != len(self.gro.coords):
             raise MiMiCPyError("Number of atoms in mpt and number of atoms in gro do not match.")
 
 
-    def load(self, mpt, gro_file):
-        self.mpt = mpt
-        self.coords, box = gro.read(gro_file, self.lines)
-
-        if self.mpt.natms != len(self.coords):
-            raise MiMiCPyError("The number of atoms in mpt and gro do not match")
-
-        return box
-
     def select(self, selection):
         """Select MPT atoms and merge with GRO"""
         sele = self.mpt.select(selection)
-        df = sele.merge(self.coords, left_on='id', right_on='id')
+        df = sele.merge(self.gro.coords, left_on='id', right_on='id')
 
         if df.empty:
             raise MiMiCPyError("The atoms selected from mpt were not found in gro file")

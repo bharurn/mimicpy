@@ -11,7 +11,6 @@ class Script(ABC):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-
     def __setattr__(self, key, value):
         if key.startswith('_') or key == 'has_parameter' or key == 'parameters':
             # Private attributes, has_parameter(), and parameters() are stored in __dict__
@@ -19,7 +18,6 @@ class Script(ABC):
         else:
             # All others are script parameters and stored in __orddict__
             self.__orddict__[key.replace(' ', '--').replace('-', '_').lower()] = value
-
 
     def __getattr__(self, key):
         key = key.lower()
@@ -30,30 +28,25 @@ class Script(ABC):
         except KeyError:
             raise ScriptError(key)
 
+    def __repr__(self):
+        return self.__str__()
 
     def has_parameter(self, key):
         return bool(key in self.__orddict__)
 
-
     def parameters(self):
         return self.__orddict__
 
-
-    def __repr__(self):
-        return self.__str__()
-
-
-    @abstractmethod
-    def __str__(self):
-        pass
-
-
     @classmethod
     def from_file(cls, file):
+        # TODO: Check that file is instance of str - here or in host
         return cls.from_string(gbl.host.read(file))
-
 
     @classmethod
     @abstractmethod
     def from_string(cls, string):
+        pass
+
+    @abstractmethod
+    def __str__(self):
         pass

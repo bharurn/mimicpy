@@ -12,33 +12,29 @@ from .._global import _Global as _global
 
 class Pseudopotential():
 
-    def __init__(self, element='H', pp_type='MT_BLYP', labels='KLEINMAN-BYLANDER', lmax='S', coords=None):
+    def __init__(self, element=None, pp_type='MT_BLYP', labels='KLEINMAN-BYLANDER', lmax='S', coords=None):
         self.element = element
         self.pp_type = pp_type
         self.labels = labels
         self.lmax = lmax
         self.coords = coords
 
-
     def __str__(self):
-
         if not self.pp_type.startswith('_'):
             self.pp_type = '_' + self.pp_type
-
         if not self.labels.startswith(' ') and self.labels != '':
             self.labels = ' ' + self.labels
 
         pp_block = '*'
-        pp_block += f"{self.element}{self.pp_type}{self.labels}\n"
-        pp_block += f"    LMAX={self.lmax.upper()}\n"
-        pp_block += f"    {len(self.coords)}\n"
+        pp_block += f'{self.element}{self.pp_type}{self.labels}\n'
+        pp_block += f'    LMAX={self.lmax.upper()}\n'
+        pp_block += f'    {len(self.coords)}\n'
 
         for row in self.coords:
-            pp_block += f" {row[0]:>18.12f} {row[1]:>18.12f} {row[2]:>18.12f}\n"
+            pp_block += f' {row[0]:>18.12f} {row[1]:>18.12f} {row[2]:>18.12f}\n'
         pp_block += '\n'
 
         return pp_block
-
 
     @classmethod
     def from_string(cls, string, pp_type, labels):
@@ -67,7 +63,7 @@ class Section(Script):
         return val
 
     @staticmethod
-    def _chknumeric(s):
+    def _chknumeric(s):  # TODO: What is happening here?
         splt = s.split()
 
         if len(splt) == 1:
@@ -79,28 +75,28 @@ class Section(Script):
             return True
 
     @classmethod
-    def from_text(cls, text):
+    def from_string(cls, string):
         i = 0
         section = cls()
-        splt = text.splitlines()
+        split = string.splitlines()
 
-        while i < len(splt)-1:
-            if splt[i] == 'PATHS':
-                setattr(section, splt[i], "\n".join(splt[i+1:i+3]))
+        while i < len(split)-1:
+            if split[i] == 'PATHS':
+                setattr(section, split[i], "\n".join(split[i+1:i+3]))
                 i += 2
 
-            elif splt[i] == 'OVERLAPS':
-                no = int(splt[i+1])
-                ov = "\n".join(splt[i+1:i+no+2])
-                setattr(section, splt[i], ov)
+            elif split[i] == 'OVERLAPS':
+                no = int(split[i+1])
+                ov = "\n".join(split[i+1:i+no+2])
+                setattr(section, split[i], ov)
 
                 i += no+1
 
-            elif Section._chknumeric(splt[i+1]):
-                setattr(section, splt[i], splt[i+1])
+            elif Section._chknumeric(split[i+1]):
+                setattr(section, split[i], split[i+1])
 
-            elif not Section._chknumeric(splt[i]):
-                setattr(section, splt[i], '')
+            elif not Section._chknumeric(split[i]):
+                setattr(section, split[i], '')
 
             i += 1
         return section
@@ -118,7 +114,7 @@ class InputScript(Script):
         self._ndx = None
 
     def checkSection(self, section):
-        return self.hasparam(section)
+        return self.has_parameter(section)
 
     def __str__(self):
         val = ''

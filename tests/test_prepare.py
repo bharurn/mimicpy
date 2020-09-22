@@ -81,11 +81,11 @@ def test_prepare():
     mock_mdp = Mdp(name='test', tcoupl='yes')
 
     with pytest.raises(MiMiCPyError) as e:
-        assert prep.getInp(mdp=mock_mdp)
-    assert str(e.value) == "No QM atoms have been selected"
+        assert prep.prepare_cpmd(mdp_inp=mock_mdp)
+    assert str(e.value) == "No atoms have been selected for the QM partition."
 
-    prep.add()
-    ndx, cpmd = prep.getInp()
+    prep.add('resid is 1')
+    ndx, cpmd = prep.prepare_cpmd()
 
     import os
     assert cpmd.mimic.paths == f"1\n{os.getcwd()}"
