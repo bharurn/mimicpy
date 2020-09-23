@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import mimicpy
 import sys
@@ -7,7 +7,6 @@ import itertools
 import threading
 import os
 
-mimicpy.setLogger(1)
 
 class Loader:
     def __init__(self, message):
@@ -23,94 +22,19 @@ class Loader:
             sys.stdout.write(f'\r{self.message}  ' + c)
             sys.stdout.flush()
             time.sleep(0.1)
-    
+
     def close(self, halt=False):
         self.done = True
         if not halt: print('Done')
-        
-class MiMiCPyParser():
-    
-    subprograms = {'getmpt': 'Generate MiMiCPy topology from Gromacs topology', 
-               'prepqm': 'Prepare QM region by generating the CPMD input and Gromacs index files',
-               'cpmd2coords': 'Convert the MIMIC/ATOMS section of CPMD input file to a pdb/gro file'}
-    
-    subprogram_help = {'getmpt': "\n-top\n\tInput Gromacs topology file\n"
-                       "-mpt\n\tOutput MiMiCPy topology file\n"
-                       "\nOptional arguments:\n"
-                       "\n-nonstd\n\tNon-standard residues list as text file\n"
-                       "-pdb\n\tpdb file to read non-standard residue elements from"
-                       "\n\tIt must have the element column filled for those residues!"
-                       "\n-itp\n\titp file to read non-standard residue atom types from"
-                       "\n-reslist\n\tList of nonstandard residues to read from pdb/itp files\n"
-                       "\nThe last three options must be given together\n",
-                'prepqm': "\nInput options:\n\n"
-                      "-top\n\tGromacs topology file\n"
-                      "-mpt\n\tMiMiCPy topology file\n"
-                      "\nOnly one of the above need to be specified\n\n"
-                      "-gro\n\tGromacs coordinate file\n"
-                      "\nOptional input options:\n\n"
-                      "-tcpmd\n\tTemplate CPMD input script to add ATOMS and MIMIC section to"
-                      "\n-mdp\n\tMDP input script to extract run info and error checking\n"
-                      "\nOutput options:\n\n"
-                      "-cpmd\n\tCPMD input script name, deafult: cpmd.inp\n"
-                      "-ndx\n\tGromacs index file name, default: index.ndx\n"
-                      "\nOptional arguments for -top option:\n"
-                      "\n-nonstd\n\tNon-standard residues list as text file\n"
-                       "-pdb\n\tpdb file to read non-standard residue elements from"
-                       "\n\tIt must have the element column filled for those residues!"
-                       "\n-itp\n\titp file to read non-standard residue atom types from"
-                       "\n-reslist\n\tList of nonstandard residues to read from pdb/itp files\n"
-                       "\nThe last three options must be given together\n",
-            'cpmd2coords': "\n-cpmd\n\tCPMD input script with MIMIC and ATOMS sections\n"
-                            "\n-mpt\n\tMiMiCPy topology\n"
-                            "\n-coords\n\tName of output coordinate file, defaults to conf.pdb\n"}
-    
-    def __init__(self):
-        self.program = sys.argv[0]
-        
-        if len(sys.argv) == 1:
-            self.help()
-        else:
-            self.subprogram = sys.argv[1]
-        
-        if self.subprogram not in self.subprograms.keys():
-            self.help('Invalid subprogram!')
-        
-        args = [i for i in sys.argv[2::2]]
-        vals = [i for i in sys.argv[3::2]]
-        
-        if args == [] or args == ['-help'] or args == ['-h']:
-            print(f"mimicpy {self.subprogram}: {self.subprograms[self.subprogram]}")
-            print(self.subprogram_help[self.subprogram])
-            sys.exit(0)
-        else:
-            print(f"MiMiCPy CLI subprogram requested: {self.subprogram}\n")
-        
-        for k,v in zip(args, vals):
-            setattr(self, k[1:], v)
-    
-    def __getattr__(self, key):
-        if key not in self.__dict__:
-            return None
-        
-    def help(self, message=f'\tUsing MiMiCPy version {mimicpy.__version__}'):
-        
-        print(f"\n{message}\n\n"
-              "List of available subprograms:\n")
-        
-        for k,v in self.subprograms.items():
-            print(f"\no {k}:\n\t{v}")
-              
-        print(f"\nFormat:\n\tmimicpy <subprogram> <options for subprogram>\n")
-        sys.exit(0)
+
 
 def checkargs(args):
     ret = 0
-    for k,v in args.items():
+    for k, v in args.items():
         if v is None:
             print(f"\n-{k} option should be specified!")
             ret += 1
-    
+
     if ret:
         print(f'\nError in arguments passed. Exiting..\n')
         sys.exit(0)
@@ -120,10 +44,10 @@ def prepqm(qm, ndx, cpmd, cpmd_template, mdp):
     command = command.split()
     prefix = command[0].lower()
     rest = " ".join(command[1:])
-    
+
     if ndx == None: ndx = 'index.ndx'
     if cpmd == None: cpmd = 'cpmd.inp'
-    
+
     if prefix == 'q'or prefix == 'quit':
         try:
             qm.getInp(cpmd_template, mdp, ndx, cpmd)
@@ -161,18 +85,18 @@ def prepqm(qm, ndx, cpmd, cpmd_template, mdp):
 def getmpt(topol, mpt, nonstd, reslist, pdb, itp):
     print("Parsing topology..")
     nonstd_atm = {}
-    
+
     if nonstd:
         if not os.path.isfile(nonstd): raise FileNotFoundError(f"{nonstd} not found!")
         with open(nonstd, 'r') as f:
             for d in f.read().splitlines():
                 try:
-                    k,v = d.split()
+                    k, v = d.split()
                 except ValueError:
                     print("Nonstandard residue file not in the correct format!\n")
                     sys.exit(0)
                 nonstd_atm[k] = v
-        
+
     elif reslist or pdb or itp:
         checkargs({'reslist': reslist, 'pdb': pdb, 'itp': itp})
         if not os.path.isfile(reslist): raise FileNotFoundError(f"{reslist} not found!")
@@ -182,7 +106,7 @@ def getmpt(topol, mpt, nonstd, reslist, pdb, itp):
             loader = Loader('Reading coordinates')
             nonstd_atm = mimicpy.parsers.top.nonStdTypes(pdb, itp, buff=1000, *resname)
             loader.close()
-            
+
     if mpt:
         try:
             mpt_obj = mimicpy.parsers.MPT.fromTop(topol, nonstd_atm, mode='w')
@@ -197,69 +121,64 @@ def getmpt(topol, mpt, nonstd, reslist, pdb, itp):
             print(e)
             return False
 
-def main():
-    print('\n\t   ****MiMiCPy CLI****\n')
-    
-    parser = MiMiCPyParser()
-    
-    if parser.subprogram == 'getmpt':
-        checkargs({'mpt': parser.mpt, 'top': parser.top})
-        ret = getmpt(parser.top, parser.mpt, parser.nonstd, parser.reslist, parser.pdb, parser.itp)
-        if not ret:
-            print("Exiting with error..\n")
-            sys.exit(0)
-        else:
-            print("MPT successfully prepared..\n")
-        
-    elif parser.subprogram == 'prepqm':
-        
-        if parser.mpt is not None:
-            mpt = parser.mpt
-        elif parser.top is not None:
-            mpt = getmpt(parser.top, None, parser.nonstd, parser.reslist, parser.pdb, parser.itp)
-        else:
-            print("Either -top or -mpt must be specified as an input file\n")
-            sys.exit(0)
-            
-        checkargs({'gro': parser.gro})
-            
-        print("Preparing QM region..")
-        
-        loader = Loader('Reading topology and coordinates')
-        
-        try:
-            qm = mimicpy.Prepare(mpt, parser.gro)
-        except (mimicpy.utils.errors.MiMiCPyError, FileNotFoundError) as e:
-            print(e)
-            print("Exiting with error..\n")
-            loader.close(halt=True)
-            sys.exit(0)
-        
-        loader.close()
-        
-        while True:
-            try:
-                ret = prepqm(qm, parser.ndx, parser.cpmd, parser.tcpmd, parser.mdp)
-            except (KeyboardInterrupt, EOFError):
-                print("\nExiting without saving..")
-                ret = False
-                
-            if ret == False:
-                print('')
-                break
-            
-    elif parser.subprogram == 'cpmd2coords':
-        
-        checkargs({'mpt': parser.mpt, 'cpmd': parser.cpmd})
-        cpmd = mimicpy.scripts.cpmd.Input.fromFile(parser.cpmd)
-        
-        loader = Loader('Reading topology')
-        mpt = mimicpy.parsers.MPT.fromFile(parser.mpt)
-        loader.close()
-        
-        if parser.coords == None: parser.coords = 'conf.pdb'
-        cpmd.toCoords(mpt, parser.coords)
-        
-        print(f"Wrote output to {parser.coords}")
 
-if __name__ == '__main__': main()
+import argparse
+
+def main():
+    print('\n \t                ***** MiMiCPy CLI *****                  ')
+    print('\n \t For more information type mimicpy [subcommand] --help \n')
+
+    parser = argparse.ArgumentParser(prog='mimicpy')
+    subparsers = parser.add_subparsers(title='valid subcommands',
+                                       metavar='')  # Turns off list of subcommands
+
+    parser_getmpt = subparsers.add_parser('getmpt',
+                                          help='create MiMiCPy topology from GROMACS topology')
+    getmpt_input_arguments = parser_getmpt.add_argument_group('options to specify input files')
+    getmpt_input_arguments.add_argument('-top',  # TODO: Give better names for command line flags
+                                        required=True,  # TODO: Make nicer indentations
+                                        help='GROMACS topology file',
+                                        metavar='topol.top')
+    getmpt_output_arguments = parser_getmpt.add_argument_group('options to specify output files')
+    getmpt_output_arguments.add_argument('-mpt',
+                                         default='mimic.mpt',
+                                         help='MiMiCPy topology file',
+                                         metavar='mimic.mpt')
+    parser_getmpt.set_defaults(func=getmpt)
+
+    parser_prepqm = subparsers.add_parser('prepqm',
+                                          help='create CPMD input and GROMACS index files')
+    prepqm_input_arguments = parser_prepqm.add_argument_group('options to specify input files')
+    prepqm_input_arguments.add_argument('-mpt',
+                                        required=True,
+                                        help='MiMiCPy mpt file',  # TODO: Print more precise help messages
+                                        metavar='mimic.mpt')
+    prepqm_input_arguments.add_argument('-gro', # TODO: Think of support for other formats
+                                        required=True,
+                                        help='GROMACS gro file',
+                                        metavar='coords.gro')
+    prepqm_input_arguments.add_argument('-inp',
+                                        required=False,
+                                        help='CPMD input script',
+                                        metavar='cpmd.inp')
+    prepqm_input_arguments.add_argument('-mdp',
+                                        required=False,
+                                        help='GROMACS input script',
+                                        metavar='nve.mdp')
+    prepqm_output_arguments = parser_prepqm.add_argument_group('options to specify output files')
+    prepqm_output_arguments.add_argument('-out',
+                                         default='mimic.inp',
+                                         help='CPMD input script',
+                                         metavar='mimic.inp')
+    prepqm_output_arguments.add_argument('-ndx',
+                                         default='mimic.ndx',
+                                         help='GROMACS index file',
+                                         metavar='index.ndx')
+    parser_prepqm.set_defaults(func=prepqm)
+
+
+    args = parser.parse_args()
+    print(args)
+
+if __name__ == '__main__':
+    main()

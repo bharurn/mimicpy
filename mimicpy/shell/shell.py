@@ -1,31 +1,15 @@
-# This is part of MiMiCPy
-
-"""
-
-This module contains classes to wrap the functionalities of local/remote shell into a common framework
-
-"""
-
-from . import _local as local, _remote as remote
+from . import _local as local
 import os
 from stat import S_ISDIR, S_ISREG
 from shutil import copyfile
 import re
-#from ..utils.strs import f
 from .._global import _Global as _gbl
 from abc import ABC, abstractmethod
 
 class Base(ABC):
-    """
-
-    Base shell class, contains methods common to both local and remote shell
-    Cannot be instantiated, depends on functions from local/remote
-
-    """
 
     @abstractmethod
-    def __init__(self, directory,  *loaders):
-        """ Init cwd and loaders """
+    def __init__(self, directory, *loaders):
 
         if directory.strip() == '':
             directory = '.'
@@ -55,10 +39,10 @@ class Base(ABC):
              self.loader_str = ' ; '.join(loader) # join all loaders with ';'
 
          # replace defaultHook in run(), so it doesn't check for errors
-         print_hook = lambda cmd,out: _gbl.logger.write('debug2', f'Running loader {cmd}..\n{out}')
+         print_hook = lambda cmd, out: _gbl.logger.write('debug2', f'Running loader {cmd}..\n{out}')
 
          # get output of loaders, so we can remove it from all subsequent run() outputs
-         self.loader_out = self.run(self.loader_str, hook = print_hook, fresh=True)
+         self.loader_out = self.run(self.loader_str, hook=print_hook, fresh=True)
 
     #convenience functions
     def rename(self, a, b): self.hndl().rename(a, b)
@@ -222,65 +206,3 @@ class Local(Base):
 
     # provided to match remote.__del__()
     def __del__(self): pass
-
-class Remote(remote.Shell, Base):
-
-    def __init__(self, work_dir, ssh_config, *loaders):
-
-        if ':' in work_dir:
-            r = work_dir.split(':')
-            server = r[0]
-            dir_ = r[1]
-            if dir_ == '': dir_ = '.'
-        else:
-            server = work_dir
-            dir_ = '.'
-
-        _gbl.logger.write('debug', f("Setting remote machine {r[0]} as host.."))
-
-        remote.Shell.__init__(self, server, ssh_config)
-
-        Base.__init__(self, dir_, *loaders)
-
-    def hndl(self): return self.sftp
-
-    def fileExists(self, file):
-        try:
-            self.sftp.stat(file)
-            return True
-        except FileNotFoundError:
-           return False
-
-    def ls(self, dirc=None, file_eval=lambda a: True, dir_eval=lambda a: True):
-
-        files = []
-
-        if dirc:
-            dirs = self.sftp.listdir_attr(dirc)
-        else:
-            dirs = self.sftp.listdir_attr()
-
-        for entry in dirs:
-            if S_ISDIR(entry.st_mode) and dir_eval(entry.filename):
-                files.append(entry.filename)
-            elif S_ISREG(entry.st_mode) and file_eval(entry.filename):
-                files.append(entry.filename)
-
-        return files
-
-    def open(self, name, s, prefetch=True):
-        if 'r' in s: self.checkFile(name, throw=True)
-        file = self.sftp.open(name, s)
-        if 'w' not in s and prefetch: file.prefetch()
-        return file
-
-    def cp(self, f1, f2): self.run(f"cp {f1} {f2}")
-
-    def join(self, *args):
-        # both unix and windows based ssh uses forward slash
-        # see discussion of issue 306 on the fabric github page
-        return "/".join([l for l in args if l != ''])
-
-    def dirname(self, file):
-        # see comment in join()
-        return "/".join(i for i in file.split('/')[:-1])

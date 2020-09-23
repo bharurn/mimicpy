@@ -1,4 +1,4 @@
-""" Module for MiMiCPy-specific topology """
+"""Module for MiMiCPy-specific topology"""
 
 import xdrlib
 import numpy as np
@@ -9,14 +9,11 @@ from .topol_dict import TopolDict
 from .._global import _Global as gbl
 from ..utils.errors import SelectionError, MiMiCPyError
 
-
 ENCODER = 'utf-8'
-
 
 def _get_itp_columns():
     columns = Itp.columns.copy()
     return columns
-
 
 def _get_mpt_columns():
     columns = _get_itp_columns().copy()
@@ -26,11 +23,10 @@ def _get_mpt_columns():
 
 
 class Mpt:
-    """ provides static methods for topology-specific xdr packing/unpacking,
-        class methods to create new Mpt objects from top or mpt files,
-        public methods for atom selection, writing and closing mpt files
+    """provides static methods for topology-specific xdr packing/unpacking,
+       class methods to create new Mpt objects from top or mpt files,
+       public methods for atom selection, writing and closing mpt files
     """
-
     columns = _get_mpt_columns()
 
     def __init__(self, molecules, topol_dict, mode='r'):
@@ -45,23 +41,21 @@ class Mpt:
         elif mode == 'w':
             pass
         else:
-            raise MiMiCPyError(f"{mode} is not a mode. Only r or w can be used.")
-
+            raise MiMiCPyError(f'{mode} is not a mode. Only r or w can be used.')
 
     @property
     def number_of_atoms(self):
+        """Returns the number of atoms"""
         if self.mode == 'r':
             return self._number_of_atoms
         self.mode = 'r'
         self.__generate_data()
         return self._number_of_atoms
 
-
     @staticmethod
-    def __pack_strlist(packer, lst):
-        s = ",".join(lst).encode(ENCODER)
-        packer.pack_string(s)
-
+    def __pack_strlist(packer, strlist):
+        string = ",".join(strlist).encode(ENCODER)
+        packer.pack_string(string)
 
     @staticmethod
     def __pack_df(packer, df):
@@ -75,7 +69,6 @@ class Mpt:
             elif i in [4, 6]:  # Pack charge and mass as list of floats
                 packer.pack_list(lst, packer.pack_float)
 
-
     @staticmethod
     def __pack_topol_dict(packer, topol_dict):
         #  Pack repeating dict
@@ -83,15 +76,13 @@ class Mpt:
         Mpt.__pack_strlist(packer, topol_dict.repeating.values())
 
         # Pack dict of dataframes
-        for k, v in topol_dict.dict_df.items():
-            packer.pack_string(k.encode(ENCODER))
-            Mpt.__pack_df(packer, v)
-
+        for key, value in topol_dict.dict_df.items():
+            packer.pack_string(key.encode(ENCODER))
+            Mpt.__pack_df(packer, value)
 
     @staticmethod
     def __unpack_strlist(unpacker):
         return unpacker.unpack_string().decode(ENCODER).split(',')
-
 
     @staticmethod
     def __unpack_df(unpacker):
@@ -110,7 +101,6 @@ class Mpt:
         df.columns = _get_itp_columns()
         return df.set_index(df.columns[0])
 
-
     @staticmethod
     def __unpack_topol_dict(unpacker):
         # Unpack repeating dict
@@ -119,7 +109,6 @@ class Mpt:
         repeating = dict(zip(repeating_keys, repeating_vals))
         if repeating == {'': ''}:
             repeating = {}
-
         # Unpack dataframe dict until EOF
         dict_df = {}
         while True:
@@ -129,22 +118,19 @@ class Mpt:
                 break
             df = Mpt.__unpack_df(unpacker)
             dict_df[mol] = df
-
         return TopolDict(dict_df, repeating)
-
 
     @classmethod
     def from_top(cls, top_file, mode='r', buffer=1000, nonstandard_atom_types=None):
-        """ Create a Mpt object from a top file """
+        """Create a Mpt object from a top file"""
         top = Top(top_file, mode=mode, buffer=buffer, nonstandard_atom_types=nonstandard_atom_types)
         molecules = top.molecules
         topol_dict = top.topol_dict
         return cls(molecules, topol_dict)
 
-
     @classmethod
     def from_mpt(cls, mpt_file):
-        """ Create a Mpt object from an excisting mpt file """
+        """Create a Mpt object from an excisting mpt file"""
         unpacker = xdrlib.Unpacker(gbl.host.read(mpt_file, asbytes=True))
         molecule_names = Mpt.__unpack_strlist(unpacker)
         number_of_molecules = unpacker.unpack_list(unpacker.unpack_int)
@@ -152,32 +138,26 @@ class Mpt:
         topol_dict = Mpt.__unpack_topol_dict(unpacker)
         return cls(molecules, topol_dict)
 
-
     @classmethod
     def from_file(cls, file, mode='r', buffer=1000, nonstandard_atom_types=None):
-        """ Create a Mpt object from top or mpt file """
+        """Create a Mpt object from top or mpt file"""
         if file.split('.')[-1] == 'top':
             return Mpt.from_top(file, mode, buffer, nonstandard_atom_types)
         if file.split('.')[-1] == 'mpt':
             return Mpt.from_mpt(file)
 
-
     def __getitem__(self, key):
-        """ Select an atom by passing the atom ID to key.
-            Atom ID can be a single int, list, or a slice. Index starts from 1.
-            If a string is passed as key, then that property is returned.
+        """Select an atom by passing the atom ID to key.
+           Atom ID can be a single int, list, or a slice. Index starts from 1.
+           If a string is passed as key, then that property is returned.
         """
-
         if isinstance(key, str):
             return self.__get_property(key)
-
         if isinstance(key, int):
             key = [key]
         elif isinstance(key, slice):
             key = list(range(key.stop)[key])
-
         return self.__select_by_id(key)
-
 
     def __generate_data(self):
         # Generate everything as python lists, much faster than np or df
@@ -185,27 +165,21 @@ class Mpt:
         self._expanded_data = [self.__get_property(i) for i in self.columns]
         self._number_of_atoms = len(self._expanded_data[0])
 
-
     def __select_by_id(self, ids):
         if self._expanded_data is None:
             self.__generate_data()
-
         # Select necessary rows; keep everything as python list, much faster than df or np
         # i-1 to convert gromacs/mpt id to list indexing
         data_list = [[row[i-1] for row in self._expanded_data] for i in ids]
-
         df = pd.DataFrame(data_list, columns=self.columns)
         df['id'] = ids
         return df.set_index(['id'])
 
-
     def __get_property(self, prop):
         if self._expanded_data is not None:
             return self._expanded_data[self.columns.index(prop)]
-
         if prop == 'resid':
             return self.__get_residue_id()
-
         prop_list = []
         if prop == 'mol':
             for mol, n_mols in self.molecules:
@@ -213,9 +187,7 @@ class Mpt:
         else:
             for mol, n_mols in self.molecules:
                 prop_list += self.topol_dict[mol][prop].to_list() * n_mols
-
         return prop_list
-
 
     def __get_residue_id(self):
         resn_so_far = 0
@@ -225,17 +197,14 @@ class Mpt:
                 lst = self.topol_dict[mol]['resid'].to_numpy() + resn_so_far
                 resn_list += lst.tolist()
                 resn_so_far = lst[-1]
-
         return resn_list
 
-
     def __translate(self, selection):  # Maybe use state pattern
-        """ Tanslate selection langauge to numpy boolean.
-            Selection 'resname is SER and id < 25 and mol not Protein_chain_B'
-            will be translated to
-            np_vals['resname'] == 'SER' and np_vals['id'] < 25 and np_vals['mol'] != 'Protein_chain_B'
+        """Tanslate selection langauge to numpy boolean.
+           Selection 'resname is SER and id < 5 and mol not Protein_chain_B'
+           will be translated to
+           np_vals['resname'] == 'SER' and np_vals['id'] < 5 and np_vals['mol'] != 'Protein_chain_B'
          """
-
         add_space = lambda string, a: string.replace(a, f' {a} ')
         selection = add_space(add_space(selection, '('), ')')
 
@@ -298,7 +267,7 @@ class Mpt:
 
 
     def select(self, selection):  # Maybe move to a new module
-        """ Select atoms based on selection language expression """
+        """Select atoms based on selection language expression"""
         if selection is None or selection.strip() == '':
             raise SelectionError("The selection cannot be empty.")
 

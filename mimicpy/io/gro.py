@@ -1,4 +1,4 @@
-""" Module for gro files """
+"""Module for gro files"""
 
 import numpy as np
 import pandas as pd
@@ -7,7 +7,7 @@ from ..utils.errors import MiMiCPyError, ParserError
 
 
 class Gro:
-    """ reads gro files """
+    """reads gro files"""
 
     def __init__(self, file, mode='r', buffer=1000):
         self.file = file
@@ -21,11 +21,12 @@ class Gro:
         elif mode == 'w':
             pass
         else:
-            raise MiMiCPyError(f"{mode} is not a mode. Only r or w can be used.")
+            raise MiMiCPyError(f'{mode} is not a mode. Only r or w can be used.')
 
 
     @property
     def coords(self):
+        """Returns atom coordinates"""
         if self.mode == 'r':
             return self._coords
         self.mode = 'r'
@@ -35,6 +36,7 @@ class Gro:
 
     @property
     def box(self):
+        """Returns dimensions of simulation box"""
         if self.mode == 'r':
             return self._box
         self.mode = 'r'
@@ -43,7 +45,7 @@ class Gro:
 
 
     def __read(self):
-        """ Read coordinates and box dimensions """
+        """Read atom coordinates and box dimensions"""
 
         def mapped(value):
             if value.isnumeric():
@@ -53,19 +55,16 @@ class Gro:
             except ValueError:
                 return np.nan
 
-
         def string_to_array(string):
             return np.array(list(map(mapped, string.split())))
 
         gro = Parser(self.file)
-
         gro.readline()
         number_of_atoms = int(gro.readline())
         first_atom_line = gro.readline()
         gro.buffer = len(first_atom_line) * self.buffer
 
         number_of_rows = len(first_atom_line.split()) - 3
-
         if number_of_rows == 3:
             cols = ['x', 'y', 'z']
         elif number_of_rows == 6:
@@ -74,10 +73,8 @@ class Gro:
             raise ParserError(self.file, details='Gro file is not formatted properly.')
 
         values = string_to_array(first_atom_line)
-
         for string in gro:
             values = np.append(values, string_to_array(string))
-
         values = values[~np.isnan(values)]
 
         expected_len = number_of_atoms * number_of_rows

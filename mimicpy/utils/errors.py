@@ -16,16 +16,15 @@ class ParserError(MiMiCPyError):
         self.file_type = file_type
         self.line_number = line_number
         self.details = details
-
         if self.file_type:
             self.file_type = ' as ' + file_type
         if self.line_number:
-            self.line_number = f" at line number {line_number}"
+            self.line_number = f' at line number {line_number}'
         if self.details:
             self.details = ': ' + details
 
     def __str__(self):
-        return f"Error parsing {self.file}{self.file_type}{self.line_number}{self.details}."
+        return f'Error parsing {self.file}{self.file_type}{self.line_number}{self.details}.'
 
 
 class ScriptError(MiMiCPyError):
@@ -34,7 +33,7 @@ class ScriptError(MiMiCPyError):
         self.parameter = parameter
 
     def __str__(self):
-        return f"{self.parameter} has not been set as parameter of the script."
+        return f'The {self.parameter} parameter has not been set in script.'
 
 
 class ExecutionError(MiMiCPyError):

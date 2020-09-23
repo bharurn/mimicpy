@@ -1,4 +1,4 @@
-""" Module for itp files """
+"""Module for itp files"""
 
 from os.path import dirname
 import re
@@ -10,7 +10,7 @@ from ..utils.errors import MiMiCPyError, ParserError
 
 
 class Itp:
-    """ reads itp files """
+    """reads itp files"""
 
     columns = ['number', 'type', 'resid', 'resname', 'name', 'charge', 'element', 'mass']
 
@@ -32,8 +32,7 @@ class Itp:
         elif mode == 'w':
             pass
         else:
-            raise MiMiCPyError(f"{mode} is not a mode. Only r, t, or w can be used.")
-
+            raise MiMiCPyError(f'{mode} is not a mode. Only r, t, or w can be used.')
 
     @property
     def topol(self):
@@ -43,7 +42,6 @@ class Itp:
         self.__read()
         return self._topol
 
-
     @property
     def molecules(self):
         if self.mode == 't':
@@ -51,7 +49,6 @@ class Itp:
         self.mode = 't'
         self.__read_as_topol()
         return self._molecules
-
 
     @property
     def molecule_types(self):
@@ -61,7 +58,6 @@ class Itp:
         self.__read_as_topol()
         return self._molecule_types
 
-
     @property
     def topology_files(self):
         if self.mode == 't':
@@ -70,11 +66,9 @@ class Itp:
         self.__read_as_topol()
         return self._topology_files
 
-
     @property
     def atom_types(self):
         return self.__read_atomtypes()
-
 
     @staticmethod
     def __get_molecules(topology):
@@ -90,11 +84,9 @@ class Itp:
 
         return molecules[::-1]
 
-
     @staticmethod
     def __section_is_in_string(section, string):
         return bool('[' in string and ']' in string and section in string)
-
 
     @staticmethod
     def __get_section(section, string, comments=';'):
@@ -105,7 +97,6 @@ class Itp:
         section_regex = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)\s*(?:$|\[|#)", re.MULTILINE)
         section = section_regex.findall(string)
         return section
-
 
     @staticmethod
     def __parse_block_till_section(itp, *sections, comments=[';', '#']):
@@ -129,7 +120,6 @@ class Itp:
 
         return part_of_itp
 
-
     def __load_molecules_and_atoms(self):
         itp_file = Parser(self.file, self.buffer)
         itp_text = ''
@@ -141,14 +131,12 @@ class Itp:
 
         return itp_text
 
-
     def __get_included_topology_files(self, string, comments=';'):
         string = clean(string, comments)
         include_file_regex = re.compile(r"#include\s+[\"\'](.+)\s*[\"\']", re.MULTILINE)
         included_itps = include_file_regex.findall(string)
         included_itps = [(dirname(self.file) + '/' + itp) for itp in included_itps]
         return included_itps
-
 
     def __read_atomtypes(self):
         itp_file = Parser(self.file, self.buffer)
@@ -157,25 +145,22 @@ class Itp:
 
         if atomtypes_section == []: # What if atomtypes are in several itps?
             included_itps = self.__get_included_topology_files(itp_text)
-
             for included_itp in included_itps:
                 itp = Itp(included_itp, self.requested_molecules)
                 atom_types = itp.__read_atomtypes()
                 if atom_types != {}:
                     return atom_types
-
             return {}
 
         atomtypes_section = atomtypes_section[0]
 
         atom_types = {}
-
         for line in atomtypes_section.splitlines():
             line = line.split()
             atom_type = line[0]
             atom_number = line[1]
             if not atom_number.isnumeric():
-                raise ParserError(self.file, 'forcefield parameters', details='Atomic number information is missing')
+                raise ParserError(self.file, 'forcefield parameters', details='Atomic number information is missing.')
             atom_types[atom_type] = ELEMENTS[int(atom_number)]
 
         return atom_types
@@ -185,22 +170,17 @@ class Itp:
 
         def guess_element_from(mass, name, atom_type):  # Make a huge fuss about guessing elements
             mass_int = int(mass)
-
             if mass_int <= 0:  # Cannot guess from mass
                 if name in ELEMENTS.values():  # Guess from atom name
                     element = name
                 elif atom_type in ELEMENTS.values():  # Guess from atom type
                     element = atom_type
-
             elif mass_int <= 1:  # Guess H from mass
                 element = 'H'
-
             elif mass_int < 36:  # Guess He to Cl from mass
                 element = ELEMENTS[mass_int//2]
-
             else:  # Assume name is element symbol from Ar onwards
                 element = name.title()  # Case insensitive
-
             return element
 
         def read_atoms(atom_section):
