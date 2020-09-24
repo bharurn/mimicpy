@@ -4,10 +4,8 @@
 class MiMiCPyError(Exception):
     """Generic exception from MiMiCPy"""
 
-
 class SelectionError(MiMiCPyError):
     """Error in selecting atoms in Mpt"""
-
 
 class ParserError(MiMiCPyError):
     """Error in parsing a file"""
@@ -25,7 +23,6 @@ class ParserError(MiMiCPyError):
 
     def __str__(self):
         return f'Error parsing {self.file}{self.file_type}{self.line_number}{self.details}.'
-
 
 class ScriptError(MiMiCPyError):
     """Requested parameter does not exist in script object"""
@@ -47,20 +44,6 @@ class ExecutionError(MiMiCPyError):
 
     def __str__(self):
         return f"Command attempted {self.cmd}\n{self.msg}"
-
-class EnvNotSetError(MiMiCPyError):
-    """
-    Raised when an enviornment path requested by
-    MiMiCPy is not set
-    """
-    def __init__(self, env, cmd):
-        self.env = env
-        self.cmd = cmd
-
-    def __str__(self):
-        return f"{self.env} not set! Please set it with the keyword {self.cmd}."
-
-
 
 def defaultHook(cmd, out):
     """Default error checking hook called by host"""

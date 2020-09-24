@@ -1,4 +1,4 @@
-""" Module for top files """
+"""Module for top files"""
 
 from .itp import Itp
 from .topol_dict import TopolDict
@@ -6,7 +6,7 @@ from ..utils.errors import MiMiCPyError
 
 
 class Top:
-    """ reads top files """
+    """reads top files"""
 
     def __init__(self, file, mode='r', buffer=1000, nonstandard_atom_types=None):
         self.file = file
@@ -21,8 +21,7 @@ class Top:
         elif mode == 'w':
             pass
         else:
-            raise MiMiCPyError(f"{mode} is not a mode. Only r or w can be used.")
-
+            raise MiMiCPyError(f'{mode} is not a mode. Only r or w can be used.')
 
     @property
     def molecules(self):
@@ -32,7 +31,6 @@ class Top:
         self.__read()
         return self._molecules
 
-
     @property
     def topol_dict(self):
         if self.mode == 'r':
@@ -41,9 +39,8 @@ class Top:
         self.__read()
         return self._topol_dict
 
-
     def __read(self):
-        """ Read molecule and atom information """
+        """Read molecule and atom information"""
 
         top = Itp(self.file, mode='t')
         atom_types = top.atom_types

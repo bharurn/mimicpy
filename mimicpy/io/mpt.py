@@ -37,7 +37,7 @@ class Mpt:
         self._number_of_atoms = None
 
         if mode == 'r':
-            self.__generate_data()
+            self.__expand_data()
         elif mode == 'w':
             pass
         else:
@@ -45,16 +45,15 @@ class Mpt:
 
     @property
     def number_of_atoms(self):
-        """Returns the number of atoms"""
         if self.mode == 'r':
             return self._number_of_atoms
         self.mode = 'r'
-        self.__generate_data()
+        self.__expand_data()
         return self._number_of_atoms
 
     @staticmethod
     def __pack_strlist(packer, strlist):
-        string = ",".join(strlist).encode(ENCODER)
+        string = ','.join(strlist).encode(ENCODER)
         packer.pack_string(string)
 
     @staticmethod
@@ -74,7 +73,6 @@ class Mpt:
         #  Pack repeating dict
         Mpt.__pack_strlist(packer, topol_dict.repeating.keys())
         Mpt.__pack_strlist(packer, topol_dict.repeating.values())
-
         # Pack dict of dataframes
         for key, value in topol_dict.dict_df.items():
             packer.pack_string(key.encode(ENCODER))
@@ -122,7 +120,6 @@ class Mpt:
 
     @classmethod
     def from_top(cls, top_file, mode='r', buffer=1000, nonstandard_atom_types=None):
-        """Create a Mpt object from a top file"""
         top = Top(top_file, mode=mode, buffer=buffer, nonstandard_atom_types=nonstandard_atom_types)
         molecules = top.molecules
         topol_dict = top.topol_dict
@@ -130,7 +127,6 @@ class Mpt:
 
     @classmethod
     def from_mpt(cls, mpt_file):
-        """Create a Mpt object from an excisting mpt file"""
         unpacker = xdrlib.Unpacker(gbl.host.read(mpt_file, asbytes=True))
         molecule_names = Mpt.__unpack_strlist(unpacker)
         number_of_molecules = unpacker.unpack_list(unpacker.unpack_int)
@@ -139,37 +135,22 @@ class Mpt:
         return cls(molecules, topol_dict)
 
     @classmethod
-    def from_file(cls, file, mode='r', buffer=1000, nonstandard_atom_types=None):
-        """Create a Mpt object from top or mpt file"""
-        if file.split('.')[-1] == 'top':
+    def from_file(cls, file, mode='r', buffer=1000, nonstandard_atom_types=None, file_ext=None):
+        if file_ext is None:
+            file_ext = file.split('.')[-1]
+        if file_ext == 'top':
             return Mpt.from_top(file, mode, buffer, nonstandard_atom_types)
-        if file.split('.')[-1] == 'mpt':
+        if file_ext == 'mpt':
             return Mpt.from_mpt(file)
+        raise MiMiCPyError('Please specify file extension (top or mpt).')
 
-    def __getitem__(self, key):
-        """Select an atom by passing the atom ID to key.
-           Atom ID can be a single int, list, or a slice. Index starts from 1.
-           If a string is passed as key, then that property is returned.
-        """
-        if isinstance(key, str):
-            return self.__get_property(key)
-        if isinstance(key, int):
-            key = [key]
-        elif isinstance(key, slice):
-            key = list(range(key.stop)[key])
-        return self.__select_by_id(key)
-
-    def __generate_data(self):
-        # Generate everything as python lists, much faster than np or df
-        # Generating resid is slow, otherwise everthing is fast enough
+    def __expand_data(self):
         self._expanded_data = [self.__get_property(i) for i in self.columns]
         self._number_of_atoms = len(self._expanded_data[0])
 
     def __select_by_id(self, ids):
         if self._expanded_data is None:
-            self.__generate_data()
-        # Select necessary rows; keep everything as python list, much faster than df or np
-        # i-1 to convert gromacs/mpt id to list indexing
+            self.__expand_data()
         data_list = [[row[i-1] for row in self._expanded_data] for i in ids]
         df = pd.DataFrame(data_list, columns=self.columns)
         df['id'] = ids
@@ -193,13 +174,27 @@ class Mpt:
         resn_so_far = 0
         resn_list = []
         for mol, n_mols in self.molecules:
-            for _ in range(n_mols):  # This part makes its slow
+            for _ in range(n_mols):  # TODO: Speed up this part
                 lst = self.topol_dict[mol]['resid'].to_numpy() + resn_so_far
                 resn_list += lst.tolist()
                 resn_so_far = lst[-1]
         return resn_list
 
-    def __translate(self, selection):  # Maybe use state pattern
+    def __getitem__(self, key):
+        """Select an atom by passing the atom ID to key.
+           Atom ID can be a single int, list, or a slice. Index starts from 1.
+           If a string is passed as key, then that property is returned.
+        """
+        if isinstance(key, str):
+            return self.__get_property(key)
+        if isinstance(key, int):
+            key = [key]
+        elif isinstance(key, slice):
+            key = list(range(key.stop)[key])
+        return self.__select_by_id(key)
+
+    @staticmethod
+    def __translate(selection):  # Maybe use state pattern
         """Tanslate selection langauge to numpy boolean.
            Selection 'resname is SER and id < 5 and mol not Protein_chain_B'
            will be translated to
@@ -214,7 +209,7 @@ class Mpt:
         selectors = []
         for s in selection.split():
             if word_position == 0:
-                if s in self.columns or s == 'id':
+                if s in Mpt.columns or s == 'id':
                     np_selection_expression += f"(np_vals['{s}']"
                     selectors.append(s)
                 elif s == '(':
@@ -222,8 +217,7 @@ class Mpt:
                     word_position = -1
                     open_brackets += 1
                 else:
-                    raise SelectionError(f"{s} is not a valid selection keyword.")
-
+                    raise SelectionError(f'{s} is not a valid selection keyword.')
             elif word_position == 1:
                 if s == 'is':
                     np_selection_expression += '=='
@@ -232,14 +226,12 @@ class Mpt:
                 elif s in ('>', '>=', '<', '<='):
                     np_selection_expression += s
                 else:
-                    raise SelectionError(f"{s} is not a valid logical operator.")
-
+                    raise SelectionError(f'{s} is not a valid logical operator.')
             elif word_position == 2:
                 if s.isnumeric():
-                    np_selection_expression += f"{s})"
+                    np_selection_expression += f'{s})'
                 else:
                     np_selection_expression += f"'{s}')"
-
             elif word_position == 3:
                 # If and' or 'or' encountered, reset word_position to -1
                 # if ) encountered, reset word_position to 2 to parse 'and' or 'or' again
@@ -254,27 +246,24 @@ class Mpt:
                     word_position = 2
                     open_brackets -= 1
                 else:
-                    raise SelectionError(f"{s} is not a valid boolean operator.")
-
+                    raise SelectionError(f'{s} is not a valid boolean operator.')
             word_position += 1
 
         if open_brackets > 0:
-            raise SelectionError("Closing bracket is missing in selection.")
+            raise SelectionError('Closing bracket is missing in selection.')
         if open_brackets < 0:
-            raise SelectionError("Open bracket is missing in selection.")
+            raise SelectionError('Open bracket is missing in selection.')
 
         return np_selection_expression, selectors
-
 
     def select(self, selection):  # Maybe move to a new module
         """Select atoms based on selection language expression"""
         if selection is None or selection.strip() == '':
-            raise SelectionError("The selection cannot be empty.")
-
+            raise SelectionError('The selection cannot be empty.')
         if self._expanded_data is None:
-            self.__generate_data()
+            self.__expand_data()
 
-        np_str, vals = self.__translate(selection)
+        np_str, vals = Mpt.__translate(selection)
         np_vals = {}
 
         for i in vals:
@@ -285,12 +274,10 @@ class Mpt:
             np_vals[i] = arr
 
         ids = (np.where(eval(np_str))[0]+1).tolist()
-
         if ids == []:
             raise SelectionError("The selection did not return any atoms.")
 
         return self.__select_by_id(ids)
-
 
     def write(self, file_name):
         """ Write mpt file based on XDR. Format given below:
@@ -308,7 +295,6 @@ class Mpt:
          .... continue for all entries in dict_df
         ##End
         """
-
         packer = xdrlib.Packer()
         molecule_names, number_of_molecules = list(zip(*self.molecules))
 

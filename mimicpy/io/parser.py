@@ -32,5 +32,4 @@ class Parser:
         self.file.close()
 
     def readline(self):
-        """Read a single line"""
         return self.file.readline().decode()

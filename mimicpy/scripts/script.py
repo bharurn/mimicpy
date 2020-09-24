@@ -28,6 +28,10 @@ class Script(ABC):
         except KeyError:
             raise ScriptError(key)
 
+    @abstractmethod
+    def __str__(self):
+        pass
+
     def __repr__(self):
         return self.__str__()
 
@@ -38,15 +42,11 @@ class Script(ABC):
         return self.__orddict__
 
     @classmethod
-    def from_file(cls, file):
-        # TODO: Check that file is instance of str - here or in host
-        return cls.from_string(gbl.host.read(file))
-
-    @classmethod
     @abstractmethod
     def from_string(cls, string):
         pass
 
-    @abstractmethod
-    def __str__(self):
-        pass
+    @classmethod
+    def from_file(cls, file):
+        # TODO: Check if file is instance of str - here or in host
+        return cls.from_string(gbl.host.read(file))

@@ -23,26 +23,21 @@ class Gro:
         else:
             raise MiMiCPyError(f'{mode} is not a mode. Only r or w can be used.')
 
-
     @property
     def coords(self):
-        """Returns atom coordinates"""
         if self.mode == 'r':
             return self._coords
         self.mode = 'r'
         self.__read()
         return self._coords
 
-
     @property
     def box(self):
-        """Returns dimensions of simulation box"""
         if self.mode == 'r':
             return self._box
         self.mode = 'r'
         self.__read()
         return self._box
-
 
     def __read(self):
         """Read atom coordinates and box dimensions"""
@@ -81,7 +76,7 @@ class Gro:
         if len(values) == expected_len:
             coords = values
             box = gro.readline().split()
-        elif len(values) == expected_len+3:
+        elif len(values) == expected_len + 3:
             coords = values[:-3]
             box = values[-3:]
         else:
