@@ -49,7 +49,7 @@ class Section(Script):
 
         val = ''
 
-        for d in self.params():
+        for d in self.parameters():
             if getattr(self, d) is None:
                 continue
 
@@ -119,7 +119,7 @@ class InputScript(Script):
     def __str__(self):
         val = ''
 
-        for d in self.params():
+        for d in self.parameters():
             if getattr(self, d) is None:
                 continue
             if d.upper() == 'INFO':

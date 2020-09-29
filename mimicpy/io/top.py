@@ -1,5 +1,6 @@
 """Module for top files"""
 
+import logging
 from .itp import Itp
 from .topol_dict import TopolDict
 from ..utils.errors import MiMiCPyError
@@ -8,11 +9,11 @@ from ..utils.errors import MiMiCPyError
 class Top:
     """reads top files"""
 
-    def __init__(self, file, mode='r', buffer=1000, nonstandard_atom_types=None):
+    def __init__(self, file, mode='r', buffer=1000, nonstandard_atomtypes=None):
         self.file = file
         self.mode = mode
         self.buffer = buffer
-        self.nonstandard_atom_types = nonstandard_atom_types
+        self.nonstandard_atomtypes = nonstandard_atomtypes
         self._molecules = None
         self._topol_dict = None
 
@@ -46,14 +47,18 @@ class Top:
         atom_types = top.atom_types
         molecule_types = top.molecule_types
 
-        if self.nonstandard_atom_types is not None:
-            atom_types.update(self.nonstandard_atom_types)
+        if self.nonstandard_atomtypes is not None:
+            # TODO: Support non-standard atomtypes input as file (list, itp, ...)
+            atom_types.update(self.nonstandard_atomtypes)
 
         atoms = {}
-        for itp in top.topology_files:
-            itp = Itp(itp, molecule_types, atom_types, self.buffer)
-            if itp.topol is not None:
-                atoms.update(itp.topol)
+        for itp in top.topology_files:  # TODO: Skip itp file if not found
+            try:
+                itp = Itp(itp, molecule_types, atom_types, self.buffer)
+                if itp.topol is not None:
+                    atoms.update(itp.topol)
+            except OSError:
+                logging.warning(f'Could not find {itp}. Skipping.')
         topol_dict = TopolDict.from_dict(atoms)
 
         self._molecules = top.molecules

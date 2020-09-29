@@ -29,7 +29,7 @@ class Parser:
 
     def _del(self):
         self.is_closed = True
-        self.file.close()
+        # self.file.close()
 
     def readline(self):
         return self.file.readline().decode()

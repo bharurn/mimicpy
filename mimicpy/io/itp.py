@@ -2,6 +2,7 @@
 
 from os.path import dirname
 import re
+import logging
 import pandas as pd
 from .parser import Parser
 from ..utils.strings import clean
@@ -138,10 +139,13 @@ class Itp:
         if atomtypes_section == []:  # TODO: What if atomtypes are in several itps?
             included_itps = self.__get_included_topology_files(itp_text)
             for included_itp in included_itps:
-                itp = Itp(included_itp, self.requested_molecules)
-                atom_types = itp.__read_atomtypes()
-                if atom_types != {}:
-                    return atom_types
+                try:
+                    itp = Itp(included_itp, self.requested_molecules)
+                    atom_types = itp.__read_atomtypes()
+                    if atom_types != {}:
+                        return atom_types
+                except OSError:
+                    logging.warning(f'Could not find {included_itp}. Skipping.')
             return {}
         atomtypes_section = atomtypes_section[0]
         atom_types = {}
@@ -150,15 +154,17 @@ class Itp:
             atom_type = line[0]
             atom_number = line[1]
             if not atom_number.isnumeric():
-                raise ParserError(self.file, 'forcefield parameters',
-                                  details='Atomic number information is missing.')
-            atom_types[atom_type] = ELEMENTS[int(atom_number)]
+                logging.warning(str(ParserError(self.file, 'forcefield parameters',
+                                  details='Atomic number information is missing')))
+            else:
+                atom_types[atom_type] = ELEMENTS[int(atom_number)]
         return atom_types
 
     def __read(self):
 
-        def guess_element_from(mass, name, atom_type):  # TODO: Inform about guessing elements
-            mass_int = int(mass)
+        def guess_element_from(mass, name, atom_type):
+            logging.warning(f'Could not find atomic number for {atom_type}. Guessing element.')
+            mass_int = int(round(mass))
             if mass_int <= 0:  # Cannot guess from mass
                 if name in ELEMENTS.values():  # Guess from atom name
                     element = name
@@ -170,6 +176,7 @@ class Itp:
                 element = ELEMENTS[mass_int//2]
             else:  # Assume name is element symbol from Ar onwards
                 element = name.title()  # Case insensitive
+            logging.warning(f'Element {element} has been guessed for {atom_type}.')
             return element
 
         def read_atoms(atom_section):

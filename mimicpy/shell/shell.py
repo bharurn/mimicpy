@@ -60,7 +60,8 @@ class Base(ABC):
         ret = self.fileExists(file)
 
         if ret == True:
-            _gbl.logger.write('debug', f"{file} found!")
+            pass
+            #_gbl.logger.write('debug', f"{file} found!")
         elif throw:
             raise FileNotFoundError(f"{file} not found!")
 
