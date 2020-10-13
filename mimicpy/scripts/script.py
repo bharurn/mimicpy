@@ -1,3 +1,5 @@
+"""Module for abstract script class"""
+
 from collections import OrderedDict
 from abc import ABC, abstractmethod
 from .._global import _Global as gbl
@@ -5,11 +7,18 @@ from ..utils.errors import ScriptError
 
 
 class Script(ABC):
+    """stores internal attributes in a dictionary and script parameters in an ordered dictionary"""
 
-    def __init__(self, **kwargs):
+    def __init__(self):  # , **kwargs):
         self.__setattr__('__orddict__', OrderedDict())
-        for key, value in kwargs.items():
-            setattr(self, key, value)
+#        for key, value in kwargs.items():
+#            print(key)
+#            print(value)
+#            setattr(self, key, value)
+
+    @property
+    def parameters(self):
+        return self.__orddict__
 
     def __setattr__(self, key, value):
         if key.startswith('_') or key == 'has_parameter' or key == 'parameters':
@@ -38,9 +47,6 @@ class Script(ABC):
     def has_parameter(self, key):
         return bool(key in self.__orddict__)
 
-    def parameters(self):
-        return self.__orddict__
-
     @classmethod
     @abstractmethod
     def from_string(cls, string):
@@ -48,5 +54,4 @@ class Script(ABC):
 
     @classmethod
     def from_file(cls, file):
-        # TODO: Check if file is instance of str - here or in host
         return cls.from_string(gbl.host.read(file))

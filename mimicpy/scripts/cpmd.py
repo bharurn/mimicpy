@@ -10,39 +10,6 @@ from .._global import _Global as _global
 #from ..parsers import pdb
 
 
-class Pseudopotential():
-
-    def __init__(self, element=None, pp_type='MT_BLYP', labels='KLEINMAN-BYLANDER', lmax='S', coords=None):
-        self.element = element
-        self.pp_type = pp_type
-        self.labels = labels
-        self.lmax = lmax
-        self.coords = coords
-
-    def __str__(self):
-        if not self.pp_type.startswith('_'):
-            self.pp_type = '_' + self.pp_type
-        if not self.labels.startswith(' ') and self.labels != '':
-            self.labels = ' ' + self.labels
-
-        pp_block = '*'
-        pp_block += f'{self.element}{self.pp_type}{self.labels}\n'
-        pp_block += f'    LMAX={self.lmax.upper()}\n'
-        pp_block += f'    {len(self.coords)}\n'
-
-        for row in self.coords:
-            pp_block += f' {row[0]:>18.12f} {row[1]:>18.12f} {row[2]:>18.12f}\n'
-        pp_block += '\n'
-
-        return pp_block
-
-    @classmethod
-    def from_string(cls, string, pp_type, labels):
-        lmax = re.findall('LMAX=(.*)', string)[0]
-        coords = [i.split() for i in string.splitlines()[2:]]
-        return cls(coords, lmax, pp_type, labels)
-
-
 class Section(Script):
 
     def __str__(self):
@@ -105,16 +72,13 @@ class Section(Script):
 
 class InputScript(Script):
 
-    def __init__(self, *args):
+    def __init__(self, *sections):
         super().__init__()
-        for val in args:
-            setattr(self, val, Section())
+        for section in sections:
+            setattr(self, section, Section())
         self.atoms = OrderedDict()
         self.info = 'MiMiC Run'
         self._ndx = None
-
-    def checkSection(self, section):
-        return self.has_parameter(section)
 
     def __str__(self):
         val = ''
@@ -201,3 +165,141 @@ class InputScript(Script):
             pass
 
         _global.host.write(out_txt, out)
+
+    def __get_overlaps_atoms(self, qmatoms):
+        """
+        Fill up ATOMS section of CPMD script with qmatoms
+        The dataframe is assumed to be ordered correctly
+        The qm boz size is also calculated
+        atom_name->element symbol & atom_name->parital charge
+
+        Logic:
+            Read first [ atomtypes ] section and get mapping from atom types->element symbol
+            All other [ atomtypes ] are not read as these correspond to non std ligands and we already have the symbol info
+            for those from system.ligands.NonStdLigands
+            Read all [ atoms ] sections:
+                Get mapping of atom names->q
+                Get mapping of atom names->element symbol through atom types->element symbol mapping
+        """
+        from ..utils.constants import BOHR_RADIUS
+        self.atoms = OrderedDict() # init atoms as OrderedDict, since order is important
+        # the keys are element symbols, and values are scripts.cpmd.Atoms() objects
+
+        out = str(len(qmatoms))+'\n' # init overlap section string with no of atoms
+        mx = [None, None, None] # max coords
+        mi = [None, None, None] # min coords
+        for i, rows in qmatoms.iterrows():
+            elem = rows['element']
+            idx = rows['id']
+            coords = [rows['x'], rows['y'], rows['z']]
+            link = rows['link']
+
+            out += f"2 {idx} 1 {i + 1}\n" # overlap section string
+
+            if link: elem += '_link' # append astericks to link atoms, so they are added as normal elem dict value
+
+            if elem not in self.atoms.keys(): # if new element is found
+                # init a new Atom() for that element key
+                if elem != 'H' or elem !='H_link': self.atoms[elem] = Atom(coords=[], lmax='p')
+                else: self.atoms[elem] = Atom(coords=[], lmax='s')
+            # append coords to coords variable of Atom() object of that element
+            self.atoms[elem].coords.append([float(v)/BOHR_RADIUS for v in coords])
+
+            for i, coord in enumerate(coords): # find max and min coords in all 3 directions
+                c = float(coord)  # Maybe use numpy here
+                if mx[i] == None or c > mx[i]: mx[i] = c
+                if mi[i] == None or c < mi[i]: mi[i] = c
+
+        self.mimic.overlaps = out
+
+        # box size from mx and mi
+        # add 0.7 nm for Poisson solver's requirement
+        qm_box = list(map(lambda x,y: (x - y + 0.7)/BOHR_RADIUS, mx, mi))
+        qm_box[1] = round(qm_box[1]/qm_box[0], 1)
+        qm_box[2] = round(qm_box[2]/qm_box[0], 1)
+        qm_box[0] = round(qm_box[0])
+        qm_box.extend([0, 0, 0])
+
+        return qm_box
+
+    def add_mimic(self, qmatoms, mm_box):
+        qmatoms = qmatoms.sort_values(by=['is_link', 'element']).reset_index()
+
+        # Prepare CPMD input file
+        self.mimic = Section()
+        import os
+        self.mimic.paths = f'1\n{os.getcwd()}'
+        self.mimic.box = '  '.join([str(s/BOHR_RADIUS) for s in self.structure.box])
+
+        qm_box = self.__get_overlaps_atoms(qmatoms)
+
+        self.mimic.long_range__coupling = ''
+        self.mimic.fragment__sorting__atom_wise__update = 100
+        self.mimic.cutoff__distance = 20.0
+        self.mimic.multipole__order = 3
+
+        return qm_box
+
+
+class Pseudopotential():
+
+    def __init__(self, element, coords, pp_type='MT_BLYP', labels='KLEINMAN-BYLANDER', lmax='S'):
+        self.element = element
+        self.coords = coords
+        self.pp_type = pp_type
+        self.labels = labels
+        self.lmax = lmax
+
+    def __str__(self):
+        if not self.pp_type.startswith('_'):
+            self.pp_type = '_' + self.pp_type
+        if not self.labels.startswith(' ') and self.labels != '':
+            self.labels = ' ' + self.labels
+
+        pp_block = '*'
+        pp_block += f'{self.element}{self.pp_type}{self.labels}\n'
+        pp_block += f'    LMAX={self.lmax.upper()}\n'
+        pp_block += f'    {len(self.coords)}\n'
+
+        for row in self.coords:
+            pp_block += f' {row[0]:>18.12f} {row[1]:>18.12f} {row[2]:>18.12f}\n'
+        pp_block += '\n'
+
+        return pp_block
+
+    @classmethod
+    def from_string():
+        pass
+
+
+class Section(Script):
+
+    def __str__(self):
+        section_string = ''
+        for keyword in self.parameters:
+            value = getattr(self, keyword)
+            section_string += f"\n{keyword.upper().replace('_', ' ')}"
+            if value is not True:  # Looks odd here but might make sense in the user python script
+                section_string += f"\n{str(value).upper()}"
+        return section_string
+
+    def from_string(self):
+        pass
+
+
+class CpmdScript(Script):
+
+    def __init__(self, *sections):
+        super().__init__()
+        for section in sections:
+            setattr(self, section, Section())
+
+    def __str__(self):
+        cpmd_script = ''
+        for section in self.parameters:
+            section_string = str(getattr(self, section))
+            cpmd_script += f'\n&{section.upper()}{section_string}\n&END\n'
+        return cpmd_script
+
+    def from_string(self):
+        pass

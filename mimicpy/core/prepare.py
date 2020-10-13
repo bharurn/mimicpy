@@ -1,10 +1,8 @@
 import logging
 import pandas as pd
-from .selector import GroSelector
 from ..io.mpt import Mpt
-from ..io.gro import Gro
 from ..scripts.mdp import Mdp
-from ..scripts.cpmd import InputScript, Section
+from ..scripts.cpmd import CpmdScript
 from .._global import _Global as gbl
 from ..utils.errors import SelectionError
 from ..utils.constants import BOHR_RADIUS
@@ -12,11 +10,9 @@ from ..utils.constants import BOHR_RADIUS
 
 class Preparation:
 
-    def __init__(self, topology, structure):
-        self.mpt = Mpt.from_file(topology)  # TODO: Rename from_file since topology can also be a mpt object
-        self.structure = Gro(structure)  # TODO: Write adapter for several formats
-        self.qm_atoms = pd.DataFrame()
-        self.selector = GroSelector(self.mpt, self.structure)  # TODO: Write adapter for other selectors
+    def __init__(self, selector):  # TODO: Get box size from Selector
+        self.qm_atoms = pd.DataFrame()  # TODO: Make private
+        self.selector = selector
 
     @staticmethod
     def __clean_qdf(qdf):
@@ -25,23 +21,6 @@ class Preparation:
         columns_to_drop = [l for l in qdf.columns if l not in columns]
         qdf.index = qdf.index.set_names(['id'])
         return qdf.drop(columns_to_drop, axis=1)
-
-    @staticmethod
-    def __ndx_group(qm_ids, group_name):
-        col_len = 15
-        space_len = 6
-        max_len = len(str(max(qm_ids)))
-        spaces = space_len if max_len <= space_len else max_len
-        index = f'[ {group_name} ]'
-        for i, idx in enumerate(qm_ids):
-            if i%col_len == 0:
-                index += '\n'
-            index += "{:{}}".format(idx, spaces) # TODO: Stick to f'...' syntax
-        return index
-
-    @staticmethod
-    def __overlap_section(qmatoms, inp):
-        pass
 
     def add(self, selection=None, is_link=False):
         qdf = Preparation.__clean_qdf(self.selector.select(selection))
@@ -52,26 +31,60 @@ class Preparation:
         qdf = Preparation.__clean_qdf(self.selector.select(selection))
         self.qm_atoms = self.qm_atoms.drop(qdf.index, errors='ignore')
 
-    def clear(self, dummy=None):  # dummy makes main look nicer
+    def clear(self):
         self.qm_atoms = pd.DataFrame()
 
-    def view(self, dummy=None):  # dummy makes main look nicer
-        print(self.qm_atoms)
+    def get_qm_atoms(self):  # TODO: Use @property
+        return self.qm_atoms
 
-    def prepare_cpmd(self, inp_tmp=None, mdp_inp=None, ndx_out=None, inp_out=None):
+    def prepare_mimic_run(self, inp_tmp=None, mdp_inp=None, ndx_out=None, inp_out=None):  # TODO: Provide default templates
         """Args:
             inp_tmp: cpmd input file, used as template
             mdp_inp: gromacs input file, checked for errors
             ndx_out: gromacs index file, output
-            inp_out: new mimic cpmd input file, output
+            inp_out: mimic cpmd input file, output
         """
+
+        def ndx_group(qm_atoms, group_name):
+            col_len = 15
+            space_len = 6
+            max_len = len(str(max(qm_atoms)))
+            spaces = space_len if max_len <= space_len else max_len
+            ndx_group = f'[ {group_name} ]'
+            for i, idx in enumerate(qm_atoms):
+                if i%col_len == 0:
+                    ndx_group += '\n'
+                ndx_group += "{:{}}".format(idx, spaces) # TODO: Stick to f'...' syntax
+            return ndx_group
+
+        def overlaps(sorted_qm_atoms):
+            overlaps = f'{str(len(sorted_qm_atoms))}'
+            for i, atom in sorted_qm_atoms.iterrows():
+                gromacs_id = atom['id']
+                cpmd_id = i + 1
+                overlaps += f'\n2 {gromacs_id} 1 {cpmd_id}'
+            return overlaps
+
+        def atoms(sorted_qm_atoms):
+            pseudopotentials = []
+            for i, atom in sorted_qm_atoms.iterrows():
+                element = atom['element']
+                print(element)
+
+        def qm_cell(sorted_qm_atoms):
+            a = (abs(max(sorted_qm_atoms['x']) - min(sorted_qm_atoms['x'])) + 0.7)/BOHR_RADIUS
+            b = (abs(max(sorted_qm_atoms['y']) - min(sorted_qm_atoms['y'])) + 0.7)/BOHR_RADIUS
+            c = (abs(max(sorted_qm_atoms['z']) - min(sorted_qm_atoms['z'])) + 0.7)/BOHR_RADIUS
+            cell = " ".join((str(round(a, 1)), str(round(b/a, 1)), str(round(c/a, 1)), '0 0 0'))
+            return cell
+
         # Check for obvious errors in selection
         if self.qm_atoms.empty:
             raise SelectionError('No atoms have been selected for the QM partition.')
 
         # Delete self.mpt for better garbage collection
         try:
-            del self.mpt
+            del self.selector.mpt
         except AttributeError:
             pass
 
@@ -80,54 +93,35 @@ class Preparation:
             mdp_inp = Mdp.from_file(mdp_inp)
             maxsteps, timestep, mdp_errors = mdp_inp.check()
         except:
-            maxsteps, timestep, mdp_errors = 1000, 5.0, None
+            maxsteps, timestep, mdp_errors = 1000, 5.0, None  # TODO: Give warning that default values will be used
         if mdp_errors:
             logging.warning('Found md parameters which are inconsistent with MiMiC runs:')
             for error in mdp_errors:
-                logging.warning(f'\t{error}')
+                logging.warning('\t %s', error)
 
         # Create an index group in GROMACS format (and write it to a file)
-        qm_atoms_ndx_group = Preparation.__ndx_group(self.qm_atoms.index, 'QMatoms')
+        qm_ndx_group = ndx_group(self.qm_atoms.index, 'QMatoms')
         if ndx_out:
-            gbl.host.write(qm_atoms_ndx_group, ndx_out)
-            logging.info(f'Wrote Gromacs index file to {ndx_out}')
+            gbl.host.write(qm_ndx_group, ndx_out)
+            logging.info('Wrote Gromacs index file to %s', ndx_out)
 
-        # index is also reset, for getOverlaps_Atoms()
+        # Create CPMD input script
         sorted_qm_atoms = self.qm_atoms.sort_values(by=['is_link', 'element']).reset_index()
-
-        # Prepare CPMD input file
         try:
-            cpmd = InputScript.from_file(inp_tmp)
+            cpmd = CpmdScript.from_file(inp_tmp)  # TODO: Check for must-have sections
         except:
-            cpmd = InputScript()
-        cpmd.mimic = Section()
-        cpmd.mimic.paths = f'1\n{gbl.host.pwd()}'
-        cpmd.mimic.box = '  '.join([str(s/BOHR_RADIUS) for s in self.structure.box])
+            cpmd = CpmdScript('Cpmd', 'System', 'Mimic', 'Atoms')  # TODO: Switch to default template
 
-#        cpmd = _qmhelper.getOverlaps_Atoms(sorted_qm_atoms, inp) # TODO: Move to scripts.cpmd
+        cpmd.mimic.overlaps = overlaps(sorted_qm_atoms)
+        cpmd.atoms.atoms = atoms(sorted_qm_atoms)
 
-        cpmd.mimic.long_range__coupling = ''
-        cpmd.mimic.fragment__sorting__atom_wise__update = 100
-        cpmd.mimic.cutoff__distance = 20.0
-        cpmd.mimic.multipole__order = 3
+        cpmd.system.cell = qm_cell(sorted_qm_atoms)
 
         total_charge = sum(self.qm_atoms['charge'])
         if not round(total_charge, 2).is_integer():
-            logging.warning(f'Total charge of QM region is {total_charge}. Rounding to integer.')
+            logging.warning('Total charge of QM region is %s. Rounding to integer.', total_charge)
 
-        cpmd.system = Section()
         cpmd.system.charge = round(total_charge)
-
-        # set cpmd section
-        if not cpmd.checkSection('cpmd'):
-            cpmd.cpmd = Section()
-        cpmd.cpmd.mimic = ''
-        cpmd.cpmd.parallel__constraints = ''
-
-        if not cpmd.checkSection('dft'):
-            cpmd.dft = Section()
-        cpmd.dft.functional__blyp = '' # TODO: update to new XC_DRIVER code
-
 
         cpmd.cpmd.maxsteps = maxsteps
         cpmd.cpmd.timestep = round(timestep)
@@ -136,6 +130,6 @@ class Preparation:
             logging.info('Created new CPMD input script for MiMiC run')
         else:
             gbl.host.write(str(cpmd), inp_out)
-            logging.info(f'Wrote new CPMD input script to {inp_out}')
+            logging.info('Wrote new CPMD input script to %s', inp_out)
 
-        return qm_atoms_ndx_group, cpmd
+        return qm_ndx_group, str(cpmd)

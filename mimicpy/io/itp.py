@@ -145,7 +145,7 @@ class Itp:
                     if atom_types != {}:
                         return atom_types
                 except OSError:
-                    logging.warning(f'Could not find {included_itp}. Skipping.')
+                    logging.warning('Could not find %s. Skipping.', included_itp)
             return {}
         atomtypes_section = atomtypes_section[0]
         atom_types = {}
@@ -155,7 +155,7 @@ class Itp:
             atom_number = line[1]
             if not atom_number.isnumeric():
                 logging.warning(str(ParserError(self.file, 'forcefield parameters',
-                                  details='Atomic number information is missing')))
+                                                details='Atomic number information is missing')))
             else:
                 atom_types[atom_type] = ELEMENTS[int(atom_number)]
         return atom_types
@@ -163,7 +163,7 @@ class Itp:
     def __read(self):
 
         def guess_element_from(mass, name, atom_type):
-            logging.warning(f'Could not find atomic number for {atom_type}. Guessing element.')
+            logging.warning('Could not find atomic number for %s. Guessing element.', atom_type)
             mass_int = int(round(mass))
             if mass_int <= 0:  # Cannot guess from mass
                 if name in ELEMENTS.values():  # Guess from atom name
@@ -176,7 +176,7 @@ class Itp:
                 element = ELEMENTS[mass_int//2]
             else:  # Assume name is element symbol from Ar onwards
                 element = name.title()  # Case insensitive
-            logging.warning(f'Element {element} has been guessed for {atom_type}.')
+            logging.warning('Element %s has been guessed for %s.', element, atom_type)
             return element
 
         def read_atoms(atom_section):

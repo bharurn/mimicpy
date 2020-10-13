@@ -1,22 +1,25 @@
-from .._global import _Global as gbl
-#from ..io import gro, parser
+import logging
+import pandas as pd
+from ..io.mpt import Mpt
+from ..io.gro import Gro
 from ..utils.errors import MiMiCPyError
 from ._tclvmd import TclVMDConnector
 import xmlrpc.client as xmlrpclib
-import pandas as pd
 from collections import defaultdict
 from abc import ABC, abstractmethod
 
-from ..io.gro import Gro
-
 
 class GroSelector:
-    def __init__(self, mpt, gro):
-        self.mpt = mpt
-        self.gro = gro
+
+    def __init__(self, mpt_file, gro_file, buffer=1000):
+        self.mpt = Mpt.from_file(mpt_file, buffer=buffer)
+        self.gro = Gro(gro_file, buffer=buffer)
         if self.mpt.number_of_atoms != len(self.gro.coords):
             raise MiMiCPyError("Number of atoms in mpt and number of atoms in gro do not match.")
 
+    @property
+    def mm_box(self):
+        return self.gro.box
 
     def select(self, selection):
         """Select MPT atoms and merge with GRO"""
@@ -32,18 +35,11 @@ class GroSelector:
 class VisPackage(ABC):
     ######Core Methods
     ##
-    def __init__(self, cmd, forcelocal, lines):
+    def __init__(self, mpt_file, gro_file, cmd):
         self.cmd = cmd
-        self.forcelocal = forcelocal
-        self.lines = lines
-
-    def load(self, mpt, gro_file):
-
-        self.mpt = mpt
+        self.mpt = Mpt.from_file(mpt_file)
         if gro_file:
             self._vis_pack_load(gro_file)
-
-        return self._get_box()
 
     def select(self, selection):
         sele = self._sele2df(selection)
@@ -66,7 +62,7 @@ class VisPackage(ABC):
         pass
 
     @abstractmethod
-    def _get_box(self):
+    def get_box(self):
         # return box size is in nm
         pass
 
@@ -87,7 +83,7 @@ class PyMOL(VisPackage):
     Can be used by connecting to PyMOL using xmlrpc or by executing in the PyMOL interpreter
     """
 
-    def __init__(self, url=None, forcelocal=True, lines=500):
+    def __init__(self, mpt_file, gro_file, url=None):
 
         if url is None:
             try:
@@ -106,12 +102,12 @@ class PyMOL(VisPackage):
                 raise MiMiCPyError(f"Could not connect to PyMOL xmlrpc server at address {url}")
 
 
-        super().__init__(cmd, forcelocal, lines)
+        super().__init__(mpt_file, gro_file, cmd)
 
     def _vis_pack_load(self, gro_file):
         self.cmd.load(gro_file)
 
-    def _get_box(self):
+    def get_box(self):
         box = self.cmd.get_symmetry("all")
         return [b/10 for b in box[:3]]
 
@@ -149,7 +145,7 @@ class PyMOL(VisPackage):
 
 class VMD(VisPackage):
 
-    def __init__(self, tcl_vmd_params=None, forcelocal=True, lines=500):
+    def __init__(self, mpt_file, gro_file, tcl_vmd_params=None):
         if tcl_vmd_params:
             # use the Tcl connector
             vmd = TclVMDConnector(tcl_vmd_params)
@@ -162,12 +158,12 @@ class VMD(VisPackage):
 
         self.molid = -1 # default to top mol
 
-        super().__init__(vmd, forcelocal, lines)
+        super().__init__(mpt_file, gro_file, vmd)
 
     def _vis_pack_load(self, gro_file):
         self.molid = self.cmd.molecule.load("gro", gro_file)
 
-    def _get_box(self):
+    def get_box(self):
         box = self.cmd.molecule.get_periodic(self.molid)
         return [box[k]/10 for k in ['a', 'b', 'c']]
 

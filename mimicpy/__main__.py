@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
 import logging
-import mimicpy
+import argparse
 import sys
 import time
 import itertools
 import threading
+import mimicpy  # TODO: Adjust __init__ files (leave now for logging config)
 
 
 class Loader:
@@ -29,77 +30,46 @@ class Loader:
         if not halt: print('Done')
 
 
-#def prepqm(qm, ndx, cpmd, cpmd_template, mdp):
-def prepqm(args):
-    command = input('Please enter the selection below. Type help to get help message.\n>  ')
-    command = command.split()
-    prefix = command[0].lower()
-    rest = " ".join(command[1:])
+def prepqm(args):  # TODO: accept non-standard atomtypes - ignore if mpt is passsed
 
-    if ndx == None: ndx = 'index.ndx'
-    if cpmd == None: cpmd = 'cpmd.inp'
-
-    if prefix == 'q'or prefix == 'quit':
-        try:
-            qm.getInp(cpmd_template, mdp, ndx, cpmd)
-        except mimicpy.utils.errors.MiMiCPyError as e:
-            print(e)
-        return False
-    elif prefix == 'add':
-        try:
-            qm.add(rest)
-        except (mimicpy.utils.errors.SelectionError, mimicpy.utils.errors.MiMiCPyError) as e:
-            print(e, end='\n\n')
-        return True
-    elif prefix == 'del':
-        try:
-            qm.delete(rest)
-        except (mimicpy.utils.errors.SelectionError, mimicpy.utils.errors.MiMiCPyError) as e:
-            print(e, end='\n\n')
-        return True
-    elif prefix == 'clear':
-        qm.clear()
-        return True
-    elif prefix == 'help' or prefix == 'h':
-        print("Following commands are understood:\n\n"
-              "o add <selection>\n\tAdd atoms (given by the selection) to the QM region\n\n"
-              "o del <selection>\n\tDelete atoms (given by selection) from the QM region\n\n"
-              "o clear\n\tClear all atoms from the QM region to start over\n\n"
-              "o quit or q\n\tGenerate the CPMD input and Gromacs index files from selected atoms, and quit.\n\n"
-              "o help or h\n\tShow this help message.\n\n"
-              "A keyboard interrupt will cause an immediate termination. "
-              "For more information on the selection langauge please refer to the docs.\n") # What docs :P
-    else:
-        print("Command not understood! Type help to get a list of accepted commands.\n")
-        return True
-
-def prepqm(args):
     from mimicpy.core.prepare import Preparation
-    help = lambda _ : print("\nvalid subcommands:\n\n"
-                            "    add <selection>    add selected atoms to QM region\n"
-                            "    delete <selection>    delete selected atoms from QM region\n"
-                            "    clear              clear all atoms from QM region\n"
-                            "    view               print current QM region to console\n"
-                            "    quit               create CPMD input and GROMACS index files from selected atoms and quit\n"
-                            "    help               show this help message\n\n"
-                            "For more information on the selection langauge please refer to the docs.\n") # What docs :P
-    prep = Preparation(args.mpt, args.gro)
-    dispatch = {'add':prep.add,
+    from mimicpy.core.selector import GroSelector
+
+    def selection_help():  # TODO: Find a better way or place for help
+        print("\nvalid subcommands:\n\n"
+              "    o add <selection>    add selected atoms to QM region\n"
+              "    o delete <selection> delete selected atoms from QM region\n"
+              "    o clear              clear all atoms from QM region\n"
+              "    o view               print current QM region to console\n"
+              "    o quit               create CPMD input and GROMACS index files from selected atoms and quit\n"
+              "    o help               show this help message\n\n"
+              "For more information on the selection langauge please refer to the docs.\n") # What docs :P
+
+    def view():
+        print(prep.get_qm_atoms())  # TODO: Format printing
+
+    selector = GroSelector(args.mpt, args.gro)
+    prep = Preparation(selector)
+    dispatch = {'add':prep.add,  # TODO: Add as link atom
                 'delete':prep.delete,
-                'clear':prep.clear,
-                'view':prep.view}
+                'clear': prep.clear,
+                'view':view,
+                'help':selection_help}
     print('Please enter selection below. For more information type help')
     while True:
         user_input = input('> ')
         user_input = user_input.split()
         command = user_input[0].lower()
-        if command == 'quit':
+        if command in ['quit', 'q']:  # TODO: Write cpmd inp and gromacs ndx files
             break
         selection = ' '.join(user_input[1:])
         try:
-            dispatch[command](selection)
-        except:  # TODO: Write appropriate error message
+            dispatch[command](selection)  # TODO: Give feedback
+        except TypeError:  # TODO: Write appropriate error message
+            dispatch[command]()
+        except:
             pass
+
 
 def getmpt(args):
     # TODO: Write reader for non-standard atomtypes (io)
@@ -107,8 +77,6 @@ def getmpt(args):
     from mimicpy.io.mpt import Mpt
     Mpt.from_file(args.top, mode='w', nonstandard_atomtypes=None).write(args.mpt)
 
-
-import argparse
 
 def main():
     logging.info('Invoked new mimicpy command')
@@ -170,9 +138,9 @@ def main():
 
     args = parser.parse_args()
     subcommand = args.func.__name__
-    logging.info(f'Started mimicpy {subcommand}.')
+    logging.info('Started mimicpy %s.', subcommand)
     args.func(args)  # TODO: Put annimation back
-    logging.info(f'Finished mimicpy {subcommand}.')
+    logging.info('Finished mimicpy %s.', subcommand)
     print(f'MiMiCPy {subcommand} finished successfully')
 
 if __name__ == '__main__':
