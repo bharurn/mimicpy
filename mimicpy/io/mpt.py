@@ -6,8 +6,8 @@ import pandas as pd
 from .top import Top
 from .itp import Itp
 from .topol_dict import TopolDict
-from .._global import _Global as gbl
 from ..utils.errors import SelectionError, MiMiCPyError
+from ..utils.file_handler import read, write
 
 ENCODER = 'utf-8'
 
@@ -127,7 +127,7 @@ class Mpt:
 
     @classmethod
     def __from_mpt(cls, mpt_file):
-        unpacker = xdrlib.Unpacker(gbl.host.read(mpt_file, asbytes=True))
+        unpacker = xdrlib.Unpacker(read(mpt_file, 'rb'))
         molecule_names = Mpt.__unpack_strlist(unpacker)
         number_of_molecules = unpacker.unpack_list(unpacker.unpack_int)
         molecules = list(zip(molecule_names, number_of_molecules))
@@ -304,4 +304,4 @@ class Mpt:
         packer.pack_list(number_of_molecules, packer.pack_int)
         Mpt.__pack_topol_dict(packer, self.topol_dict)
 
-        gbl.host.write(packer.get_buffer(), file_name, asbytes=True)
+        write(packer.get_buffer(), file_name, 'wb')

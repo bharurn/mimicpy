@@ -52,13 +52,13 @@ class Top:
             atom_types.update(self.nonstandard_atomtypes)
 
         atoms = {}
-        for itp in top.topology_files:  # TODO: Skip itp file if not found
+        for itp in top.topology_files:
             try:
                 itp = Itp(itp, molecule_types, atom_types, self.buffer)
                 if itp.topol is not None:
                     atoms.update(itp.topol)
             except OSError:
-                logging.warning(f'Could not find {itp}. Skipping.')
+                logging.warning('Could not find %s. Skipping.', itp)
         topol_dict = TopolDict.from_dict(atoms)
 
         self._molecules = top.molecules

@@ -3,9 +3,9 @@ import pandas as pd
 from ..io.mpt import Mpt
 from ..scripts.mdp import Mdp
 from ..scripts.cpmd import CpmdScript, Pseudopotential
-from .._global import _Global as gbl
 from ..utils.errors import SelectionError
 from ..utils.constants import BOHR_RADIUS
+from ..utils.file_handler import write
 
 
 class Preparation:
@@ -90,7 +90,7 @@ class Preparation:
         # Create an index group in GROMACS format (and write it to a file)
         qm_ndx_group = self.ndx_group()
         if ndx_out:
-            gbl.host.write(qm_ndx_group, ndx_out)
+            write(qm_ndx_group, ndx_out, 'w')
             logging.info('Wrote Gromacs index file to %s', ndx_out)
 
         # Create CPMD input script
@@ -131,7 +131,7 @@ class Preparation:
         if inp_out is None:
             logging.info('Created new CPMD input script for MiMiC run')
         else:
-            gbl.host.write(str(cpmd), inp_out)
+            write(str(cpmd), inp_out, 'w')
             logging.info('Wrote new CPMD input script to %s', inp_out)
 
         return qm_ndx_group, cpmd

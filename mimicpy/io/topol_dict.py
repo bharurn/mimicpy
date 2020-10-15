@@ -24,7 +24,7 @@ class TopolDict:
         self.dict_df = dict_df
         self.repeating = repeating
 
-    def __getitem__(self, key):
+    def __getitem__(self, key):  # TODO: Use try except syntax
         if key in self.dict_df:
             return self.dict_df[key]
         if key in self.repeating:

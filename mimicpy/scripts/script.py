@@ -2,8 +2,8 @@
 
 from collections import OrderedDict
 from abc import ABC, abstractmethod
-from .._global import _Global as gbl
 from ..utils.errors import ScriptError
+from ..utils.file_handler import read
 
 
 class Script(ABC):
@@ -54,4 +54,4 @@ class Script(ABC):
 
     @classmethod
     def from_file(cls, file):
-        return cls.from_string(gbl.host.read(file))
+        return cls.from_string(read(file, 'r'))
