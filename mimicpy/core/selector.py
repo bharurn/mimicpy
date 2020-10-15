@@ -15,7 +15,7 @@ class GroSelector:
         self.mpt = Mpt.from_file(mpt_file, buffer=buffer)
         self.gro = Gro(gro_file, buffer=buffer)
         if self.mpt.number_of_atoms != len(self.gro.coords):
-            raise MiMiCPyError("Number of atoms in mpt and number of atoms in gro do not match.")
+            raise MiMiCPyError(f'Number of atoms in mpt and number of atoms in gro do not match ({self.mpt.number_of_atoms} vs {len(self.gro.coords)})')
 
     @property
     def mm_box(self):

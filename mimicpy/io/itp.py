@@ -12,6 +12,7 @@ from ..utils.errors import MiMiCPyError, ParserError
 
 class Itp:
     """reads itp files"""
+
     columns = ['number', 'type', 'resid', 'resname', 'name', 'charge', 'element', 'mass']
 
     def __init__(self, file, requested_molecules=None, atom_types=None, buffer=1000, mode='r'):
