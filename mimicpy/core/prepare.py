@@ -2,7 +2,7 @@ import logging
 import pandas as pd
 from ..io.mpt import Mpt
 from ..scripts.mdp import Mdp
-from ..scripts.cpmd import CpmdScript
+from ..scripts.cpmd import CpmdScript, Pseudopotential
 from .._global import _Global as gbl
 from ..utils.errors import SelectionError
 from ..utils.constants import BOHR_RADIUS
@@ -57,7 +57,7 @@ class Preparation:
                 ndx_group += "{:{}}".format(idx, spaces) # TODO: Stick to f'...' syntax
             return ndx_group
 
-        def overlaps(sorted_qm_atoms):
+        def overlaps(sorted_qm_atoms):  # TODO: Unify with atoms in one loop
             overlaps = f'{str(len(sorted_qm_atoms))}'
             for i, atom in sorted_qm_atoms.iterrows():
                 gromacs_id = atom['id']
@@ -65,11 +65,19 @@ class Preparation:
                 overlaps += f'\n2 {gromacs_id} 1 {cpmd_id}'
             return overlaps
 
-        def atoms(sorted_qm_atoms):
-            pseudopotentials = []
+        def pseudopotentials():
+            pps = []
             for i, atom in sorted_qm_atoms.iterrows():
-                element = atom['element']
-                print(element)
+                element = str(atom['element']).lower()
+                coords = [atom['x'], atom['y'], atom['z']]
+                if atom['is_link']:
+                    element += '_link'
+                if cpmd.atoms.has_parameter(element):
+                    pp_block = getattr(cpmd.atoms, element)
+                    pp_block.coords.append(coords)
+                else:
+                    setattr(cpmd.atoms, element, Pseudopotential(element, coords))
+            return pps
 
         def qm_cell(sorted_qm_atoms):
             a = (abs(max(sorted_qm_atoms['x']) - min(sorted_qm_atoms['x'])) + 0.7)/BOHR_RADIUS
@@ -112,9 +120,11 @@ class Preparation:
         except:
             cpmd = CpmdScript('Cpmd', 'System', 'Mimic', 'Atoms')  # TODO: Switch to default template
 
+ #       overlaps, atoms = get_overlaps_and_atoms()
+ #       cpmd.mimic.overlaps = overlaps
         cpmd.mimic.overlaps = overlaps(sorted_qm_atoms)
-        cpmd.atoms.atoms = atoms(sorted_qm_atoms)
-
+        pps = pseudopotentials()
+#        cpmd.atoms.atoms = atoms(sorted_qm_atoms)
         cpmd.system.cell = qm_cell(sorted_qm_atoms)
 
         total_charge = sum(self.qm_atoms['charge'])
@@ -132,4 +142,4 @@ class Preparation:
             gbl.host.write(str(cpmd), inp_out)
             logging.info('Wrote new CPMD input script to %s', inp_out)
 
-        return qm_ndx_group, str(cpmd)
+        return qm_ndx_group, cpmd
