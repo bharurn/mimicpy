@@ -37,6 +37,19 @@ class Preparation:
     def get_qm_atoms(self):  # TODO: Use @property
         return self.qm_atoms
 
+    def ndx_group(self):  # TODO: Make group name changeable
+        indices = self.qm_atoms.index
+        col_len = 15
+        space_len = 6
+        max_len = len(str(max(indices))) + 1
+        spaces = space_len if max_len <= space_len else max_len
+        ndx_group = '[ QMatoms ]'
+        for i, idx in enumerate(indices):
+            if i%col_len == 0:
+                ndx_group += '\n'
+            ndx_group += "{:{}}".format(idx, spaces) # TODO: Stick to f'...' syntax
+        return ndx_group
+
     def prepare_mimic_run(self, inp_tmp=None, mdp_inp=None, ndx_out=None, inp_out=None):  # TODO: Provide default templates
         """Args:
             inp_tmp: cpmd input file, used as template
@@ -45,45 +58,12 @@ class Preparation:
             inp_out: mimic cpmd input file, output
         """
 
-        def ndx_group(qm_atoms, group_name):
-            col_len = 15
-            space_len = 6
-            max_len = len(str(max(qm_atoms)))
-            spaces = space_len if max_len <= space_len else max_len
-            ndx_group = f'[ {group_name} ]'
-            for i, idx in enumerate(qm_atoms):
-                if i%col_len == 0:
-                    ndx_group += '\n'
-                ndx_group += "{:{}}".format(idx, spaces) # TODO: Stick to f'...' syntax
-            return ndx_group
-
-        def overlaps(sorted_qm_atoms):  # TODO: Unify with atoms in one loop
-            overlaps = f'{str(len(sorted_qm_atoms))}'
-            for i, atom in sorted_qm_atoms.iterrows():
-                gromacs_id = atom['id']
-                cpmd_id = i + 1
-                overlaps += f'\n2 {gromacs_id} 1 {cpmd_id}'
-            return overlaps
-
-        def pseudopotentials():
-            pps = []
-            for i, atom in sorted_qm_atoms.iterrows():
-                element = str(atom['element']).lower()
-                coords = [atom['x'], atom['y'], atom['z']]
-                if atom['is_link']:
-                    element += '_link'
-                if cpmd.atoms.has_parameter(element):
-                    pp_block = getattr(cpmd.atoms, element)
-                    pp_block.coords.append(coords)
-                else:
-                    setattr(cpmd.atoms, element, Pseudopotential(element, coords))
-            return pps
-
-        def qm_cell(sorted_qm_atoms):
-            a = (abs(max(sorted_qm_atoms['x']) - min(sorted_qm_atoms['x'])) + 0.7)/BOHR_RADIUS
-            b = (abs(max(sorted_qm_atoms['y']) - min(sorted_qm_atoms['y'])) + 0.7)/BOHR_RADIUS
-            c = (abs(max(sorted_qm_atoms['z']) - min(sorted_qm_atoms['z'])) + 0.7)/BOHR_RADIUS
-            cell = " ".join((str(round(a, 1)), str(round(b/a, 1)), str(round(c/a, 1)), '0 0 0'))
+        def qm_cell():
+            dims = [0, 0, 0]
+            for i, r in enumerate(['x', 'y', 'z']):
+                dims[i] = (abs(max(self.qm_atoms[r]) - min(self.qm_atoms[r])) + 0.7)/BOHR_RADIUS
+            a, b, c = dims
+            cell = ' '.join((str(round(a, 1)), str(round(b/a, 1)), str(round(c/a, 1)), '0 0 0'))
             return cell
 
         # Check for obvious errors in selection
@@ -108,7 +88,7 @@ class Preparation:
                 logging.warning('\t %s', error)
 
         # Create an index group in GROMACS format (and write it to a file)
-        qm_ndx_group = ndx_group(self.qm_atoms.index, 'QMatoms')
+        qm_ndx_group = self.ndx_group()
         if ndx_out:
             gbl.host.write(qm_ndx_group, ndx_out)
             logging.info('Wrote Gromacs index file to %s', ndx_out)
@@ -120,21 +100,33 @@ class Preparation:
         except:
             cpmd = CpmdScript('Cpmd', 'System', 'Mimic', 'Atoms')  # TODO: Switch to default template
 
- #       overlaps, atoms = get_overlaps_and_atoms()
- #       cpmd.mimic.overlaps = overlaps
-        cpmd.mimic.overlaps = overlaps(sorted_qm_atoms)
-        pps = pseudopotentials()
-#        cpmd.atoms.atoms = atoms(sorted_qm_atoms)
-        cpmd.system.cell = qm_cell(sorted_qm_atoms)
+        # Get overlaps and atoms
+        overlaps = f'{len(sorted_qm_atoms)}'
+        for i, atom in sorted_qm_atoms.iterrows():
+            gromacs_id = atom['id']
+            cpmd_id = i + 1
+            overlaps += f'\n2 {gromacs_id} 1 {cpmd_id}'
+            element = str(atom['element']).lower()
+            coords = [atom['x'], atom['y'], atom['z']]
+            if atom['is_link']:
+                element += '_link'
+            if cpmd.atoms.has_parameter(element):
+                pp_block = getattr(cpmd.atoms, element)
+                pp_block.coords.append(coords)
+            else:
+                setattr(cpmd.atoms, element, Pseudopotential(element, coords))
+
+        cpmd.mimic.overlaps = overlaps
+        cpmd.mimic.box = ' '.join([str(s/BOHR_RADIUS) for s in self.selector.mm_box])
+        cpmd.system.cell = qm_cell()
 
         total_charge = sum(self.qm_atoms['charge'])
         if not round(total_charge, 2).is_integer():
             logging.warning('Total charge of QM region is %s. Rounding to integer.', total_charge)
-
         cpmd.system.charge = round(total_charge)
 
         cpmd.cpmd.maxsteps = maxsteps
-        cpmd.cpmd.timestep = round(timestep)
+        cpmd.cpmd.timestep = timestep
 
         if inp_out is None:
             logging.info('Created new CPMD input script for MiMiC run')
