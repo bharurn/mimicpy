@@ -3,8 +3,7 @@ from .script import Script
 
 class Pseudopotential:
 
-    def __init__(self, element, coords, pp_type='MT_BLYP', labels='KLEINMAN-BYLANDER', lmax='S'):
-        self.element = element
+    def __init__(self, coords, pp_type='MT_BLYP', labels='KLEINMAN-BYLANDER', lmax='S'):
         self.coords = [coords]
         self.pp_type = pp_type
         self.labels = labels
@@ -16,8 +15,7 @@ class Pseudopotential:
         if not self.labels.startswith(' ') and self.labels != '':
             self.labels = ' ' + self.labels
 
-        pp_block = '*'
-        pp_block += f'{self.element}{self.pp_type}{self.labels}\n'
+        pp_block = f'{self.pp_type}{self.labels}\n'
         pp_block += f'    LMAX={self.lmax.upper()}\n'
         pp_block += f'    {len(self.coords)}\n'
 
@@ -37,10 +35,12 @@ class Section(Script):
         section_string = ''
         for keyword in self.parameters:
             value = getattr(self, keyword)
-            if not isinstance(value, Pseudopotential):
-                section_string += f"\n{keyword.upper().replace('_', ' ')}"
+            if isinstance(value, Pseudopotential):
+                section_string += f"\n*{keyword.upper().replace('_', ' ')}"
+            else:
+                section_string += f"\n{keyword.upper().replace('_', ' ')}\n"
             if value is not True:  # Looks odd here but might make sense in the user python script
-                section_string += f"\n{str(value).upper()}"  # TODO: Check for False
+                section_string += f"{str(value)}"  # TODO: Check for False
         return section_string
 
     def from_string(self):

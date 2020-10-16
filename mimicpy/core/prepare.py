@@ -1,3 +1,4 @@
+import os
 import logging
 import pandas as pd
 from ..io.mpt import Mpt
@@ -47,10 +48,11 @@ class Preparation:
         for i, idx in enumerate(indices):
             if i%col_len == 0:
                 ndx_group += '\n'
-            ndx_group += "{:{}}".format(idx, spaces) # TODO: Stick to f'...' syntax
+            ndx_group += "{:{}}".format(idx, spaces)
+        ndx_group += '\n'
         return ndx_group
 
-    def prepare_mimic_run(self, inp_tmp=None, mdp_inp=None, ndx_out=None, inp_out=None):  # TODO: Provide default templates
+    def get_mimic_input(self, inp_tmp=None, mdp_inp=None, ndx_out=None, inp_out=None):  # TODO: Provide default templates
         """Args:
             inp_tmp: cpmd input file, used as template
             mdp_inp: gromacs input file, checked for errors
@@ -114,8 +116,9 @@ class Preparation:
                 pp_block = getattr(cpmd.atoms, element)
                 pp_block.coords.append(coords)
             else:
-                setattr(cpmd.atoms, element, Pseudopotential(element, coords))
+                setattr(cpmd.atoms, element, Pseudopotential(coords))
 
+        cpmd.mimic.path = '1\n' + str(os.getcwd())
         cpmd.mimic.overlaps = overlaps
         cpmd.mimic.box = ' '.join([str(s/BOHR_RADIUS) for s in self.selector.mm_box])
         cpmd.system.cell = qm_cell()

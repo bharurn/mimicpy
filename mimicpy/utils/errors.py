@@ -32,24 +32,6 @@ class ScriptError(MiMiCPyError):
     def __str__(self):
         return f'The {self.parameter} parameter has not been set in script.'
 
-
-class ExecutionError(MiMiCPyError):
-    """
-    Raised when a command executed by host exits
-    with and error message
-    """
-    def __init__(self, cmd, msg):
-        self.cmd = cmd
-        self.msg = msg
-
-    def __str__(self):
-        return f"Command attempted {self.cmd}\n{self.msg}"
-
-def defaultHook(cmd, out):
-    """Default error checking hook called by host"""
-    if 'error' in out.lower() or 'not recognisable' in out.lower() or 'not found' in out.lower():
-        raise ExecutionError(cmd.split(';')[-1], out)
-
 def asserter(boolean, error, *args, **kwargs):
     """Custom assert to raise custom errors"""
     if not boolean:

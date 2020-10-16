@@ -60,8 +60,12 @@ def prepqm(args):  # TODO: accept non-standard atomtypes - ignore if mpt is pass
         user_input = input('> ')
         user_input = user_input.split()
         command = user_input[0].lower()
-        if command in ['quit', 'q']:  # TODO: Write cpmd inp and gromacs ndx files
-            break
+        if command in ['quit', 'q']:
+            try:
+                prep.get_mimic_input(args.inp, args.mdp, args.ndx, args.out)
+                break
+            except mimicpy.utils.errors.SelectionError as error:
+                print(error)
         selection = ' '.join(user_input[1:])
         try:
             dispatch[command](selection)  # TODO: Give feedback
@@ -137,6 +141,8 @@ def main():
     parser_prepqm.set_defaults(func=prepqm)
 
     args = parser.parse_args()
+    if vars(args) == {}:
+        sys.exit()
     subcommand = args.func.__name__
     logging.info('Started mimicpy %s.', subcommand)
     args.func(args)  # TODO: Put annimation back
