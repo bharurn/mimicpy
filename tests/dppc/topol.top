@@ -1,15 +1,17 @@
 #include "gromos53a6.ff/forcefield.itp"
 ; Include Position restraint file
 #ifdef POSRES
-;#include "posre.itp"
+#include "posre.itp"
 #endif
 
 ; Include DPPC chain topology
-#include "dppc.itp"
+#include "dppc_A.itp"
+#include "dppc_B.itp"
 
 ; Include water topology
 #include "gromos53a6.ff/spc.itp"
 
 [ molecules ]
-DPPC 2
+DPPC_A 1
+DPPC_B 2
 SOL 100

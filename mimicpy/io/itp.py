@@ -88,11 +88,11 @@ class Itp:
         return bool('[' in string and ']' in string and section in string)
 
     @staticmethod
-    def __get_section(section, string, comments=';'):
-        # Clean string
+    def __get_section(section, string):
+        # Clean string - or not?
         # Find text b/w [ section ] and either [ or # or EOF
         # Look for [ section ] / look for lines / look for optional spaces and [ or #
-        string = clean(string, comments)
+        # string = clean(string, comments)
         section_regex = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)\s*(?:$|\[|#)", re.MULTILINE)
         section = section_regex.findall(string)
         return section
@@ -136,9 +136,10 @@ class Itp:
     def __read_atomtypes(self):
         itp_file = Parser(self.file, self.buffer)
         itp_text = Itp.__parse_block_till_section(itp_file, 'atomtypes')
-        atomtypes_section = Itp.__get_section('atomtypes', itp_text)
+        clean_itp_text = clean(itp_text, comments=';')
+        atomtypes_section = Itp.__get_section('atomtypes', clean_itp_text)
         if atomtypes_section == []:  # TODO: What if atomtypes are in several itps?
-            included_itps = self.__get_included_topology_files(itp_text)
+            included_itps = self.__get_included_topology_files(clean_itp_text)
             for included_itp in included_itps:
                 try:
                     itp = Itp(included_itp, self.requested_molecules)
@@ -212,8 +213,12 @@ class Itp:
             return atoms
 
         itp_text = self.__load_molecules_and_atoms()
-        molecule_section = Itp.__get_section('moleculetype', itp_text)
-        atom_section = Itp.__get_section('atoms', itp_text, comments=[';', '#'])
+        clean_itp_text = clean(itp_text,  comments=[';', '#'])
+        print(clean_itp_text)
+        molecule_section = Itp.__get_section('moleculetype', clean_itp_text)
+        #print(molecule_section)
+        atom_section = Itp.__get_section('atoms', clean_itp_text)
+
         if molecule_section == [] and atom_section == []:
             return None
         molecules = []

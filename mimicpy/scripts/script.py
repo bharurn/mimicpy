@@ -9,12 +9,8 @@ from ..utils.file_handler import read
 class Script(ABC):
     """stores internal attributes in a dictionary and script parameters in an ordered dictionary"""
 
-    def __init__(self):  # , **kwargs):
+    def __init__(self):
         self.__setattr__('__orddict__', OrderedDict())
-#        for key, value in kwargs.items():
-#            print(key)
-#            print(value)
-#            setattr(self, key, value)
 
     @property
     def parameters(self):
@@ -54,4 +50,6 @@ class Script(ABC):
 
     @classmethod
     def from_file(cls, file):
+        if isinstance(file, Script):
+            return file
         return cls.from_string(read(file, 'r'))

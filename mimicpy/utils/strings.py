@@ -1,12 +1,9 @@
 import re
 
-def clean(string, comments=None):
-    """Remove comments and unnecessary newlines.
-       Comments can be a single string or a list of strings.
-    """
-    if comments:
+def clean(txt, comments=None):
+    if comments:  # Can be single string or a list of strings
         if isinstance(comments, str):
             comments = [comments]
-        for comment in comments:
-            string = re.sub(re.compile(f"{comment}(.*)\n"), "\n", string)  # Strip comments.
-    return re.sub(re.compile("\n{2,}"), "\n", string)  # Remove double new lines.
+        for c in comments:
+            txt = re.sub(re.compile(f"{c}(.*)\n" ) ,"\n" , txt)  # Strip comments
+    return re.sub(re.compile(r"[\n]+"), "\n", txt)

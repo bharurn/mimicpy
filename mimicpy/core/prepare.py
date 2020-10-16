@@ -79,15 +79,12 @@ class Preparation:
             pass
 
         # Retrieve number of steps and timestep from mdp_inp and do some checks
-        try:
-            mdp_inp = Mdp.from_file(mdp_inp)
-            maxsteps, timestep, mdp_errors = mdp_inp.check()
-        except:
-            maxsteps, timestep, mdp_errors = 1000, 5.0, None  # TODO: Give warning that default values will be used
-        if mdp_errors:
-            logging.warning('Found md parameters which are inconsistent with MiMiC runs:')
-            for error in mdp_errors:
-                logging.warning('\t %s', error)
+        if mdp_inp is None:
+            maxsteps, timestep, mdp_errors = 1000, 5.0, ['Using default values for maxstep and timestep.']
+        else:
+            maxsteps, timestep, mdp_errors = Mdp.from_file(mdp_inp).check()
+        for error in mdp_errors:
+            logging.warning('%s', error)
 
         # Create an index group in GROMACS format (and write it to a file)
         qm_ndx_group = self.ndx_group()
@@ -97,10 +94,11 @@ class Preparation:
 
         # Create CPMD input script
         sorted_qm_atoms = self.qm_atoms.sort_values(by=['is_link', 'element']).reset_index()
-        try:
+
+        if inp_tmp is None:
+            cpmd = CpmdScript('Cpmd', 'System', 'Mimic', 'Atoms')
+        else:
             cpmd = CpmdScript.from_file(inp_tmp)  # TODO: Check for must-have sections
-        except:
-            cpmd = CpmdScript('Cpmd', 'System', 'Mimic', 'Atoms')  # TODO: Switch to default template
 
         # Get overlaps and atoms
         overlaps = f'{len(sorted_qm_atoms)}'
@@ -109,7 +107,7 @@ class Preparation:
             cpmd_id = i + 1
             overlaps += f'\n2 {gromacs_id} 1 {cpmd_id}'
             element = str(atom['element']).lower()
-            coords = [atom['x'], atom['y'], atom['z']]
+            coords = [atom['x']/BOHR_RADIUS, atom['y']/BOHR_RADIUS, atom['z']/BOHR_RADIUS]
             if atom['is_link']:
                 element += '_link'
             if cpmd.atoms.has_parameter(element):
@@ -118,7 +116,9 @@ class Preparation:
             else:
                 setattr(cpmd.atoms, element, Pseudopotential(coords))
 
-        cpmd.mimic.path = '1\n' + str(os.getcwd())
+        if not cpmd.mimic.has_parameter('paths'):
+            cpmd.mimic.paths = '1\n' + str(os.getcwd())
+
         cpmd.mimic.overlaps = overlaps
         cpmd.mimic.box = ' '.join([str(s/BOHR_RADIUS) for s in self.selector.mm_box])
         cpmd.system.cell = qm_cell()
