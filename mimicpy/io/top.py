@@ -9,11 +9,12 @@ from ..utils.errors import MiMiCPyError
 class Top:
     """reads top files"""
 
-    def __init__(self, file, mode='r', buffer=1000, nonstandard_atomtypes=None):
+    def __init__(self, file, mode='r', buffer=1000, nonstandard_atomtypes=None, guess_elements=True):
         self.file = file
         self.mode = mode
         self.buffer = buffer
         self.nonstandard_atomtypes = nonstandard_atomtypes
+        self.guess_elements = guess_elements
         self._molecules = None
         self._topol_dict = None
 
@@ -52,13 +53,16 @@ class Top:
             atom_types.update(self.nonstandard_atomtypes)
 
         atoms = {}
-        for itp in top.topology_files:
+        for itp_file in top.topology_files:
             try:
-                itp = Itp(itp, molecule_types, atom_types, self.buffer)
+                itp = Itp(itp_file, molecule_types, atom_types, self.buffer, 'r', self.guess_elements)
                 if itp.topol is not None:
                     atoms.update(itp.topol)
+                    logging.info('Read atoms from %s.', itp_file)
+                else:
+                    logging.info('No atoms found in %s.', itp_file)
             except OSError:
-                logging.warning('Could not find %s. Skipping.', itp)
+                logging.warning('Could not find %s. Skipping...', itp_file)
         topol_dict = TopolDict.from_dict(atoms)
 
         self._molecules = top.molecules

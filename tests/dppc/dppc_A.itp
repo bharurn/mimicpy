@@ -1,7 +1,6 @@
 [ moleculetype ]
 ; Name   nrexcl
 DPPC_A 3
-
 [ atoms ]
 ;   nr    type   resnr  residu    atom    cgnr        charge          mass
      1     LC3       1    DPPC      C1       0         0.4000   15.0350	; qtot:0.36    
@@ -54,7 +53,6 @@ DPPC_A 3
     48     LP2       1    DPPC     C48      31             0    14.0270	; qtot: 
     49     LP2       1    DPPC     C49      32             0    14.0270	; qtot: 
     50     LP3       1    DPPC     C50      33             0    15.0350	; qtot: 
-
 [ bonds ]
 ;  ai    aj funct
        4       5       1 0.14700E+00 0.37660E+06

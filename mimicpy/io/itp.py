@@ -9,18 +9,18 @@ from ..utils.strings import clean
 from ..utils.elements import ELEMENTS
 from ..utils.errors import MiMiCPyError, ParserError
 
-
 class Itp:
     """reads itp files"""
 
     columns = ['number', 'type', 'resid', 'resname', 'name', 'charge', 'element', 'mass']
 
-    def __init__(self, file, requested_molecules=None, atom_types=None, buffer=1000, mode='r'):
+    def __init__(self, file, requested_molecules=None, atom_types=None, buffer=1000, mode='r', guess_elements=True):
         self.file = file
         self.requested_molecules = requested_molecules
         self.atom_types_dict = atom_types
         self.buffer = buffer
         self.mode = mode
+        self.guess_elements = guess_elements
         self._topol = None
         self._topology_files = None
         self._molecules = None
@@ -94,14 +94,13 @@ class Itp:
         # Look for [ section ] / look for lines / look for optional spaces and [ or #
         # string = clean(string, comments)
         section_regex = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)\s*(?:$|\[|#)", re.MULTILINE)
-        section = section_regex.findall(string)
-        return section
+        section_list = section_regex.findall(string)
+        return section_list
 
     @staticmethod
-    def __parse_block_till_section(itp, *sections, comments=[';', '#']):
+    def __parse_block_till_section(itp, *sections):
 
         def get_section_headers(string):
-            string = clean(string, comments)
             section_header_regex = re.compile(fr"\[\s*(.*?)\s*\]", re.MULTILINE)
             section_headers = section_header_regex.findall(string)
             return section_headers
@@ -142,7 +141,7 @@ class Itp:
             included_itps = self.__get_included_topology_files(clean_itp_text)
             for included_itp in included_itps:
                 try:
-                    itp = Itp(included_itp, self.requested_molecules)
+                    itp = Itp(included_itp)
                     atom_types = itp.__read_atomtypes()
                     if atom_types != {}:
                         return atom_types
@@ -166,12 +165,15 @@ class Itp:
 
         def guess_element_from(mass, name, atom_type):
             logging.warning('Could not find atomic number for %s. Guessing element.', atom_type)
+            element = 'H'
             mass_int = int(round(mass))
             if mass_int <= 0:  # Cannot guess from mass
                 if name in ELEMENTS.values():  # Guess from atom name
                     element = name
                 elif atom_type in ELEMENTS.values():  # Guess from atom type
                     element = atom_type
+                else:
+                    element = name.title()[0]
             elif mass_int <= 1:  # Guess H from mass
                 element = 'H'
             elif mass_int < 36:  # Guess He to Cl from mass
@@ -184,23 +186,32 @@ class Itp:
         def read_atoms(atom_section):
             cols = self.columns
             atom_info = {k:[] for k in cols}
-            for _, line in enumerate(atom_section.splitlines()):
+            number_of_bad_lines = 0
+            for i, line in enumerate(atom_section.splitlines()):
                 line = line.split()
                 if len(line) == 8:
                     number, atom_type, resid, resname, name, _, charge, mass = line[:8]
                 elif len(line) == 7:
                     number, atom_type, resid, resname, name, _, charge = line[:7]
                     mass = 0
-                else:  # TODO: Raise exception
-                    pass
+                else:
+                    if number_of_bad_lines > 5:
+                        raise ParserError(self.file, 'topology',
+                                          details='Too many bad lines in [ atoms ] section.')
+                    logging.warning('Atom %s in [ atoms ] section is not formatted properly. Skipping...', i)
+                    number_of_bad_lines += 1
+                    continue
                 number = int(number)
                 resid = int(resid)
                 charge = float(charge)
                 mass = float(mass)
                 if self.atom_types_dict is not None and atom_type in self.atom_types_dict:
                     element = self.atom_types_dict[atom_type]
-                else:
+                elif self.guess_elements:
                     element = guess_element_from(mass, name, atom_type)
+                else:
+                    raise ParserError(self.file, 'topology', details=('Cannot determine atomic symbol'
+                                     f' for atom with name {name} and type {atom_type} in residue {resname}'))
                 atom_info[cols[0]].append(number)
                 atom_info[cols[1]].append(atom_type)
                 atom_info[cols[2]].append(resid)
@@ -214,15 +225,13 @@ class Itp:
 
         itp_text = self.__load_molecules_and_atoms()
         clean_itp_text = clean(itp_text,  comments=[';', '#'])
-        print(clean_itp_text)
         molecule_section = Itp.__get_section('moleculetype', clean_itp_text)
-        #print(molecule_section)
         atom_section = Itp.__get_section('atoms', clean_itp_text)
-
         if molecule_section == [] and atom_section == []:
             return None
         molecules = []
         atom_infos = []
+
         for molecule, atoms in zip(molecule_section, atom_section):
             mol = molecule.split()[0]
             if mol not in self.requested_molecules:

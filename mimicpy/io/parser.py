@@ -5,7 +5,7 @@ class Parser:
     """implements methods for iterable objects and wraps around readline"""
 
     def __init__(self, file, buffer=1000):
-        self.file = open(file, 'rb')
+        self.file = open(file, 'r')
         self.buffer = buffer
         self.is_closed = False
 
@@ -22,14 +22,15 @@ class Parser:
         if self.is_closed:
             raise StopIteration()
         out = self.file.read(self.buffer)
-        if out == b'':
+        if out == '':
             self._del()
             raise StopIteration()
-        return out.decode()
+        return out
 
     def _del(self):
         self.is_closed = True
-        # self.file.close()
+        if hasattr(self, 'file'):
+            self.file.close()
 
     def readline(self):
-        return self.file.readline().decode()
+        return self.file.readline()
