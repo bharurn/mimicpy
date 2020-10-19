@@ -1,4 +1,4 @@
-from mimicpy.parsers.mpt import MPT
+from mimicpy.io.mpt import Mpt
 import pytest
 
 def getMockTopol():
@@ -26,23 +26,23 @@ def getMockTopol():
     return df1, df2
    
 def test_topol_dict():
-    from mimicpy.parsers.top import TopolDict
+    from mimicpy.io.topol_dict import TopolDict
     df1, df2 = getMockTopol()
-    topol_dict = TopolDict.fromDict({'MOL1':df1, 'MOL2':df1, 'NA1': df2, 'NA2':df2})
+    topol_dict = TopolDict.from_dict({'MOL1':df1, 'MOL2':df1, 'NA1': df2, 'NA2':df2})
     
     assert topol_dict.repeating == {'MOL2': 'MOL1', 'NA2': 'NA1'}
     
-    topol_dict = TopolDict.fromDict({'MOL1':df1, 'MOL2':df1, 'NA1': df2, 'NA2':df2, 'MOL3':df1, 'NA3': df2, 'NA4': df2})
+    topol_dict = TopolDict.from_dict({'MOL1':df1, 'MOL2':df1, 'NA1': df2, 'NA2':df2, 'MOL3':df1, 'NA3': df2, 'NA4': df2})
     
     assert topol_dict.repeating == {'MOL2': 'MOL1', 'MOL3': 'MOL1', 'NA2': 'NA1', 'NA3': 'NA1', 'NA4': 'NA1'}
 
 def test_prop():
     df1, df2 = getMockTopol()
     
-    from mimicpy.parsers.top import TopolDict
-    topol_dict = TopolDict.fromDict({'MOL1':df1, 'NA1':df2, 'NA2':df2, 'MOL2':df1})
+    from mimicpy.io.topol_dict import TopolDict
+    topol_dict = TopolDict.from_dict({'MOL1':df1, 'NA1':df2, 'NA2':df2, 'MOL2':df1})
     
-    mpt = MPT([('MOL1', 2), ('NA1', 1), ('MOL2', 1), ('NA2', 3), ('NA1', 1)], topol_dict, 'r')
+    mpt = Mpt([('MOL1', 2), ('NA1', 1), ('MOL2', 1), ('NA2', 3), ('NA1', 1)], topol_dict, 'r')
     
     assert len(mpt['type']) == 20
     assert mpt['type'] == ['CA', 'CA', 'CT', 'H', 'N*']*2 + ['NA'] + ['CA', 'CA', 'CT', 'H', 'N*'] + ['NA']*4
@@ -56,10 +56,10 @@ def test_prop():
 def test_select():
     df1, df2 = getMockTopol()
     
-    from mimicpy.parsers.top import TopolDict
-    topol_dict = TopolDict.fromDict({'MOL1':df1, 'NA1':df2, 'MOL2':df1})
+    from mimicpy.io.topol_dict import TopolDict
+    topol_dict = TopolDict.from_dict({'MOL1':df1, 'NA1':df2, 'MOL2':df1})
     
-    mpt = MPT([('MOL1', 1), ('NA1', 1), ('MOL2', 1)], topol_dict, 'r')
+    mpt = Mpt([('MOL1', 1), ('NA1', 1), ('MOL2', 1)], topol_dict, 'r')
     
     sele = mpt.select('(type not CT and mol is MOL1) or (type not N* and mol is MOL2)')
     
@@ -71,21 +71,21 @@ def test_select():
     
     with pytest.raises(SelectionError) as e:
         assert mpt.select('_type is CA')
-    assert str(e.value) == "_type is not a valid selection keyword"
+    assert str(e.value) == "_type is not a valid selection keyword."
     
     with pytest.raises(SelectionError) as e:
         assert mpt.select('name if CA')
-    assert str(e.value) == "if is not a valid logical operator"
+    assert str(e.value) == "if is not a valid logical operator."
     
     with pytest.raises(SelectionError) as e:
         assert mpt.select('name is CA ot name is CT')
-    assert str(e.value) == "ot is not a valid boolean operator"
+    assert str(e.value) == "ot is not a valid boolean operator."
     
     with pytest.raises(SelectionError) as e:
         assert mpt.select('name is CA) or name is CT')
-    assert str(e.value) == "Missing open bracket is selection"
+    assert str(e.value) == "Open bracket is missing in selection."
     
     with pytest.raises(SelectionError) as e:
         assert mpt.select('name is CA or ( name is CT')
-    assert str(e.value) == "Missing closing bracket is selection"
+    assert str(e.value) == "Closing bracket is missing in selection."
     

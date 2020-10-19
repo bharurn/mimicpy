@@ -1,138 +1,140 @@
-# This is part of MiMiCPy
-
-"""
-
-This module contains the handles to prepare the
-MM topology, MPT and QM region/CPMD script
-
-"""
-
-from .selector import Selector
-from .._global import _Global as _global
-from . import _qmhelper
-from ..parsers.mpt import MPT
-from ..utils.constants import bohr_rad
-from ..scripts import cpmd
-from ..scripts.mdp import MDP
-from ..utils.errors import MiMiCPyError
+import os
+import logging
 import pandas as pd
+from ..io.mpt import Mpt
+from ..scripts.mdp import Mdp
+from ..scripts.cpmd import CpmdScript, Pseudopotential
+from ..utils.errors import SelectionError
+from ..utils.constants import BOHR_RADIUS
+from ..utils.file_handler import write
 
-class Prepare:
-    """
-    Prepare QM input script, by reading MPT file
-    
-    """
-    
-    def __init__(self, mpt, gro, selector=Selector()):
-        """Class constructor"""
-        
-        if isinstance(mpt, MPT): self.mpt = mpt
-        else: self.mpt = MPT.fromFile(mpt)
+
+class Preparation:
+
+    def __init__(self, selector):  # TODO: Get box size from Selector
+        self.qm_atoms = pd.DataFrame()  # TODO: Make private
         self.selector = selector
-        
-        # load mpt and gro into selector, returns box size in gro
-        self._mm_box = self.selector.load(self.mpt, gro)
-        
-        self.qmatoms = pd.DataFrame()
-    
-    def add(self, selection=None, link=False):
-        """Add dataframe to QM region"""
-        qdf = _qmhelper.cleanqdf( self.selector.select(selection) )
-        
-        # add a new column link which is integer of link argument
-        qdf.insert(2, 'link', [int(link)]*len(qdf))
-       
-        # add qdf to self.qmatoms, append if already exists
-        self.qmatoms = self.qmatoms.append(qdf)
-    
+
+    @staticmethod
+    def __clean_qdf(qdf):
+        columns = Mpt.columns.copy()
+        columns.extend(['x', 'y', 'z'])
+        columns_to_drop = [l for l in qdf.columns if l not in columns]
+        qdf.index = qdf.index.set_names(['id'])
+        return qdf.drop(columns_to_drop, axis=1)
+
+    def add(self, selection=None, is_link=False):
+        qdf = Preparation.__clean_qdf(self.selector.select(selection))
+        qdf.insert(2, 'is_link', [int(is_link)]*len(qdf))
+        self.qm_atoms = self.qm_atoms.append(qdf)
+
     def delete(self, selection=None):
-        """Delete from QM region using selection langauage"""
-        qdf = _qmhelper.cleanqdf( self.selector.select(selection) )
-        # drop selection, ignore pandas errors to disregard extra residues selected that are not present in self.qmatoms
-        self.qmatoms = self.qmatoms.drop(qdf.index, errors='ignore')
-    
+        qdf = Preparation.__clean_qdf(self.selector.select(selection))
+        self.qm_atoms = self.qm_atoms.drop(qdf.index, errors='ignore')
+
     def clear(self):
-        """Empty the QM region to start over"""
-        self.qmatoms = pd.DataFrame()
-    
-    def getInp(self, inp=None, mdp=None, ndx_file=None, cpmd_file=None):
+        self.qm_atoms = pd.DataFrame()
+
+    def get_qm_atoms(self):  # TODO: Use @property
+        return self.qm_atoms
+
+    def ndx_group(self):  # TODO: Make group name changeable
+        indices = self.qm_atoms.index
+        col_len = 15
+        space_len = 6
+        max_len = len(str(max(indices))) + 1
+        spaces = space_len if max_len <= space_len else max_len
+        ndx_group = '[ QMatoms ]'
+        for i, idx in enumerate(indices):
+            if i%col_len == 0:
+                ndx_group += '\n'
+            ndx_group += "{:{}}".format(idx, spaces)
+        ndx_group += '\n'
+        return ndx_group
+
+    def get_mimic_input(self, inp_tmp=None, mdp_inp=None, ndx_out=None, inp_out=None):  # TODO: Provide default templates
+        """Args:
+            inp_tmp: cpmd input file, used as template
+            mdp_inp: gromacs input file, checked for errors
+            ndx_out: gromacs index file, output
+            inp_out: mimic cpmd input file, output
         """
-        Create the QM region from the atoms added
-        Steps done:
-            If named given, writes index files of atoms in QM region with name QMatoms
-            Sort self.qmatoms by link and elements
-            Read element symbols and all charge info from self.qmatoms
-            Add MIMIC, SYSTEM, DFT sections of CPMD script
-            Add all atoms to CPMD script
-        """
-        
-        if isinstance(mdp, str):
-            mdp = MDP.fromFile(mdp)
-        
-        maxsteps, timestep, mdp_errors = _qmhelper.check_mdp(mdp)
-        
-        if mdp_errors != "":
-            _global.logger.write('warning', '') # newline
-            _global.logger.write('warning', "Notes about the MDP file parameters:")
-            _global.logger.write('warning', mdp_errors)
-            _global.logger.write('warning', '') # newline
-        
-        if self.qmatoms.empty:
-            raise MiMiCPyError("No QM atoms have been selected")
-        
-        self.mpt.close() # clear all_data from memory, in case gc doesn't work soon enough
-        
-        ndx = _qmhelper.index(self.qmatoms.index, 'QMatoms') # get ndx data
-        
-        # write index file
-        if ndx_file != None:
-            _global.host.write(ndx, ndx_file)
-            _global.logger.write('info', f"Wrote Gromacs index file to {ndx_file}..")
-              
-        # sort by link column first, then element symbol
-        # ensures that all link atoms are last, and all elements are bunched together
-        # index is also reset, for getOverlaps_Atoms()
-        sorted_qm = self.qmatoms.sort_values(by=['link', 'element']).reset_index()
-        
-        if isinstance(inp, str):
-            inp = cpmd.Input.fromFile(inp)
-        elif inp == None:
-            inp = cpmd.Input()
-        
-        inp.mimic = cpmd.Section()
-        inp.mimic.paths = f"1\n{_global.host.pwd()}"
-        inp.mimic.box = '  '.join([str(s/bohr_rad) for s in self._mm_box])
-        
-        inp = _qmhelper.getOverlaps_Atoms(sorted_qm, inp) # get the overlaps and add atoms section of inp
-        
-        inp.mimic.long_range__coupling = ''
-        inp.mimic.fragment__sorting__atom_wise__update = 100
-        inp.mimic.cutoff__distance = 20.0
-        inp.mimic.multipole__order = 3
-        
-        q = sum(self.qmatoms['charge'])
-        if not round(q, 2).is_integer(): 
-            _global.logger.write('warning', (f'Total charge of QM region (={q}) not an integer up to 2 decimal places.'
-                                            ' \nRounding to integer anyways..'))
-        
-        inp.system.charge = round(q) # system section already created in getQverlap_Atoms()
-        
-        # set cpmd section
-        if not inp.checkSection('cpmd'): inp.cpmd = cpmd.Section()
-        inp.cpmd.mimic = ''
-        inp.cpmd.parallel__constraints = ''
-        
-        if not inp.checkSection('dft'): inp.dft = cpmd.Section()
-        inp.dft.functional__blyp = '' # TO DO: update to new XC_DRIVER code
-        
-        # default values
-        inp.cpmd.maxsteps = maxsteps
-        inp.cpmd.timestep = round(timestep)
-        
-        if cpmd_file is None:
-            _global.logger.write('info', "Created CPMD input script..")
+
+        def qm_cell():
+            dims = [0, 0, 0]
+            for i, r in enumerate(['x', 'y', 'z']):
+                dims[i] = (abs(max(self.qm_atoms[r]) - min(self.qm_atoms[r])) + 0.7)/BOHR_RADIUS
+            a, b, c = dims
+            cell = ' '.join((str(round(a, 1)), str(round(b/a, 1)), str(round(c/a, 1)), '0 0 0'))
+            return cell
+
+        # Check for obvious errors in selection
+        if self.qm_atoms.empty:
+            raise SelectionError('No atoms have been selected for the QM partition.')
+
+        # Delete self.mpt for better garbage collection
+        try:
+            del self.selector.mpt
+        except AttributeError:
+            pass
+
+        # Retrieve number of steps and timestep from mdp_inp and do some checks
+        if mdp_inp is None:
+            maxsteps, timestep, mdp_errors = 1000, 5.0, ['Using default values for maxstep and timestep.']
         else:
-            _global.host.write(str(inp), cpmd_file)
-            _global.logger.write('info', f"Wrote CPMD input script to {cpmd_file}..")
-        
-        return ndx, inp
+            maxsteps, timestep, mdp_errors = Mdp.from_file(mdp_inp).check()
+        for error in mdp_errors:
+            logging.warning('%s', error)
+
+        # Create an index group in GROMACS format (and write it to a file)
+        qm_ndx_group = self.ndx_group()
+        if ndx_out:
+            write(qm_ndx_group, ndx_out, 'w')
+            logging.info('Wrote Gromacs index file to %s', ndx_out)
+
+        # Create CPMD input script
+        sorted_qm_atoms = self.qm_atoms.sort_values(by=['is_link', 'element']).reset_index()
+
+        if inp_tmp is None:
+            cpmd = CpmdScript('Cpmd', 'System', 'Mimic', 'Atoms')
+        else:
+            cpmd = CpmdScript.from_file(inp_tmp)  # TODO: Check for must-have sections
+
+        # Get overlaps and atoms
+        overlaps = f'{len(sorted_qm_atoms)}'
+        for i, atom in sorted_qm_atoms.iterrows():
+            gromacs_id = atom['id']
+            cpmd_id = i + 1
+            overlaps += f'\n2 {gromacs_id} 1 {cpmd_id}'
+            element = str(atom['element']).lower()
+            coords = [atom['x']/BOHR_RADIUS, atom['y']/BOHR_RADIUS, atom['z']/BOHR_RADIUS]
+            if atom['is_link']:
+                element += '_link'
+            if cpmd.atoms.has_parameter(element):
+                pp_block = getattr(cpmd.atoms, element)
+                pp_block.coords.append(coords)
+            else:
+                setattr(cpmd.atoms, element, Pseudopotential(coords))
+
+        if not cpmd.mimic.has_parameter('paths'):
+            cpmd.mimic.paths = '1\n' + str(os.getcwd())
+
+        cpmd.mimic.overlaps = overlaps
+        cpmd.mimic.box = ' '.join([str(s/BOHR_RADIUS) for s in self.selector.mm_box])
+        cpmd.system.cell = qm_cell()
+
+        total_charge = sum(self.qm_atoms['charge'])
+        if not round(total_charge, 2).is_integer():
+            logging.warning('Total charge of QM region is %s. Rounding to integer.', total_charge)
+        cpmd.system.charge = round(total_charge)
+
+        cpmd.cpmd.maxsteps = maxsteps
+        cpmd.cpmd.timestep = timestep
+
+        if inp_out is None:
+            logging.info('Created new CPMD input script for MiMiC run')
+        else:
+            write(str(cpmd), inp_out, 'w')
+            logging.info('Wrote new CPMD input script to %s', inp_out)
+
+        return qm_ndx_group, cpmd
