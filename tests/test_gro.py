@@ -1,6 +1,6 @@
 import time
 import pytest
-from mimicpy.io.gro import Gro
+from mimicpy import Gro
 from mimicpy.utils.errors import ParserError
 
 

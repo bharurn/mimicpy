@@ -6,7 +6,7 @@ import sys
 import time
 import itertools
 import threading
-import mimicpy  # TODO: Adjust __init__ files (leave now for logging config)
+import mimicpy
 
 
 class Loader:
@@ -32,8 +32,7 @@ class Loader:
 
 def prepqm(args):  # TODO: accept non-standard atomtypes - ignore if mpt is passsed
 
-    from mimicpy.core.prepare import Preparation
-    from mimicpy.core.selector import GroSelector
+    from mimicpy import Preparation, DefaultSelector
 
     def selection_help():  # TODO: Find a better way or place for help
         print("\nvalid subcommands:\n\n"
@@ -48,7 +47,7 @@ def prepqm(args):  # TODO: accept non-standard atomtypes - ignore if mpt is pass
     def view():
         print(prep.get_qm_atoms())  # TODO: Format printing
 
-    selector = GroSelector(args.mpt, args.gro)
+    selector = DefaultSelector(args.mpt, args.gro)
     prep = Preparation(selector)
     dispatch = {'add':prep.add,  # TODO: Add as link atom
                 'delete':prep.delete,
@@ -78,7 +77,7 @@ def prepqm(args):  # TODO: accept non-standard atomtypes - ignore if mpt is pass
 def getmpt(args):
     # TODO: Write reader for non-standard atomtypes (io)
     # TODO: Interface non-standard atomtype file (in top.__read)
-    from mimicpy.io.mpt import Mpt
+    from mimicpy import Mpt
     Mpt.from_file(args.top, mode='w', nonstandard_atomtypes=None).write(args.mpt)
 
 

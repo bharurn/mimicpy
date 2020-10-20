@@ -30,7 +30,7 @@ class ScriptError(MiMiCPyError):
         self.parameter = parameter
 
     def __str__(self):
-        return f'The {self.parameter} parameter has not been set in script.'
+        return f'The {self.parameter} parameter has not been set or has been set incorrectly.'
 
 def asserter(boolean, error, *args, **kwargs):
     """Custom assert to raise custom errors"""

@@ -136,15 +136,17 @@ class Mpt:
 
     @classmethod
     def from_file(cls, file, mode='r', buffer=1000, nonstandard_atomtypes=None, file_ext=None):
-        if isinstance(file, Mpt):
+        if not isinstance(file, str): # assume its mpt
             return file
-        if file_ext is None:
+        elif file_ext is None:
             file_ext = file.split('.')[-1]
+        
         if file_ext == 'top':
             return Mpt.__from_top(file, mode, buffer, nonstandard_atomtypes)
-        if file_ext == 'mpt':
+        elif file_ext == 'mpt':
             return Mpt.__from_mpt(file)
-        raise MiMiCPyError('Please specify file extension (top or mpt).')
+        else:
+            raise MiMiCPyError('File extension (top or mpt) not specified.')
 
     def __expand_data(self):
         self._expanded_data = [self.__get_property(i) for i in self.columns]

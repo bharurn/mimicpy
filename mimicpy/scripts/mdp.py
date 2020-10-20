@@ -38,7 +38,8 @@ class Mdp(Script):
         return cls(**kwargs)
 
     def check(self):
-        mdp_errors = ['The following md parameters which are inconsistent with MiMiC runs:']  # TODO: What if everything is OK
+        mdp_errors = []
+        
         # TODO: Think of a better way for checks
         if not self.has_parameter('integrator') or self.integrator != 'mimic':
             mdp_errors.append('Wrong integrator for MiMiC run, set integrator = mimic')
@@ -51,6 +52,7 @@ class Mdp(Script):
         if self.has_parameter('pcoupl') and self.pcoupl != 'no':
             mdp_errors.append('Pressure coupling will not be active, set pcoupl = no')
         # TODO: Check for more errors in mdp file
+        
         if self.has_parameter('nsteps'):
             nsteps = int(self.nsteps)
         else:
@@ -61,4 +63,8 @@ class Mdp(Script):
         else:
             mdp_errors.append('Timestep is not given, using default value')
             dt = 5.0
+        
+        if mdp_errors != []:
+            mdp_errors = ['The following md parameters are inconsistent with MiMiC runs:'] + mdp_errors
+            
         return nsteps, dt, mdp_errors

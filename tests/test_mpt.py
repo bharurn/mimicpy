@@ -1,4 +1,4 @@
-from mimicpy.io.mpt import Mpt
+from mimicpy import Mpt
 import pytest
 
 def getMockTopol():
@@ -26,7 +26,7 @@ def getMockTopol():
     return df1, df2
    
 def test_topol_dict():
-    from mimicpy.io.topol_dict import TopolDict
+    from mimicpy.topology.topol_dict import TopolDict
     df1, df2 = getMockTopol()
     topol_dict = TopolDict.from_dict({'MOL1':df1, 'MOL2':df1, 'NA1': df2, 'NA2':df2})
     
@@ -39,7 +39,7 @@ def test_topol_dict():
 def test_prop():
     df1, df2 = getMockTopol()
     
-    from mimicpy.io.topol_dict import TopolDict
+    from mimicpy.topology.topol_dict import TopolDict
     topol_dict = TopolDict.from_dict({'MOL1':df1, 'NA1':df2, 'NA2':df2, 'MOL2':df1})
     
     mpt = Mpt([('MOL1', 2), ('NA1', 1), ('MOL2', 1), ('NA2', 3), ('NA1', 1)], topol_dict, 'r')
@@ -56,7 +56,7 @@ def test_prop():
 def test_select():
     df1, df2 = getMockTopol()
     
-    from mimicpy.io.topol_dict import TopolDict
+    from mimicpy.topology.topol_dict import TopolDict
     topol_dict = TopolDict.from_dict({'MOL1':df1, 'NA1':df2, 'MOL2':df1})
     
     mpt = Mpt([('MOL1', 1), ('NA1', 1), ('MOL2', 1)], topol_dict, 'r')

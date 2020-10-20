@@ -4,7 +4,7 @@ from os.path import dirname
 import re
 import logging
 import pandas as pd
-from .parser import Parser
+from ..utils.file_handler import Parser
 from ..utils.strings import clean
 from ..utils.elements import ELEMENTS
 from ..utils.errors import MiMiCPyError, ParserError

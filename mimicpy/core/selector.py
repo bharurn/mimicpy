@@ -1,7 +1,6 @@
-import logging
 import pandas as pd
-from ..io.mpt import Mpt
-from ..io.gro import Gro
+from ..topology.mpt import Mpt
+from ..coords.base import read_coords
 from ..utils.errors import MiMiCPyError
 from ._tclvmd import TclVMDConnector
 import xmlrpc.client as xmlrpclib
@@ -9,11 +8,11 @@ from collections import defaultdict
 from abc import ABC, abstractmethod
 
 
-class GroSelector:
+class DefaultSelector:
 
-    def __init__(self, mpt_file, gro_file, buffer=1000):
+    def __init__(self, mpt_file, coord_file, buffer=1000):
         self.mpt = Mpt.from_file(mpt_file, buffer=buffer)
-        self.gro = Gro(gro_file, buffer=buffer)
+        self.coords = read_coords(coord_file, buffer=buffer)
         if self.mpt.number_of_atoms != len(self.gro.coords):
             raise MiMiCPyError(f'Number of atoms in mpt and number of atoms in gro do not match ({self.mpt.number_of_atoms} vs {len(self.gro.coords)})')
 
@@ -27,21 +26,21 @@ class GroSelector:
         df = sele.merge(self.gro.coords, left_on='id', right_on='id')
 
         if df.empty:
-            raise MiMiCPyError("The atoms selected from mpt were not found in gro file")
+            raise MiMiCPyError(f"The atoms selected from mpt were not found in {self.gro}")
         return df
 
 ###### Selector using Visualization packages, currently PyMOL and VMD supported
 
-class VisPackage(ABC):
+class VisPackage(ABC, DefaultSelector):
     ######Core Methods
     ##
-    def __init__(self, mpt_file, gro_file, cmd):
+    def __init__(self, mpt_file, coord_file, cmd):
         self.cmd = cmd
         self.mpt = Mpt.from_file(mpt_file)
-        if gro_file:
-            self._vis_pack_load(gro_file)
+        if coord_file:
+            self._vis_pack_load(coord_file)
 
-    def select(self, selection):
+    def select(self, selection=None):
         sele = self._sele2df(selection)
         mpt_sele = self.mpt[sele['id']]
         # TO DO: check if names/resname, etc. are same and issue warnings accordingly
@@ -49,21 +48,22 @@ class VisPackage(ABC):
         df = mpt_sele.merge(sele, left_on='id', right_on='id').set_index(['id'])
 
         if df.empty:
-            raise MiMiCPyError("The atoms IDs in selected from the visualization software do not exist in the mpt file")
+            raise MiMiCPyError("The atoms IDs in selected do not exist in {self.mpt}")
         return df
+    
     ##
     ######
 
     ######Methods to override in children
     ##
     @abstractmethod
-    def _vis_pack_load(self, gro_file):
+    def _vis_pack_load(self, coord_file):
         # call load gro file of vis pack
         pass
 
+    @property
     @abstractmethod
-    def get_box(self):
-        # return box size is in nm
+    def mm_box(self):
         pass
 
     @abstractmethod
@@ -83,31 +83,32 @@ class PyMOL(VisPackage):
     Can be used by connecting to PyMOL using xmlrpc or by executing in the PyMOL interpreter
     """
 
-    def __init__(self, mpt_file, gro_file, url=None):
+    def __init__(self, mpt_file, coord_file=None, url=None):
 
         if url is None:
             try:
-                # first try importing pymol in the pymol enviornment
+                # import pymol in the pymol enviornment
                 from pymol import cmd
             except ImportError:
                 raise MiMiCPyError(f"Could not connect to PyMOL, make sure PyMOL is installed")
         else:
-            # if not try connecting by xmlrpc
+            # connecting by xmlrpc url
             cmd = xmlrpclib.ServerProxy(url)
 
-            # xmlrpc will silently fail, try a dummy command to check if connection if working
+            # xmlrpc will silently fail, try a dummy command to check if connection is working
             try:
                 cmd.get_view()
             except ConnectionRefusedError:
                 raise MiMiCPyError(f"Could not connect to PyMOL xmlrpc server at address {url}")
 
 
-        super().__init__(mpt_file, gro_file, cmd)
+        super().__init__(mpt_file, coord_file, cmd)
 
-    def _vis_pack_load(self, gro_file):
-        self.cmd.load(gro_file)
+    def _vis_pack_load(self, coord_file):
+        self.cmd.load(coord_file)
 
-    def get_box(self):
+    @property
+    def mm_box(self):
         box = self.cmd.get_symmetry("all")
         return [b/10 for b in box[:3]]
 
@@ -145,7 +146,7 @@ class PyMOL(VisPackage):
 
 class VMD(VisPackage):
 
-    def __init__(self, mpt_file, gro_file, tcl_vmd_params=None):
+    def __init__(self, mpt_file, coord_file=None, tcl_vmd_params=None):
         if tcl_vmd_params:
             # use the Tcl connector
             vmd = TclVMDConnector(tcl_vmd_params)
@@ -158,12 +159,13 @@ class VMD(VisPackage):
 
         self.molid = -1 # default to top mol
 
-        super().__init__(mpt_file, gro_file, vmd)
+        super().__init__(mpt_file, coord_file, vmd)
 
-    def _vis_pack_load(self, gro_file):
-        self.molid = self.cmd.molecule.load("gro", gro_file)
+    def _vis_pack_load(self, coord_file):
+        self.molid = self.cmd.molecule.load(coord_file.split('.')[-1], coord_file)
 
-    def get_box(self):
+    @property
+    def mm_box(self):
         box = self.cmd.molecule.get_periodic(self.molid)
         return [box[k]/10 for k in ['a', 'b', 'c']]
 

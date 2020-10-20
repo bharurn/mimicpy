@@ -24,14 +24,14 @@ class TopolDict:
         self.dict_df = dict_df
         self.repeating = repeating
 
-    def __getitem__(self, key):  # TODO: Use try except syntax
+    def __getitem__(self, key):
         if key in self.dict_df:
             return self.dict_df[key]
         if key in self.repeating:
             return self.dict_df[self.repeating[key]]
         raise KeyError(f'Molecule {key} is not in topology.')
 
-    def __getall__(self):  # TODO: Give better variable names
+    def __getall__(self):
         extras = self.dict_df.copy()
         for i in self.repeating:
             extras[i] = self.__getitem__(i)

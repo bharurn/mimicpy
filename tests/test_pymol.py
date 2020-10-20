@@ -1,9 +1,8 @@
-from mimicpy.core.selector import PyMOL
-from mimicpy.utils.errors import MiMiCPyError
 import pytest
 import pandas as pd
 from string import ascii_letters
 from random import choice
+from mimicpy import PyMOL
 
 class MockMPT:
     def __getitem__(self, a):
@@ -33,6 +32,7 @@ def get_mock_xmlrpc_sele():
                 dct['mass'].append(0)
                 dct['coord'].append([float(x), float(y), float(z)])
                 dct['charge'].append(float(q))
+                # last three should not be present in the selection (testing clean up of df)
                 dct['garbage1'].append(choice(ascii_letters))
                 dct['garbage2'].append(choice(ascii_letters))
                 dct['garbage3'].append(choice(ascii_letters))
@@ -57,18 +57,19 @@ class MockPyMOLAtom():
             return type('obj', (object,), self.df.loc[self.i].to_dict())
     
 def test_xmlrpc_pymol(mocker):
-    mocker.patch('pymol.cmd.load', return_value=None)
-    mocker.patch('pymol.cmd.get_symmetry',\
-                 return_value=[40, 40, 40, 90, 90, 90])
-    
     mock_sele = get_mock_xmlrpc_sele()
+    
+    ## create mock pymol xmlrpc library
+    mocker.patch('pymol.cmd.load', return_value=None)
+    mocker.patch('pymol.cmd.get_symmetry', return_value=[40, 40, 40, 90, 90, 90])
     mocker.patch('pymol.cmd.get_model', return_value=mock_sele)
+    ###
     
-    pym = PyMOL()
+    pym = PyMOL(MockMPT())
      
-    assert pym.load(MockMPT(), "--") == [4, 4, 4]
+    assert pym.mm_box == [4, 4, 4]
     
-    sele = pym.select("--")
+    sele = pym.select()
     
     assert set(sele.columns) == {"name", "_name", "_element", "_resname", "_resid", 'x', 'y', 'z'}
     
@@ -80,21 +81,21 @@ def test_xmlrpc_pymol(mocker):
     assert z == pytest.approx((sele['z']*10).to_list())
 
 def test_pymol(mocker):
+    ## create mock pymol library
     mocker.patch('pymol.cmd.load', return_value=None)
-    mocker.patch('pymol.cmd.get_symmetry',\
-                 return_value=[40, 40, 40, 90, 90, 90])
-    
+    mocker.patch('pymol.cmd.get_symmetry', return_value=[40, 40, 40, 90, 90, 90])
     mocker.patch('pymol.cmd.get_model', return_value=type('obj', (object,), {'atom': MockPyMOLAtom()}))
+    ###
     
-    pym = PyMOL()
+    pym = PyMOL(MockMPT())
      
-    assert pym.load(MockMPT(), "--") == [4, 4, 4]
+    assert pym.mm_box == [4, 4, 4]
     
-    sele = pym.select("--")
+    sele = pym.select()
     
     assert set(sele.columns) == {"name", "_name", "_element", "_resname", "_resid", 'x', 'y', 'z'}
     
-    mock_sele = get_mock_xmlrpc_sele()
+    mock_sele = get_mock_xmlrpc_sele() # to test against
     
     assert len(sele) == len(mock_sele['atom']['id'])
     

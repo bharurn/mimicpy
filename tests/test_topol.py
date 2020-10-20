@@ -1,6 +1,5 @@
-import mimicpy
 from mimicpy.utils.errors import ParserError
-from mimicpy.io.top import Top
+from mimicpy import Top
 import pickle
 import pytest
 import io, logging

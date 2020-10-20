@@ -1,8 +1,9 @@
 import os
 import logging
 import pandas as pd
-from ..io.mpt import Mpt
+from ..topology.mpt import Mpt
 from ..scripts.mdp import Mdp
+from ..scripts.ndx import Ndx
 from ..scripts.cpmd import CpmdScript, Pseudopotential
 from ..utils.errors import SelectionError
 from ..utils.constants import BOHR_RADIUS
@@ -11,8 +12,8 @@ from ..utils.file_handler import write
 
 class Preparation:
 
-    def __init__(self, selector):  # TODO: Get box size from Selector
-        self.qm_atoms = pd.DataFrame()  # TODO: Make private
+    def __init__(self, selector):
+        self.__qm_atoms = pd.DataFrame()
         self.selector = selector
 
     @staticmethod
@@ -26,33 +27,20 @@ class Preparation:
     def add(self, selection=None, is_link=False):
         qdf = Preparation.__clean_qdf(self.selector.select(selection))
         qdf.insert(2, 'is_link', [int(is_link)]*len(qdf))
-        self.qm_atoms = self.qm_atoms.append(qdf)
+        self.__qm_atoms = self.__qm_atoms.append(qdf)
 
     def delete(self, selection=None):
         qdf = Preparation.__clean_qdf(self.selector.select(selection))
-        self.qm_atoms = self.qm_atoms.drop(qdf.index, errors='ignore')
+        self.__qm_atoms = self.__qm_atoms.drop(qdf.index, errors='ignore')
 
     def clear(self):
-        self.qm_atoms = pd.DataFrame()
+        self.__qm_atoms = pd.DataFrame()
+    
+    @property
+    def qm_atoms(self):
+        return self.__qm_atoms
 
-    def get_qm_atoms(self):  # TODO: Use @property
-        return self.qm_atoms
-
-    def ndx_group(self):  # TODO: Make group name changeable
-        indices = self.qm_atoms.index
-        col_len = 15
-        space_len = 6
-        max_len = len(str(max(indices))) + 1
-        spaces = space_len if max_len <= space_len else max_len
-        ndx_group = '[ QMatoms ]'
-        for i, idx in enumerate(indices):
-            if i%col_len == 0:
-                ndx_group += '\n'
-            ndx_group += "{:{}}".format(idx, spaces)
-        ndx_group += '\n'
-        return ndx_group
-
-    def get_mimic_input(self, inp_tmp=None, mdp_inp=None, ndx_out=None, inp_out=None):  # TODO: Provide default templates
+    def get_mimic_input(self, inp_tmp=None, mdp_inp=None, ndx_out=None, inp_out=None):
         """Args:
             inp_tmp: cpmd input file, used as template
             mdp_inp: gromacs input file, checked for errors
@@ -63,13 +51,13 @@ class Preparation:
         def qm_cell():
             dims = [0, 0, 0]
             for i, r in enumerate(['x', 'y', 'z']):
-                dims[i] = (abs(max(self.qm_atoms[r]) - min(self.qm_atoms[r])) + 0.7)/BOHR_RADIUS
+                dims[i] = (abs(max(self.__qm_atoms[r]) - min(self.__qm_atoms[r])) + 0.7)/BOHR_RADIUS
             a, b, c = dims
             cell = ' '.join((str(round(a, 1)), str(round(b/a, 1)), str(round(c/a, 1)), '0 0 0'))
             return cell
 
         # Check for obvious errors in selection
-        if self.qm_atoms.empty:
+        if self.__qm_atoms.empty:
             raise SelectionError('No atoms have been selected for the QM partition.')
 
         # Delete self.mpt for better garbage collection
@@ -87,18 +75,19 @@ class Preparation:
             logging.warning('%s', error)
 
         # Create an index group in GROMACS format (and write it to a file)
-        qm_ndx_group = self.ndx_group()
+        qm_ndx_group = Ndx('qmatoms') # use default name
+        qm_ndx_group.qmatoms = self.__qm_atoms.index
         if ndx_out:
-            write(qm_ndx_group, ndx_out, 'w')
+            write(str(qm_ndx_group), ndx_out, 'w')
             logging.info('Wrote Gromacs index file to %s', ndx_out)
 
         # Create CPMD input script
-        sorted_qm_atoms = self.qm_atoms.sort_values(by=['is_link', 'element']).reset_index()
+        sorted_qm_atoms = self.__qm_atoms.sort_values(by=['is_link', 'element']).reset_index()
 
         if inp_tmp is None:
             cpmd = CpmdScript('Cpmd', 'System', 'Mimic', 'Atoms')
         else:
-            cpmd = CpmdScript.from_file(inp_tmp)  # TODO: Check for must-have sections
+            cpmd = CpmdScript.from_file(inp_tmp)
 
         # Get overlaps and atoms
         overlaps = f'{len(sorted_qm_atoms)}'
@@ -123,7 +112,7 @@ class Preparation:
         cpmd.mimic.box = ' '.join([str(s/BOHR_RADIUS) for s in self.selector.mm_box])
         cpmd.system.cell = qm_cell()
 
-        total_charge = sum(self.qm_atoms['charge'])
+        total_charge = sum(self.__qm_atoms['charge'])
         if not round(total_charge, 2).is_integer():
             logging.warning('Total charge of QM region is %s. Rounding to integer.', total_charge)
         cpmd.system.charge = round(total_charge)

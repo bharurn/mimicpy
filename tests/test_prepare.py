@@ -1,7 +1,7 @@
 import io
 import logging
-from mimicpy.scripts.mdp import Mdp
-from mimicpy.utils.errors import MiMiCPyError, SelectionError
+from mimicpy import Mdp
+from mimicpy.utils.errors import SelectionError
 import pandas as pd
 import pytest
 
