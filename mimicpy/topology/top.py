@@ -9,12 +9,13 @@ from ..utils.errors import MiMiCPyError
 class Top:
     """reads top files"""
 
-    def __init__(self, file, mode='r', buffer=1000, nonstandard_atomtypes=None, guess_elements=True):
+    def __init__(self, file, mode='r', buffer=1000, nonstandard_atomtypes=None, guess_elements=True, gmxdata=None):
         self.file = file
         self.mode = mode
         self.buffer = buffer
         self.nonstandard_atomtypes = nonstandard_atomtypes
         self.guess_elements = guess_elements
+        self.gmxdata = None
         self._molecules = None
         self._topol_dict = None
 
@@ -44,7 +45,7 @@ class Top:
     def __read(self):
         """Read molecule and atom information"""
 
-        top = Itp(self.file, mode='t')
+        top = Itp(self.file, mode='t', gmxdata=self.gmxdata)
         atom_types = top.atom_types
         molecule_types = top.molecule_types
 
@@ -54,15 +55,16 @@ class Top:
 
         atoms = {}
         for itp_file in top.topology_files:
+            itp_file_name = itp_file.split('/')[-1] # print only file name, and not full path
             try:
                 itp = Itp(itp_file, molecule_types, atom_types, self.buffer, 'r', self.guess_elements)
                 if itp.topol is not None:
                     atoms.update(itp.topol)
-                    logging.info('Read atoms from %s.', itp_file)
+                    logging.info('Read atoms from %s.', itp_file_name)
                 else:
-                    logging.info('No atoms found in %s.', itp_file)
+                    logging.info('No atoms found in %s.', itp_file_name)
             except OSError:
-                logging.warning('Could not find %s. Skipping...', itp_file)
+                logging.warning('Could not find %s. Skipping...', itp_file_name)
         topol_dict = TopolDict.from_dict(atoms)
 
         self._molecules = top.molecules

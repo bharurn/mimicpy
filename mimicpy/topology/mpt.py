@@ -119,32 +119,32 @@ class Mpt:
         return TopolDict(dict_df, repeating)
 
     @classmethod
-    def __from_top(cls, top_file, mode='r', buffer=1000, nonstandard_atomtypes=None):
-        top = Top(top_file, mode=mode, buffer=buffer, nonstandard_atomtypes=nonstandard_atomtypes)
+    def __from_top(cls, top_file, mode='r', buffer=1000, nonstandard_atomtypes=None, gmxdata=None):
+        top = Top(top_file, mode=mode, buffer=buffer, nonstandard_atomtypes=nonstandard_atomtypes, gmxdata=gmxdata)
         molecules = top.molecules
         topol_dict = top.topol_dict
-        return cls(molecules, topol_dict)
+        return cls(molecules, topol_dict, mode)
 
     @classmethod
-    def __from_mpt(cls, mpt_file):
+    def __from_mpt(cls, mpt_file, mode):
         unpacker = xdrlib.Unpacker(read(mpt_file, 'rb'))
         molecule_names = Mpt.__unpack_strlist(unpacker)
         number_of_molecules = unpacker.unpack_list(unpacker.unpack_int)
         molecules = list(zip(molecule_names, number_of_molecules))
         topol_dict = Mpt.__unpack_topol_dict(unpacker)
-        return cls(molecules, topol_dict)
+        return cls(molecules, topol_dict, mode)
 
     @classmethod
-    def from_file(cls, file, mode='r', buffer=1000, nonstandard_atomtypes=None, file_ext=None):
+    def from_file(cls, file, mode='r', buffer=1000, nonstandard_atomtypes=None, gmxdata=None, file_ext=None):
         if not isinstance(file, str): # assume its mpt
             return file
         elif file_ext is None:
             file_ext = file.split('.')[-1]
         
         if file_ext == 'top':
-            return Mpt.__from_top(file, mode, buffer, nonstandard_atomtypes)
+            return Mpt.__from_top(file, mode, buffer, nonstandard_atomtypes, gmxdata)
         elif file_ext == 'mpt':
-            return Mpt.__from_mpt(file)
+            return Mpt.__from_mpt(file, mode)
         else:
             raise MiMiCPyError('File extension (top or mpt) not specified.')
 
