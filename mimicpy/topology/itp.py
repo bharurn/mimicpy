@@ -22,16 +22,15 @@ class Itp:
         self.buffer = buffer
         self.mode = mode
         self.guess_elements = guess_elements
-        self.gmxdata = None
+        self.gmxdata = gmxdata
         self._topol = None
         self._topology_files = None
         self._molecules = None
         self._molecule_types = None
-        
+
         if mode == 'r':
             self.__read()
         elif mode == 't':
-            self.gmxdata = gmxdata
             self.__read_as_topol()
         elif mode == 'w':
             pass
@@ -133,9 +132,11 @@ class Itp:
         include_file_regex = re.compile(r"#include\s+[\"\'](.+)\s*[\"\']", re.MULTILINE)
         included_itps = include_file_regex.findall(string)
 
-        included_itps = [join( dirname(self.file) , itp) if isfile( join( dirname(self.file), itp) ) \
+        if self.gmxdata is None:
+            included_itps = [join(dirname(self.file), itp) for itp in included_itps]
+        else:
+            included_itps = [join(dirname(self.file), itp) if isfile(join(dirname(self.file), itp)) \
                          else join(self.gmxdata, itp) for itp in included_itps]
-        
         return included_itps
 
     def __read_atomtypes(self):
@@ -240,19 +241,19 @@ class Itp:
 
         for molecule, atoms in zip(molecule_section, atom_section):
             mol = molecule.split()[0]
-            if self.requested_molecules != None and mol not in self.requested_molecules:
+            if self.requested_molecules is not None and mol not in self.requested_molecules:
                 continue
             molecules.append(mol)
             atom_infos.append(read_atoms(atoms))
         self._topol = dict(zip(molecules, atom_infos))
 
     def __read_as_topol(self):
-        if self.gmxdata == None:
+        if self.gmxdata is None:
             if 'GMXDATA' in environ:
                 self.gmxdata = join(environ['GMXDATA'], 'top')
             else:
                 logging.warning('Cannot find path to Gromacs data folder.')
-         
+
         top_parser = Parser(self.file)
         topology = ''.join(top_parser)
         self._molecules = Itp.__get_molecules(topology)

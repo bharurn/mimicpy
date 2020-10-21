@@ -39,12 +39,12 @@ class Mdp(Script):
 
     def check(self):
         mdp_errors = []
-        
+
         # TODO: Think of a better way for checks
         if not self.has_parameter('integrator') or self.integrator != 'mimic':
             mdp_errors.append('Wrong integrator for MiMiC run, set integrator = mimic')
-        if not self.has_parameter('qmmm_grps') or self.qmmm_grps != 'QMatoms':
-            mdp_errors.append('Index group for QM atoms is not QMatoms, set QMMM-grps = QMatoms')
+        if not self.has_parameter('qmmm_grps') or self.qmmm_grps != 'qmatoms':
+            mdp_errors.append('Index group for QM atoms is not qmatoms, set QMMM-grps to the appropriate group')
         if self.has_parameter('constraints') and self.constraints != 'none':
             mdp_errors.append('Molecules should not be constrained by GROMACS, set constraints = none')
         if self.has_parameter('tcoupl') and self.tcoupl != 'no':
@@ -52,7 +52,7 @@ class Mdp(Script):
         if self.has_parameter('pcoupl') and self.pcoupl != 'no':
             mdp_errors.append('Pressure coupling will not be active, set pcoupl = no')
         # TODO: Check for more errors in mdp file
-        
+
         if self.has_parameter('nsteps'):
             nsteps = int(self.nsteps)
         else:
@@ -63,8 +63,8 @@ class Mdp(Script):
         else:
             mdp_errors.append('Timestep is not given, using default value')
             dt = 5.0
-        
+
         if mdp_errors != []:
             mdp_errors = ['The following md parameters are inconsistent with MiMiC runs:'] + mdp_errors
-            
+
         return nsteps, dt, mdp_errors

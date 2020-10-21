@@ -1,6 +1,7 @@
 """Module for top files"""
 
 import logging
+from os.path import basename
 from .itp import Itp
 from .topol_dict import TopolDict
 from ..utils.errors import MiMiCPyError
@@ -54,8 +55,9 @@ class Top:
             atom_types.update(self.nonstandard_atomtypes)
 
         atoms = {}
+
         for itp_file in top.topology_files:
-            itp_file_name = itp_file.split('/')[-1] # print only file name, and not full path
+            itp_file_name = basename(itp_file) # print only file name, and not full path
             try:
                 itp = Itp(itp_file, molecule_types, atom_types, self.buffer, 'r', self.guess_elements)
                 if itp.topol is not None:
@@ -64,7 +66,7 @@ class Top:
                 else:
                     logging.info('No atoms found in %s.', itp_file_name)
             except OSError:
-                logging.warning('Could not find %s. Skipping...', itp_file_name)
+                logging.warning('Could not find %s in local or Gromacs data directory. Skipping...', itp_file_name)
         topol_dict = TopolDict.from_dict(atoms)
 
         self._molecules = top.molecules

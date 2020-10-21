@@ -12,7 +12,7 @@ def write(out, file, mode):
         raise MiMiCPyError(f'Mode {mode} is not a valid write mode. Only w and wb are allowed.')
     with open(file, mode) as f:
         f.write(out)
-        
+
 class Parser:
     """implements methods for iterable objects and wraps around readline"""
 
@@ -28,18 +28,18 @@ class Parser:
         return self._next()
 
     def __del__(self):
-        self._del()
+        self.close()
 
     def _next(self):
         if self.is_closed:
             raise StopIteration()
         out = self.file.read(self.buffer)
         if out == '':
-            self._del()
+            self.close()
             raise StopIteration()
         return out
 
-    def _del(self):
+    def close(self):
         self.is_closed = True
         if hasattr(self, 'file'):
             self.file.close()
