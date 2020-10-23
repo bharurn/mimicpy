@@ -1,6 +1,6 @@
 import pandas as pd
 from ..topology.mpt import Mpt
-from ..coords.base import read_coords
+from ..coords.base import CoordsIO
 from ..utils.errors import MiMiCPyError
 from ._tclvmd import TclVMDConnector
 import xmlrpc.client as xmlrpclib
@@ -12,18 +12,18 @@ class DefaultSelector:
 
     def __init__(self, mpt_file, coord_file, buffer=1000):
         self.mpt = Mpt.from_file(mpt_file, buffer=buffer)
-        self.coords = read_coords(coord_file, buffer=buffer)
+        self.coords_reader = CoordsIO(coord_file, buffer=buffer)
         if self.mpt.number_of_atoms != len(self.gro.coords):
             raise MiMiCPyError(f'Number of atoms in mpt and number of atoms in gro do not match ({self.mpt.number_of_atoms} vs {len(self.gro.coords)})')
 
     @property
     def mm_box(self):
-        return self.gro.box
+        return self.coords_reader.box
 
     def select(self, selection):
         """Select MPT atoms and merge with GRO"""
         sele = self.mpt.select(selection)
-        df = sele.merge(self.gro.coords, left_on='id', right_on='id')
+        df = sele.merge(self.coords_reader.coords, left_on='id', right_on='id')
 
         if df.empty:
             raise MiMiCPyError(f"The atoms selected from mpt were not found in {self.gro}")

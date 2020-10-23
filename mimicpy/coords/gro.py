@@ -3,9 +3,9 @@
 import numpy as np
 import pandas as pd
 from ..utils.errors import ParserError
-from .base import Coords
+from .base import BaseCoordsClass
 
-class Gro(Coords):
+class Gro(BaseCoordsClass):
     """reads gro files"""
 
     def _read(self):
@@ -53,8 +53,7 @@ class Gro(Coords):
         coords = pd.DataFrame(coords.reshape(number_of_atoms, number_of_rows), columns=cols)
         coords['id'] = coords.index.to_numpy()+1
 
-        self._coords = coords.set_index(['id'])
-        self._box = box.tolist()
+        return coords.set_index(['id']), box.tolist()
         
-    def _write(self):
+    def _write(self, mpt_coords):
         pass

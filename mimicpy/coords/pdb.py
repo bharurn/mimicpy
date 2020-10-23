@@ -1,9 +1,9 @@
 """Module for pdb files"""
 
 import pandas as pd
-from .base import Coords
+from .base import BaseCoordsClass
 
-class Pdb(Coords):
+class Pdb(BaseCoordsClass):
     """reads pdb files"""
 
     def __read_line(line):
@@ -33,7 +33,7 @@ class Pdb(Coords):
 
     def _read(self):
         # ATOM/HETATM line is always 78 bytes/chars
-        self.file .buffer = 78*self.buffer
+        self.file.buffer = 78*self.buffer
 
         pdb_lst = []
 
@@ -48,13 +48,14 @@ class Pdb(Coords):
                 if vals['record'] == 'ATOM' or vals['record'] == 'HETATM':
                     pdb_lst.append(vals)
 
-        self._coords = pd.DataFrame(pdb_lst)
+        coords = pd.DataFrame(pdb_lst)
 
         dims = [0, 0, 0]
         for i, r in enumerate(['x', 'y', 'z']):
-            self._coords[r] /= 10 # convert ang to nm
-            dims[i] = abs(max(self._coords[r]) - min(self._coords[r])) # find box size
-        self._box = dims
+            coords[r] /= 10 # convert ang to nm
+            dims[i] = abs(max(self._coords[r]) - min(coords[r])) # find box size
+        
+        return coords, dims
 
-    def _write(self):
+    def _write(self, mpt_coords):
         pass
