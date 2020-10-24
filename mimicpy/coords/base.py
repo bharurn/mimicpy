@@ -1,7 +1,5 @@
-from importlib import import_module
 from abc import ABC, abstractmethod
-from ..utils.errors import MiMiCPyError
-from ..topology.mpt import Mpt
+from ..utils.errors import MiMiCPyError, ParserError
 from ..utils.file_handler import Parser, write as write_string
 
 class BaseCoordsClass(ABC):
@@ -19,15 +17,8 @@ class BaseCoordsClass(ABC):
     def _read(self):
         pass
 
-    def write(self, coords, mpt_file, ids=None):
-        if ids is None:
-            ids = coords['ids']
-        else:
-            coords['id'] = ids
-
-        mpt = Mpt.fromFile(mpt_file)
-        mpt_coords = mpt[ids].merge(coords, left_on='id', right_on='id').set_index(['id'])
-
+    def write(self, sele, coords):
+        mpt_coords = sele.merge(coords.reset_index(), left_on='id', right_on='id')
         write_string(self._write(mpt_coords), self.file_name, 'w')
 
     @abstractmethod
@@ -35,12 +26,19 @@ class BaseCoordsClass(ABC):
         pass
 
 # adapter class
-class CoordsIO(ABC):
+class CoordsIO:
     def __init__(self, file_name, mode='r', buffer=1000, ext=None):
         if ext is None:
             ext = file_name.split('.')[-1]
-
-        self.coord_obj = import_module('.'+ext+'.'+ext.title())(file_name, mode, buffer)
+        
+        if ext == 'gro':
+            from .gro import Gro
+            self.__coords_obj = Gro(file_name, buffer)
+        elif ext == 'pdb':
+            from .pdb import Pdb
+            self.__coords_obj = Pdb(file_name, buffer)
+        else:
+            raise ParserError('Unknown coordinate format')
         self.mode = mode
         self._coords = None
         self._box = None
@@ -64,9 +62,9 @@ class CoordsIO(ABC):
 
     def __read(self):
         self.mode = 'r'
-        self._coords, self._box = self.coords_obj.read()
+        self._coords, self._box = self.__coords_obj.read()
 
-    def write(self, coords, mpt_file, ids=None):
+    def write(self, sele, coords):
         if self.mode != 'w':
             self.mode = 'w'
-        self.coords_obj.write(coords, mpt_file, ids)
+        self.__coords_obj.write(sele, coords)

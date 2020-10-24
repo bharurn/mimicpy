@@ -13,8 +13,10 @@ class DefaultSelector:
     def __init__(self, mpt_file, coord_file, buffer=1000):
         self.mpt = Mpt.from_file(mpt_file, buffer=buffer)
         self.coords_reader = CoordsIO(coord_file, buffer=buffer)
-        if self.mpt.number_of_atoms != len(self.gro.coords):
-            raise MiMiCPyError(f'Number of atoms in mpt and number of atoms in gro do not match ({self.mpt.number_of_atoms} vs {len(self.gro.coords)})')
+        n_mpt = self.mpt.number_of_atoms
+        n_coords = len(self.coords_reader.coords)
+        if n_mpt != n_coords:
+            raise MiMiCPyError(f'Number of atoms in topology and coordinates do not match ({n_mpt} vs {n_coords})')
 
     @property
     def mm_box(self):
@@ -26,7 +28,7 @@ class DefaultSelector:
         df = sele.merge(self.coords_reader.coords, left_on='id', right_on='id')
 
         if df.empty:
-            raise MiMiCPyError(f"The atoms selected from mpt were not found in {self.gro}")
+            raise MiMiCPyError(f"The atoms selected from mpt were not found in the coordinate file")
         return df
 
 ###### Selector using Visualization packages, currently PyMOL and VMD supported
