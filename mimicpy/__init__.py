@@ -8,7 +8,7 @@ from mimicpy.topology.top import Top
 from mimicpy.scripts.mdp import Mdp
 from mimicpy.scripts.cpmd import CpmdScript
 from mimicpy.scripts.ndx import Ndx
-from mimicpy.coords.base import read_coords
+from mimicpy.coords.base import CoordsIO
 from mimicpy.coords.gro import Gro
 from mimicpy.coords.pdb import Pdb
 
