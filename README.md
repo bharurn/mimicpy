@@ -18,7 +18,7 @@ Below is a demo for setting up CPMD and GROMACS input scripts for a MiMiC simula
 ```python
 from mimicpy import DefaultSelector, Preparation
 
-# Add topology and structure to a Selector
+# Add topology and structure to a selector
 selector = DefaultSelector('./acetone.top', './acetone.gro')
 
 # Start preparation session
