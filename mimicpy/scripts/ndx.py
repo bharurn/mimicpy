@@ -8,22 +8,24 @@ class Ndx(Script):
         for group in groups:
             setattr(self, group, [])
             
-        self.col_len = 15
-        self.space_len = 6
+        self._col_len = 15
+        self._space_len = 6
         
     def __get_indx(self, group):
         indx = getattr(self, group)
         
         if not isinstance(indx, list):
             raise ScriptError(indx)
+        
+        return indx
     
     def __str_one_group(self, group):
         indices = self.__get_indx(group)
         max_len = len(str(max(indices))) + 1
-        spaces = self.space_len if max_len <= self.space_len else max_len
+        spaces = self._space_len if max_len <= self._space_len else max_len
         ndx_group = '[ '+group+' ]'
         for i, idx in enumerate(indices):
-            if i%self.col_len == 0:
+            if i%self._col_len == 0:
                 ndx_group += '\n'
             ndx_group += "{:{}}".format(idx, spaces)
         ndx_group += '\n'

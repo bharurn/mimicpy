@@ -76,7 +76,7 @@ class Preparation:
 
         # Create an index group in GROMACS format (and write it to a file)
         qm_ndx_group = Ndx('qmatoms') # use default name
-        qm_ndx_group.qmatoms = self.__qm_atoms.index
+        qm_ndx_group.qmatoms = self.__qm_atoms.index.to_list()
         if ndx_out:
             write(str(qm_ndx_group), ndx_out, 'w')
             logging.info('Wrote Gromacs index file to %s', ndx_out)
