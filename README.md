@@ -1,7 +1,7 @@
 # MiMiCPy
-MiMiCPy is the python library for preparing and executing QM/MM simulations with the MiMiC CPMD/Gromacs interface developed at Forschungszentrum Juelich and EPFL. [1] For more details on compiling the MiMiC source code, please refer to [2].
+MiMiCPy is the python library for preparing QM/MM simulations with the MiMiC CPMD/Gromacs interface developed at Forschungszentrum Juelich and EPFL. [1] For more details on compiling the MiMiC source code, please refer to [2].
 
-MiMiCPy comes with a set of command lines tools to prepare MiMiC input scripts, and integration with molecular visualization packages. These features, as well as running MiMiC simulations, can also be accessed through the python interface.
+MiMiCPy comes with a set of command lines tools to prepare MiMiC input scripts. Additionally, integration with molecular visualization packages be accessed through the python interface.
 
 ## Installation
 MiMiCPy is not available on pip/conda yet. To install run the following command in the terminal:
@@ -16,8 +16,19 @@ The package has been tested and confirmed to work on Linux and MacOS systems. Ru
 ## Demo
 Below is a demo for setting up CPMD and GROMACS input scripts for a MiMiC simulation:
 ```python
-import mimicpy
+from mimicpy import DefaultSelector, Preparation
 
+# Add topology and structure to a Selector
+selector = DefaultSelector('./acetone.top', './acetone.gro')
+
+# Start preparation session
+preparation = Preparation(selector)
+
+# Add atoms to QM partition
+preparation.add('resname is ACT')
+
+# Get GROMACS and CPMD inputs
+ndx, inp = preparation.get_mimic_input()
 ```
 For more details and options please refer to the docs.
  
