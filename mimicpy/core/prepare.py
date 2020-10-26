@@ -35,7 +35,7 @@ class Preparation:
 
     def clear(self):
         self.__qm_atoms = pd.DataFrame()
-    
+
     @property
     def qm_atoms(self):
         return self.__qm_atoms
@@ -61,10 +61,10 @@ class Preparation:
             raise SelectionError('No atoms have been selected for the QM partition.')
 
         # Delete self.mpt for better garbage collection
-        try:
-            del self.selector.mpt
-        except AttributeError:
-            pass
+        #try:
+        #    del self.selector.mpt
+        #except AttributeError:
+        #    pass
 
         # Retrieve number of steps and timestep from mdp_inp and do some checks
         if mdp_inp is None:
