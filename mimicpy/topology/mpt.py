@@ -267,19 +267,22 @@ class Mpt:
         if self._expanded_data is None:
             self.__expand_data()
 
-        np_str, vals = Mpt.__translate(selection)
-        np_vals = {}
-
-        for i in vals:
-            if i == 'id':
-                arr = np.array(list(range(self._number_of_atoms)))+1
-            else:
-                arr = np.array(self.__get_property(i))
-            np_vals[i] = arr
-
-        ids = (np.where(eval(np_str))[0]+1).tolist()
-        if ids == []:
-            raise SelectionError("The selection did not return any atoms.")
+        if selection == 'all':
+            ids = list(range(1, self._number_of_atoms))
+        else:
+            np_str, vals = Mpt.__translate(selection)
+            np_vals = {}
+    
+            for i in vals:
+                if i == 'id':
+                    arr = np.array(list(range(self._number_of_atoms)))+1
+                else:
+                    arr = np.array(self.__get_property(i))
+                np_vals[i] = arr
+    
+            ids = (np.where(eval(np_str))[0]+1).tolist()
+            if ids == []:
+                raise SelectionError("The selection did not return any atoms.")
 
         return self.__select_by_id(ids)
 
