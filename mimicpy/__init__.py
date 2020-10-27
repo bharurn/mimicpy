@@ -12,7 +12,7 @@ from mimicpy.coords.base import CoordsIO
 from mimicpy.coords.gro import Gro
 from mimicpy.coords.pdb import Pdb
 
-logging.basicConfig(filename='mimicpy.log',  # Maybe move to __main__.py to set basicConfig
-                    format='%(asctime)s %(levelname)s %(message)s',
+logging.basicConfig(# filename='mimicpy.log', format='%(asctime)s %(levelname)s %(message)s',
+                    format='%(message)s',
                     filemode='w',
                     level=logging.INFO)
