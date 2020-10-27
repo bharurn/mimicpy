@@ -122,7 +122,7 @@ def test_prepare():
         and "Rounding to integer" in warns.getvalue()
 
     assert "Wrong integrator for MiMiC run, set integrator = mimic" in warns.getvalue()
-    assert "Index group for QM atoms is not QMatoms, set QMMM-grps = QMatoms" in warns.getvalue()
+    assert "Index group for QM atoms is not qmatoms, set QMMM-grps to the appropriate group" in warns.getvalue()
     assert "Temperature coupling will not be active, set tcoupl = no" in warns.getvalue()
     assert "Molecules should not be constrained by Gromacs, set constraints = none" not in warns.getvalue()
     assert "Pressure coupling will not be active, set pcoupl = no" not in warns.getvalue()

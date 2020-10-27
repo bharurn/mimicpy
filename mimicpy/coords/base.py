@@ -3,7 +3,7 @@ from ..utils.errors import MiMiCPyError, ParserError
 from ..utils.file_handler import Parser, write as write_string
 
 class BaseCoordsClass(ABC):
-    def __init__(self, file_name, buffer):
+    def __init__(self, file_name, buffer=1000):
         self.file_name = file_name
         self.buffer = buffer
     
