@@ -11,7 +11,7 @@ git clone https://github.com/bharurn/mimicpy
 and and run ```setup.py``` .
 
 ## Portability Issues
-The package has been tested and confirmed to work on Linux and MacOS systems. Running on Windows is not fully supported and has not been tested. Currently, at least Python 3.6 is required to run the package.
+The package has been tested and confirmed to work on Linux and MacOS systems. Running on Windows should work but has not been tested. Currently, at least Python 3.6 is required to run the package.
 
 ## Demo
 Below is a demo for setting up CPMD and GROMACS input scripts for a MiMiC simulation:
