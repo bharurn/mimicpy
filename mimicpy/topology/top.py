@@ -1,7 +1,8 @@
 """Module for top files"""
 
 import logging
-from os.path import basename
+from os import environ
+from os.path import basename, join
 from .itp import Itp
 from .topol_dict import TopolDict
 from ..utils.errors import MiMiCPyError
@@ -16,7 +17,22 @@ class Top:
         self.buffer = buffer
         self.nonstandard_atomtypes = nonstandard_atomtypes
         self.guess_elements = guess_elements
-        self.gmxdata = None
+        
+        if gmxdata is None:
+            if 'GMXDATA' in environ:
+                gmxdata = join(environ['GMXDATA'], 'top')
+            elif 'GMXLIB' in environ:
+                gmxdata = join(environ['GMXLIB'], 'top')
+        
+        self.gmxdata = gmxdata
+        
+        if self.gmxdata: 
+            logging.info('Using {} as path to Gromacs installation.'.format(self.gmxdata))
+        else:    
+            self.gmxdata = ''
+            logging.warning('Cannot find path to Gromacs installation.')
+            
+        
         self._molecules = None
         self._topol_dict = None
 
@@ -59,7 +75,7 @@ class Top:
         for itp_file in top.topology_files:
             itp_file_name = basename(itp_file) # print only file name, and not full path
             try:
-                itp = Itp(itp_file, molecule_types, atom_types, self.buffer, 'r', self.guess_elements)
+                itp = Itp(itp_file, molecule_types, atom_types, self.buffer, 'r', self.guess_elements, self.gmxdata)
                 if itp.topol is not None:
                     atoms.update(itp.topol)
                     logging.info('Read atoms from %s.', itp_file_name)

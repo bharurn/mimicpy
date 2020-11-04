@@ -1,7 +1,6 @@
 """Module for itp files"""
 
 from os.path import dirname, isfile, join
-from os import environ
 import re
 import logging
 import pandas as pd
@@ -15,7 +14,7 @@ class Itp:
 
     columns = ['number', 'type', 'resid', 'resname', 'name', 'charge', 'element', 'mass']
 
-    def __init__(self, file, requested_molecules=None, atom_types=None, buffer=1000, mode='r', guess_elements=True, gmxdata=None):
+    def __init__(self, file, requested_molecules=None, atom_types=None, buffer=1000, mode='r', guess_elements=True, gmxdata=''):
         self.file = file
         self.requested_molecules = requested_molecules
         self.atom_types_dict = atom_types
@@ -248,12 +247,6 @@ class Itp:
         self._topol = dict(zip(molecules, atom_infos))
 
     def __read_as_topol(self):
-        if self.gmxdata is None:
-            if 'GMXDATA' in environ:
-                self.gmxdata = join(environ['GMXDATA'], 'top')
-            else:
-                logging.warning('Cannot find path to Gromacs data folder.')
-
         top_parser = Parser(self.file)
         topology = ''.join(top_parser)
         self._molecules = Itp.__get_molecules(topology)
