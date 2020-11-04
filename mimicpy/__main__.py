@@ -193,7 +193,7 @@ def main():
     getmpt_output.add_argument('-mpt',
                                default='topol.mpt',
                                help='MiMiCPy topology file',
-                               metavar='[.mpt]')
+                               metavar='[.mpt] (topol.mpt)')
     parser_getmpt.set_defaults(func=getmpt)
     ##
     #####
@@ -248,7 +248,7 @@ def main():
     getmpt_output.add_argument('-out',
                                default='atomtypes.itp',
                                help='fixed atomtypes itp file',
-                               metavar='[.mpt]')
+                               metavar='[.itp] (atomtypes.itp)')
     parser_getmpt.set_defaults(func=fixtop)
     ##
     args = parser.parse_args()
