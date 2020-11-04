@@ -6,6 +6,9 @@ from os.path import basename, join
 from .itp import Itp
 from .topol_dict import TopolDict
 from ..utils.errors import MiMiCPyError
+from ..utils.strings import print_dict
+from ..utils.atomic_numbers import atomic_numbers
+from ..utils.file_handler import write
 
 
 class Top:
@@ -35,17 +38,17 @@ class Top:
         
         self._molecules = None
         self._topol_dict = None
-
+        
         if mode == 'r':
             self.__read()
         elif mode == 'w':
-            pass
+            self.__read(True)
         else:
             raise MiMiCPyError(f'{mode} is not a mode. Only r or w can be used.')
 
     @property
     def molecules(self):
-        if self.mode == 'r':
+        if self.mode in ['r', 'w']:
             return self._molecules
         self.mode = 'r'
         self.__read()
@@ -53,17 +56,21 @@ class Top:
 
     @property
     def topol_dict(self):
-        if self.mode == 'r':
+        if self.mode in ['r', 'w']:
             return self._topol_dict
         self.mode = 'r'
         self.__read()
         return self._topol_dict
 
-    def __read(self):
+    def __read(self, get_atomtypes=False):
         """Read molecule and atom information"""
 
         top = Itp(self.file, mode='t', gmxdata=self.gmxdata)
         atom_types = top.atom_types
+        if get_atomtypes:
+            self.atomtypes = top.atom_types_df
+        else:
+            self.atomtypes = None
         molecule_types = top.molecule_types
 
         if self.nonstandard_atomtypes is not None:
@@ -91,9 +98,26 @@ class Top:
         
         if guessed_elems_history:
             logging.warning('\nSome atom types had no atom numbers infomation.\nThey were guessed as follows:\n')
-            logging.warning("+---------------------+")
-            logging.warning("|{:^11}|{:^9}|".format("Atom Type", "Element"))
-            logging.warning("+---------------------+")
-            for k,v in guessed_elems_history.items():
-                logging.warning("|{:^10} | {:^8}|".format(k, v))
-                logging.warning("+---------------------+")
+            print_dict(guessed_elems_history, "Atom Type", "Element", logging.warning)
+    
+    def write_atomtypes(self, file):
+        if self.mode != 'w':
+            return self.__read(True)
+        
+        elements = {}
+        for k, df in self.topol_dict.todict().items():
+            elements.update(dict(zip(df['type'], df['element'])))
+        elements = {k:atomic_numbers[v] for k,v in elements.items()}
+        
+        itp_str = "[ atomtype ]\n"
+        itp_str += ";  {:^11}{:^6}{:^10}{:^10}{:^6}     {}     {}\n".format('name','at.num','mass','charge','ptype',
+                                                                           'sigma','epsilon')
+        for i, row in self.atomtypes.iterrows():
+            lst = [row[c] for c in self.atomtypes.columns]
+            if lst[0] in elements:
+                lst[1] = elements[lst[0]]
+            else:
+                lst[1] = int(lst[1])
+            itp_str += "{:>11}{:6d}{:11.4f}{:11.4f}{:>6}     {:e}     {:e}\n".format(*lst)
+            
+        write(itp_str, file)

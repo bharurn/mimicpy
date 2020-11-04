@@ -31,17 +31,17 @@ class TopolDict:
             return self.dict_df[self.repeating[key]]
         raise KeyError(f'Molecule {key} is not in topology.')
 
-    def __getall__(self):
+    def todict(self):
         extras = self.dict_df.copy()
         for i in self.repeating:
             extras[i] = self.__getitem__(i)
         return extras
 
     def __str__(self):
-        return str(self.__getall__())
+        return str(self.todict())
 
     def __repr__(self):
-        return repr(self.__getall__())
+        return repr(self.todict())
 
     def keys(self):
         """Handle keys of a TopolDict like keys of a regular dict"""

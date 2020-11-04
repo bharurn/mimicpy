@@ -54,8 +54,7 @@ def prepqm(args):
                     qmatoms_str = str(prep.qm_atoms)
                     
             if file_name:
-                with open(file_name, 'w') as f:
-                    f.write(qmatoms_str)
+                mimicpy.utils.file_handler.write(qmatoms_str, file_name)
                 print("Wrote list of QM atoms to {}".format(file_name))
             else:
                 print(qmatoms_str)
@@ -117,7 +116,7 @@ def prepqm(args):
             print("Invalid command! Please try again. Type help for more information.")
 
 
-def get_nsa_mpt(args):
+def get_nsa_mpt(args, only_nsa=False):
     nsa_dct = {}
     if args.nsa:
         if args.top.split('.')[-1] == 'mpt':
@@ -129,27 +128,25 @@ def get_nsa_mpt(args):
                 print("Error: Cannot find file {}! Exiting..\n".format(args.nsa))
                 sys.exit()
             else:
-                with open(args.nsa, 'r') as f:
-                    for i, line in enumerate(f.readlines()):
-                        splt = line.split()
-                        if len(splt) < 2:
-                            print("Line {} in nonstandard atomtypes file {} not in 2-column format!\n".format(i+1, args.nsa))
-                            sys.exit()
-                        elif len(splt) > 2:
-                            print("Line {} in nonstandard atomtypes file {} has more than 2-columns. Using first two values only.\n".format(i+1, args.nsa))
-                        
-                        nsa_dct[splt[0]] = splt[1]
+                nsa_txt =  mimicpy.utils.file_handler.read(args.nsa)
+                for i, line in enumerate(nsa_txt.splitlines()):
+                    splt = line.split()
+                    if len(splt) < 2:
+                        print("Line {} in nonstandard atomtypes file {} not in 2-column format!\n".format(i+1, args.nsa))
+                        sys.exit()
+                    elif len(splt) > 2:
+                        print("Line {} in nonstandard atomtypes file {} has more than 2-columns. Using first two values only.\n".format(i+1, args.nsa))
+                    
+                    nsa_dct[splt[0]] = splt[1]
             
     if nsa_dct != {}:
         print("The following atomypes were read from {}:\n".format(args.nsa))
-        print("+---------------------+")
-        print("|{:^11}|{:^9}|".format("Atom Type", "Element"))
-        print("+---------------------+")
-        for k,v in nsa_dct.items():
-            print("|{:^10} | {:^8}|".format(k, v))
-            print("+---------------------+")
+        mimicpy.utils.strings.print_dict(nsa_dct, "Atom Type", "Element", print)
+        
+    if only_nsa:
+        return nsa_dct
     
-    print("\n**Readining topology**\n")
+    print("\n**Reading topology**\n")
     
     try:
         return mimicpy.Mpt.from_file(args.top, mode='w', nonstandard_atomtypes=nsa_dct)
@@ -159,6 +156,17 @@ def get_nsa_mpt(args):
 
 def getmpt(args):
     get_nsa_mpt(args).write(args.mpt)
+    
+def fixtop(args):
+    nsa_dct = get_nsa_mpt(args, True)
+    print("\n**Reading topology**\n")
+    try:
+        top = mimicpy.Top(args.top, mode='w', nonstandard_atomtypes=nsa_dct)
+    except FileNotFoundError as e:
+        print('\n\nError: Cannot find file {}! Exiting..\n'.format(e.filename))
+        sys.exit()
+    print("\n**Writing fixed atomtypes section**\n")
+    top.write_atomtypes(args.out)
 
 
 def main():
@@ -169,24 +177,26 @@ def main():
     subparsers = parser.add_subparsers(title='valid subcommands',
                                        metavar='')  # Turns off list of subcommands
 
+    #####
     parser_getmpt = subparsers.add_parser('getmpt',
-                                          help='create MiMiCPy topology from GROMACS topology')
+                                          help='create MiMiCPy topology from Gromacs topology')
     getmpt_input = parser_getmpt.add_argument_group('options to specify input files')
     getmpt_input.add_argument('-top',
                               required=True,
-                              help='GROMACS topology file',
-                              metavar='topol.top')
+                              help='Gromacs topology file',
+                              metavar='[.top]')
     getmpt_input.add_argument('-nsa',
                               required=False,
                               help='list of non-standard atomtypes',
-                              metavar='')
+                              metavar='[.txt/.dat]')
     getmpt_output = parser_getmpt.add_argument_group('options to specify output files')
     getmpt_output.add_argument('-mpt',
                                default='topol.mpt',
                                help='MiMiCPy topology file',
-                               metavar='topol.mpt')
+                               metavar='[.mpt]')
     parser_getmpt.set_defaults(func=getmpt)
-
+    ##
+    #####
     parser_prepqm = subparsers.add_parser('prepqm',
                                           help='create CPMD MiMiC input and Gromacs index files')
     prepqm_input = parser_prepqm.add_argument_group('options to specify input files')
@@ -221,7 +231,26 @@ def main():
                               help='Gromacs template MDP script',
                               metavar='[.mdp]')
     parser_prepqm.set_defaults(func=prepqm)
-
+    ##
+    #####
+    parser_getmpt = subparsers.add_parser('fixtop',
+                                          help='fix atomtypes section of Gromacs topology')
+    getmpt_input = parser_getmpt.add_argument_group('options to specify input files')
+    getmpt_input.add_argument('-top',
+                              required=True,
+                              help='Gromacs topology file',
+                              metavar='[.top]')
+    getmpt_input.add_argument('-nsa',
+                              required=False,
+                              help='list of non-standard atomtypes',
+                              metavar='[.txt/.dat]')
+    getmpt_output = parser_getmpt.add_argument_group('options to specify output files')
+    getmpt_output.add_argument('-out',
+                               default='atomtypes.itp',
+                               help='fixed atomtypes itp file',
+                               metavar='[.mpt]')
+    parser_getmpt.set_defaults(func=fixtop)
+    ##
     args = parser.parse_args()
     if vars(args) == {}:
         sys.exit()
