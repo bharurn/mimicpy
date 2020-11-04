@@ -268,7 +268,7 @@ class Mpt:
             self.__expand_data()
 
         if selection == 'all':
-            ids = list(range(1, self._number_of_atoms))
+            ids = list(range(1, self._number_of_atoms+1))
         else:
             np_str, vals = Mpt.__translate(selection)
             np_vals = {}
