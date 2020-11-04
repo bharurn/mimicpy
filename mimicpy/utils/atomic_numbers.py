@@ -1,4 +1,4 @@
-atomic_numbers = {'X': 0,
+atomic_numbers = {
  'H': 1,
  'He': 2,
  'Li': 3,

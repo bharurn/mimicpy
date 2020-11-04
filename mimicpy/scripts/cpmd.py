@@ -3,7 +3,7 @@ from .script import Script
 
 class Pseudopotential:
 
-    def __init__(self, coords, pp_type='MT_BLYP', labels='KLEINMAN-BYLANDER', lmax='S'):
+    def __init__(self, coords, pp_type='MT_BLYP.psp', labels='KLEINMAN-BYLANDER', lmax='S'):
         self.coords = [coords]
         self.pp_type = pp_type
         self.labels = labels
@@ -40,7 +40,7 @@ class Section(Script):
             else:
                 section_string += f"\n{keyword.upper().replace('_', ' ')}\n"
             if value is not True:
-                section_string += f"{str(value)}"  # TODO: Check for False
+                section_string += f"{str(value)}"
         return section_string
 
     def from_string(self):
