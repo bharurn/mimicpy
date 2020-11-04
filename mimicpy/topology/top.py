@@ -67,17 +67,18 @@ class Top:
         molecule_types = top.molecule_types
 
         if self.nonstandard_atomtypes is not None:
-            # TODO: Support non-standard atomtypes input as file (list, itp, ...)
             atom_types.update(self.nonstandard_atomtypes)
 
         atoms = {}
-
+        guessed_elems_history = {}
+        
         for itp_file in top.topology_files:
             itp_file_name = basename(itp_file) # print only file name, and not full path
             try:
                 itp = Itp(itp_file, molecule_types, atom_types, self.buffer, 'r', self.guess_elements, self.gmxdata)
                 if itp.topol is not None:
                     atoms.update(itp.topol)
+                    guessed_elems_history.update(itp.guessed_elems_history)
                     logging.info('Read atoms from %s.', itp_file_name)
                 else:
                     logging.info('No atoms found in %s.', itp_file_name)
@@ -87,3 +88,12 @@ class Top:
 
         self._molecules = top.molecules
         self._topol_dict = topol_dict
+        
+        if guessed_elems_history:
+            logging.warning('\nSome atom types had no atom numbers infomation.\nThey were guessed as follows:\n')
+            logging.warning("+---------------------+")
+            logging.warning("|{:^11}|{:^9}|".format("Atom Type", "Element"))
+            logging.warning("+---------------------+")
+            for k,v in guessed_elems_history.items():
+                logging.warning("|{:^10} | {:^8}|".format(k, v))
+                logging.warning("+---------------------+")

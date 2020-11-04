@@ -26,6 +26,7 @@ class Itp:
         self._topology_files = None
         self._molecules = None
         self._molecule_types = None
+        self.guessed_elems_history = {}
 
         if mode == 'r':
             self.__read()
@@ -170,7 +171,6 @@ class Itp:
     def __read(self):
 
         def guess_element_from(mass, name, atom_type):
-            logging.warning('Could not find atomic number for %s. Guessing element.', atom_type)
             element = 'H'
             mass_int = int(round(mass))
             if mass_int <= 0:  # Cannot guess from mass
@@ -186,7 +186,7 @@ class Itp:
                 element = ELEMENTS[mass_int//2]
             else:  # Assume name is element symbol from Ar onwards
                 element = name.title()  # Case insensitive
-            logging.warning('Element %s has been guessed for %s.', element, atom_type)
+            self.guessed_elems_history[atom_type] = element
             return element
 
         def read_atoms(atom_section):

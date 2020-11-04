@@ -221,7 +221,7 @@ class Mpt:
                     word_position = -1
                     open_brackets += 1
                 else:
-                    raise SelectionError(f'{s} is not a valid selection keyword.')
+                    raise SelectionError(f'\'{s}\' is not a valid selection keyword.')
             elif word_position == 1:
                 if s == 'is':
                     np_selection_expression += '=='
@@ -230,7 +230,7 @@ class Mpt:
                 elif s in ('>', '>=', '<', '<='):
                     np_selection_expression += s
                 else:
-                    raise SelectionError(f'{s} is not a valid logical operator.')
+                    raise SelectionError(f'\'{s}\' is not a valid logical operator.')
             elif word_position == 2:
                 if s.isnumeric():
                     np_selection_expression += f'{s})'
@@ -250,7 +250,7 @@ class Mpt:
                     word_position = 2
                     open_brackets -= 1
                 else:
-                    raise SelectionError(f'{s} is not a valid boolean operator.')
+                    raise SelectionError(f'\'{s}\' is not a valid boolean operator.')
             word_position += 1
 
         if open_brackets > 0:
