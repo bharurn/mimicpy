@@ -10,8 +10,9 @@ from abc import ABC, abstractmethod
 
 class DefaultSelector:
 
-    def __init__(self, mpt_file, coord_file, buffer=1000):
-        self.mpt = Mpt.from_file(mpt_file, buffer=buffer)
+    def __init__(self, mpt_file, coord_file, buffer=1000, nonstandard_atomtypes=None, gmxdata=None, file_ext=None):
+        self.mpt = Mpt.from_file(mpt_file, buffer=buffer, nonstandard_atomtypes=nonstandard_atomtypes,\
+                                 gmxdata=gmxdata, file_ext=file_ext)
         self.coords_reader = CoordsIO(coord_file, buffer=buffer)
         n_mpt = self.mpt.number_of_atoms
         n_coords = len(self.coords_reader.coords)
@@ -36,9 +37,9 @@ class DefaultSelector:
 class VisPackage(ABC, DefaultSelector):
     ######Core Methods
     ##
-    def __init__(self, mpt_file, coord_file, cmd):
+    def __init__(self, mpt_file, coord_file, cmd, buffer=1000, nonstandard_atomtypes=None, gmxdata=None, file_ext=None):
         self.cmd = cmd
-        self.mpt = Mpt.from_file(mpt_file)
+        super.__init__(mpt_file, coord_file, buffer, nonstandard_atomtypes, gmxdata, file_ext)
         if coord_file:
             self._vis_pack_load(coord_file)
 

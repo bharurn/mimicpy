@@ -30,17 +30,21 @@ class BaseCoordsClass(ABC):
 # adapter class
 class CoordsIO:
     def __init__(self, file_name, mode='r', buffer=1000, ext=None):
-        if ext is None:
-            ext = file_name.split('.')[-1]
-        
-        if ext == 'gro':
-            from .gro import Gro
-            self.__coords_obj = Gro(file_name, buffer)
-        elif ext == 'pdb':
-            from .pdb import Pdb
-            self.__coords_obj = Pdb(file_name, buffer)
+        if isinstance(file_name, BaseCoordsClass):
+            self.__coords_obj = file_name
         else:
-            raise ParserError('Unknown coordinate format')
+            if ext is None:
+                ext = file_name.split('.')[-1]
+            
+            if ext == 'gro':
+                from .gro import Gro
+                self.__coords_obj = Gro(file_name, buffer)
+            elif ext == 'pdb':
+                from .pdb import Pdb
+                self.__coords_obj = Pdb(file_name, buffer)
+            else:
+                raise ParserError('Unknown coordinate format')
+                
         self.mode = mode
         self._coords = None
         self._box = None
