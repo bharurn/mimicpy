@@ -17,12 +17,14 @@ class BaseCoordsClass(ABC):
     def _read(self):
         pass
 
-    def write(self, sele, coords):
-        mpt_coords = sele.merge(coords.reset_index(), left_on='id', right_on='id')
-        write_string(self._write(mpt_coords), self.file_name, 'w')
+    def write(self, sele, coords=None, box=None):
+        if coords:
+            sele = sele.join(coords)
+         
+        write_string(self._write(sele.reset_index(), box), self.file_name, 'w')
 
     @abstractmethod
-    def _write(self, mpt_coords):
+    def _write(self, mpt_coords, box):
         pass
 
 # adapter class
@@ -64,7 +66,7 @@ class CoordsIO:
         self.mode = 'r'
         self._coords, self._box = self.__coords_obj.read()
 
-    def write(self, sele, coords):
+    def write(self, sele, coords=None, box=None):
         if self.mode != 'w':
             self.mode = 'w'
-        self.__coords_obj.write(sele, coords)
+        self.__coords_obj.write(sele, coords, box)
