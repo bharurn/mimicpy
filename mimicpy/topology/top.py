@@ -20,31 +20,31 @@ class Top:
         self.buffer = buffer
         self.nonstandard_atomtypes = nonstandard_atomtypes
         self.guess_elements = guess_elements
-        
+
         if gmxdata is None:
             if 'GMXDATA' in environ:
                 gmxdata = join(environ['GMXDATA'], 'top')
             elif 'GMXLIB' in environ:
                 gmxdata = join(environ['GMXLIB'], 'top')
-        
+
         self.gmxdata = gmxdata
-        
-        if self.gmxdata: 
+
+        if self.gmxdata:
             logging.info('Using {} as path to Gromacs installation.'.format(self.gmxdata))
-        else:    
+        else:
             self.gmxdata = ''
             logging.warning('Cannot find path to Gromacs installation.')
-            
-        
+
+
         self._molecules = None
         self._topol_dict = None
-        
+
         if mode == 'r':
             self.__read()
         elif mode == 'w':
             self.__read(True)
         else:
-            raise MiMiCPyError(f'{mode} is not a mode. Only r or w can be used.')
+            raise MiMiCPyError('{} is not a mode. Only r or w can be used'.format(mode))
 
     @property
     def molecules(self):
@@ -78,7 +78,7 @@ class Top:
 
         atoms = {}
         guessed_elems_history = {}
-        
+
         for itp_file in top.topology_files:
             itp_file_name = basename(itp_file) # print only file name, and not full path
             try:
@@ -95,20 +95,20 @@ class Top:
 
         self._molecules = top.molecules
         self._topol_dict = topol_dict
-        
+
         if guessed_elems_history:
             logging.warning('\nSome atom types had no atom numbers infomation.\nThey were guessed as follows:\n')
             print_dict(guessed_elems_history, "Atom Type", "Element", logging.warning)
-    
+
     def write_atomtypes(self, file):
         if self.mode != 'w':
             return self.__read(True)
-        
+
         elements = {}
         for k, df in self.topol_dict.todict().items():
             elements.update(dict(zip(df['type'], df['element'])))
         elements = {k:atomic_numbers[v] for k,v in elements.items()}
-        
+
         itp_str = "[ atomtype ]\n"
         itp_str += ";  {:^11}{:^6}{:^10}{:^10}{:^6}     {}     {}\n".format('name','at.num','mass','charge','ptype',
                                                                            'sigma','epsilon')
@@ -119,5 +119,5 @@ class Top:
             else:
                 lst[1] = int(lst[1])
             itp_str += "{:>11}{:6d}{:11.4f}{:11.4f}{:>6}     {:e}     {:e}\n".format(*lst)
-            
+
         write(itp_str, file)

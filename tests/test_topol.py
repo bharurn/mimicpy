@@ -24,10 +24,10 @@ def test_dppc():
     files2 = ['dppc_A.itp', 'dppc_B.itp', 'spc.itp']
 
     for i in files1:
-        assert f'No atoms found in {i}' in warns.getvalue()
+        assert 'No atoms found in {}'.format(i) in warns.getvalue()
 
     for i in files2:
-        assert f'Read atoms from {i}' in warns.getvalue()
+        assert 'Read atoms from {}'.format(i) in warns.getvalue()
 
     assert 'Could not find posre.itp in local or Gromacs data directory. Skipping...' in warns.getvalue()
 

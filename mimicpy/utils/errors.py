@@ -17,12 +17,12 @@ class ParserError(MiMiCPyError):
         if self.file_type:
             self.file_type = ' as ' + file_type
         if self.line_number:
-            self.line_number = f' at line number {line_number}'
+            self.line_number = ' at line number {}'.format(line_number)
         if self.details:
             self.details = ': ' + details
 
     def __str__(self):
-        return f'Error parsing {self.file}{self.file_type}{self.line_number}{self.details}.'
+        return 'Error parsing {}{}{}{}'.format(self.file, self.file_type, self.line_number, self.details)
 
 class ScriptError(MiMiCPyError):
     """Requested parameter does not exist in script object"""
@@ -30,9 +30,4 @@ class ScriptError(MiMiCPyError):
         self.parameter = parameter
 
     def __str__(self):
-        return f'The {self.parameter} parameter has not been set or has been set incorrectly.'
-
-def asserter(boolean, error, *args, **kwargs):
-    """Custom assert to raise custom errors"""
-    if not boolean:
-        raise error(*args, **kwargs)
+        return 'The {} parameter has not been set or has been set incorrectly'.format(self.parameter)

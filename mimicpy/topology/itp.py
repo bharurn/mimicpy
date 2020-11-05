@@ -35,7 +35,7 @@ class Itp:
         elif mode == 'w':
             pass
         else:
-            raise MiMiCPyError(f'{mode} is not a mode. Only r, t, or w can be used.')
+            raise MiMiCPyError('{} is not a mode. Only r, t, or w can be used'.format(mode))
 
     @property
     def topol(self):
@@ -95,7 +95,7 @@ class Itp:
         # Find text b/w [ section ] and either [ or # or EOF
         # Look for [ section ] / look for lines / look for optional spaces and [ or #
         # string = clean(string, comments)
-        section_regex = re.compile(fr"\[\s*{section}\s*\]\n((?:.+\n)+?)\s*(?:$|\[|#)", re.MULTILINE)
+        section_regex = re.compile(r"\[\s*"+str(section)+"\s*\]\n((?:.+\n)+?)\s*(?:$|\[|#)", re.MULTILINE)
         section_list = section_regex.findall(string)
         return section_list
 
@@ -103,7 +103,7 @@ class Itp:
     def __parse_block_till_section(itp, *sections):
 
         def get_section_headers(string):
-            section_header_regex = re.compile(fr"\[\s*(.*?)\s*\]", re.MULTILINE)
+            section_header_regex = re.compile(r"\[\s*(.*?)\s*\]", re.MULTILINE)
             section_headers = section_header_regex.findall(string)
             return section_headers
 
@@ -138,7 +138,7 @@ class Itp:
             included_itps = [join(dirname(self.file), itp) if isfile(join(dirname(self.file), itp)) \
                          else join(self.gmxdata, itp) for itp in included_itps]
         return included_itps
-    
+
     def __get_all_atomtypes_sections(self):
         itp_file = Parser(self.file, self.buffer)
         itp_text = Itp.__parse_block_till_section(itp_file, 'atomtypes')
@@ -166,18 +166,21 @@ class Itp:
         atm_types_section_dct = {k:[] for k in cols}
         for line in atomtypes_section.splitlines():
             line_split = line.split()
-            if len(line_split) != 7:
-                raise Exception
+            if len(line_split) not in [6, 7]:
+                raise ParserError(self.file, 'topology',
+                        details='following line in [ atomtypes ] section not formatted properly: {}'.format(line))
             else:
+                if len(line_split) == 6:
+                    line_split.insert(1, 'X')
+
                 for i, col in enumerate(cols):
                     atm_types_section_dct[col].append(float(line_split[i]) if col in float_cols else line_split[i])
-        
+
         self.atom_types_df = pd.DataFrame(atm_types_section_dct)
         df = self.atom_types_df.copy()
-        
+
         convert_elem = lambda x: ELEMENTS[int(x)] if x.isnumeric() and int(x) > 0 else None
-        elem_col = df.columns[1]
-        
+        elem_col = cols[1]
         df[elem_col] = df[elem_col].apply(convert_elem)
         df = df[df[elem_col].notnull()]
         df = df.set_index(cols[0])
@@ -232,7 +235,7 @@ class Itp:
                     element = guess_element_from(mass, name, atom_type)
                 else:
                     raise ParserError(self.file, 'topology', details=('Cannot determine atomic symbol'
-                                     f' for atom with name {name} and type {atom_type} in residue {resname}'))
+                                     ' for atom with name {} and type {} in residue {}'.format(name, atom_type, resname)))
                 atom_info[cols[0]].append(number)
                 atom_info[cols[1]].append(atom_type)
                 atom_info[cols[2]].append(resid)

@@ -90,11 +90,11 @@ class Preparation:
             cpmd = CpmdScript.from_file(inp_tmp)
 
         # Get overlaps and atoms
-        overlaps = f'{len(sorted_qm_atoms)}'
+        overlaps = '{}'.format(len(sorted_qm_atoms))
         for i, atom in sorted_qm_atoms.iterrows():
             gromacs_id = atom['id']
             cpmd_id = i + 1
-            overlaps += f'\n2 {gromacs_id} 1 {cpmd_id}'
+            overlaps += '\n2 {} 1 {}'.format(gromacs_id, cpmd_id)
             element = str(atom['element']).lower()
             coords = [atom['x']/BOHR_RADIUS, atom['y']/BOHR_RADIUS, atom['z']/BOHR_RADIUS]
             if atom['is_link']:

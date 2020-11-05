@@ -15,12 +15,12 @@ class Pseudopotential:
         if not self.labels.startswith(' ') and self.labels != '':
             self.labels = ' ' + self.labels
 
-        pp_block = f'{self.pp_type}{self.labels}\n'
-        pp_block += f'    LMAX={self.lmax.upper()}\n'
-        pp_block += f'    {len(self.coords)}\n'
+        pp_block = '{}{}\n'.format(self.pp_type, self.labels)
+        pp_block += '    LMAX={}\n'.format(self.lmax.upper())
+        pp_block += '    {}\n'.format(len(self.coords))
 
         for row in self.coords:
-            pp_block += f' {row[0]:>18.12f} {row[1]:>18.12f} {row[2]:>18.12f}\n'
+            pp_block += ' {:>18.12f} {:>18.12f} {:>18.12f}\n'.format(row[0], row[1], row[2])
 
         return pp_block
 
@@ -36,11 +36,11 @@ class Section(Script):
         for keyword in self.parameters:
             value = getattr(self, keyword)
             if isinstance(value, Pseudopotential):
-                section_string += f"\n*{keyword.upper().replace('_', ' ')}"
+                section_string += '\n*{}'.format(keyword.upper().replace('_', ' '))
             else:
-                section_string += f"\n{keyword.upper().replace('_', ' ')}\n"
+                section_string += '\n{}\n'.format(keyword.upper().replace('_', ' '))
             if value is not True:
-                section_string += f"{str(value)}"
+                section_string += '{}'.format(str(value))
         return section_string
 
     def from_string(self):
@@ -60,7 +60,7 @@ class CpmdScript(Script):
         cpmd_script = ''
         for section in self.parameters:
             section_string = str(getattr(self, section))
-            cpmd_script += f'\n&{section.upper()}{section_string}\n&END\n'
+            cpmd_script += '\n&{}{}\n&END\n'.format(section.upper(), section_string)
         return cpmd_script
 
     def from_string(self):

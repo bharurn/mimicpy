@@ -100,7 +100,7 @@ def test_prepare():
     ndx, cpmd = prep.get_mimic_input(mdp_inp=mock_mdp)
 
     import os
-    assert cpmd.mimic.paths == f"1\n{os.getcwd()}"
+    assert cpmd.mimic.paths == '1\n{}'.format(os.getcwd())
 
     lst, atoms = read_mock_cpmd()
 

@@ -21,7 +21,7 @@ class Loader:
         for c in itertools.cycle(['|', '/', '-', '\\']):
             if self.done:
                 break
-            sys.stdout.write(f'\r{self.message}  ' + c)
+            sys.stdout.write('\r{}  '.format(self.message) + c)
             sys.stdout.flush()
             time.sleep(0.1)
 
@@ -51,19 +51,19 @@ def prepqm(args):
         else:
             # display whole dataframe
             with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-                    qmatoms_str = str(prep.qm_atoms)
-                    
+                qmatoms_str = str(prep.qm_atoms)
+
             if file_name:
                 mimicpy.utils.file_handler.write(qmatoms_str, file_name)
                 print("Wrote list of QM atoms to {}".format(file_name))
             else:
                 print(qmatoms_str)
-                
+
     mpt = get_nsa_mpt(args)
-    
+
     print('')
     loader = Loader('**Reading coordinates**')
-    
+
     try:
         selector = DefaultSelector(mpt, args.coords)
         prep = Preparation(selector)
@@ -71,25 +71,25 @@ def prepqm(args):
         print('\n\nError: Cannot find file {}! Exiting..\n'.format(e.filename))
         loader.close(halt=True)
         sys.exit()
-    except mimicpy.utils.errors.ParserError as e:
+    except (mimicpy.utils.errors.ParserError, mimicpy.utils.errors.MiMiCPyError) as e:
         print(e)
         loader.close(halt=True)
         sys.exit()
-        
+
     loader.close()
-    
+
     dispatch = {'add':prep.add,
                 'add-link': lambda selection: prep.add(selection, True),
                 'delete':prep.delete,
                 'clear': prep.clear,
                 'view':view,
                 'help':selection_help}
-    print('\nPlease enter selection below. For more information type help')
-    
+    print("\nPlease enter selection below. For more information type 'help'")
+
     import readline
 
     readline.parse_and_bind('set editing-mode vi') # handle command history
-        
+
     while True:
         user_input = input('> ')
         user_input = user_input.split()
@@ -97,7 +97,7 @@ def prepqm(args):
             command = user_input[0].lower()
         except IndexError: # handle empty commands
             continue
-        
+
         if command in ['quit', 'q']:
             try:
                 if not prep.qm_atoms.empty:
@@ -113,8 +113,7 @@ def prepqm(args):
         except TypeError:  # include functions without argument
             dispatch[command]()
         except KeyError: # invalid commands
-            print("Invalid command! Please try again. Type help for more information.")
-
+            print("Invalid command! Please try again. Type 'help' for more information.")
 
 def get_nsa_mpt(args, only_nsa=False):
     nsa_dct = {}
@@ -136,27 +135,30 @@ def get_nsa_mpt(args, only_nsa=False):
                         sys.exit()
                     elif len(splt) > 2:
                         print("Line {} in nonstandard atomtypes file {} has more than 2-columns. Using first two values only.\n".format(i+1, args.nsa))
-                    
+
                     nsa_dct[splt[0]] = splt[1]
-            
+
     if nsa_dct != {}:
         print("The following atomypes were read from {}:\n".format(args.nsa))
         mimicpy.utils.strings.print_dict(nsa_dct, "Atom Type", "Element", print)
-        
+
     if only_nsa:
         return nsa_dct
-    
+
     print("\n**Reading topology**\n")
-    
+
     try:
         return mimicpy.Mpt.from_file(args.top, mode='w', nonstandard_atomtypes=nsa_dct)
     except FileNotFoundError as e:
         print('\n\nError: Cannot find file {}! Exiting..\n'.format(e.filename))
         sys.exit()
+    except mimicpy.utils.errors.ParserError as e:
+        print(e)
+        sys.exit()
 
 def getmpt(args):
     get_nsa_mpt(args).write(args.mpt)
-    
+
 def fixtop(args):
     nsa_dct = get_nsa_mpt(args, True)
     print("\n**Reading topology**\n")
@@ -164,6 +166,9 @@ def fixtop(args):
         top = mimicpy.Top(args.top, mode='w', nonstandard_atomtypes=nsa_dct)
     except FileNotFoundError as e:
         print('\n\nError: Cannot find file {}! Exiting..\n'.format(e.filename))
+        sys.exit()
+    except mimicpy.utils.errors.ParserError as e:
+        print(e)
         sys.exit()
     print("\n**Writing fixed atomtypes section**\n")
     top.write_atomtypes(args.out)
@@ -258,6 +263,6 @@ def main():
     print('=====> Running {} <=====\n'.format(subcommand))
     args.func(args)
     print('\n=====> Done <=====\n'.format(subcommand))
-    
+
 if __name__ == '__main__':
     main()

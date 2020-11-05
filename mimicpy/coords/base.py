@@ -6,13 +6,13 @@ class BaseCoordsClass(ABC):
     def __init__(self, file_name, buffer=1000):
         self.file_name = file_name
         self.buffer = buffer
-    
+
     def read(self):
         self.file = Parser(self.file_name)
         coords, box = self._read()
         self.file.close()
         return coords, box
-        
+
     @abstractmethod
     def _read(self):
         pass
@@ -20,7 +20,7 @@ class BaseCoordsClass(ABC):
     def write(self, sele, coords=None, box=None):
         if coords:
             sele = sele.join(coords)
-         
+
         write_string(self._write(sele.reset_index(), box), self.file_name, 'w')
 
     @abstractmethod
@@ -35,7 +35,7 @@ class CoordsIO:
         else:
             if ext is None:
                 ext = file_name.split('.')[-1]
-            
+
             if ext == 'gro':
                 from .gro import Gro
                 self.__coords_obj = Gro(file_name, buffer)
@@ -44,7 +44,7 @@ class CoordsIO:
                 self.__coords_obj = Pdb(file_name, buffer)
             else:
                 raise ParserError('Unknown coordinate format')
-                
+
         self.mode = mode
         self._coords = None
         self._box = None
@@ -54,7 +54,7 @@ class CoordsIO:
         elif mode == 'w':
             pass
         else:
-            raise MiMiCPyError(f'{mode} is not a mode. Only r or w can be used.')
+            raise MiMiCPyError('{} is not a mode. Only r or w can be used'.format(mode))
 
     @property
     def coords(self):

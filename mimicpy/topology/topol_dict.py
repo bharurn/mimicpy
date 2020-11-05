@@ -29,7 +29,7 @@ class TopolDict:
             return self.dict_df[key]
         if key in self.repeating:
             return self.dict_df[self.repeating[key]]
-        raise KeyError(f'Molecule {key} is not in topology.')
+        raise KeyError('Molecule {} is not in topology'.format(key))
 
     def todict(self):
         extras = self.dict_df.copy()

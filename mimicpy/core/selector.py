@@ -17,7 +17,7 @@ class DefaultSelector:
         n_mpt = self.mpt.number_of_atoms
         n_coords = len(self.coords_reader.coords)
         if n_mpt != n_coords:
-            raise MiMiCPyError(f'Number of atoms in topology and coordinates do not match ({n_mpt} vs {n_coords})')
+            raise MiMiCPyError('Number of atoms in topology and coordinates do not match ({} vs {})'.format(n_mpt, n_coords))
 
     @property
     def mm_box(self):
@@ -29,7 +29,7 @@ class DefaultSelector:
         df = sele.merge(self.coords_reader.coords, left_on='id', right_on='id')
 
         if df.empty:
-            raise MiMiCPyError(f"The atoms selected from mpt were not found in the coordinate file")
+            raise MiMiCPyError('The atoms selected from mpt were not found in the coordinate file')
         return df
 
 ###### Selector using Visualization packages, currently PyMOL and VMD supported
@@ -51,9 +51,9 @@ class VisPackage(ABC, DefaultSelector):
         df = mpt_sele.merge(sele, left_on='id', right_on='id').set_index(['id'])
 
         if df.empty:
-            raise MiMiCPyError("The atoms IDs in selected do not exist in {self.mpt}")
+            raise MiMiCPyError('The atoms IDs in selected do not exist in {}'.format(self.mpt))
         return df
-    
+
     ##
     ######
 
@@ -93,7 +93,7 @@ class PyMOL(VisPackage):
                 # import pymol in the pymol enviornment
                 from pymol import cmd
             except ImportError:
-                raise MiMiCPyError(f"Could not connect to PyMOL, make sure PyMOL is installed")
+                raise MiMiCPyError('Could not connect to PyMOL, make sure PyMOL is installed')
         else:
             # connecting by xmlrpc url
             cmd = xmlrpclib.ServerProxy(url)
@@ -102,7 +102,7 @@ class PyMOL(VisPackage):
             try:
                 cmd.get_view()
             except ConnectionRefusedError:
-                raise MiMiCPyError(f"Could not connect to PyMOL xmlrpc server at address {url}")
+                raise MiMiCPyError('Could not connect to PyMOL xmlrpc server at address {}'.format(url))
 
 
         super().__init__(mpt_file, coord_file, cmd)
