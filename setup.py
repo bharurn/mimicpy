@@ -11,20 +11,23 @@ def get_package():
 def get_reqs():
     with open('requirements.txt', 'r') as f:
         reqs = f.read().splitlines()
-    
+
     return reqs
 
 def get_details(detail, deflt):
     path = 'mimicpy/_'+detail
     if not os.path.isfile(path):
         return deflt
-        
+
     with open(path) as f:
         txt = f.read()
         if len(txt.splitlines()) == 1 and '=' in txt:
             return f.read().split('=')[1].strip()
         else:
             return deflt
+
+if sys.version_info < (3):
+    print('Python2 is not supported')
 
 setup(
     name='mimicpy',

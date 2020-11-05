@@ -1,6 +1,6 @@
 import time
 import pytest
-from mimicpy.io.gro import Gro
+from mimicpy import Gro
 from mimicpy.utils.errors import ParserError
 
 
@@ -17,7 +17,7 @@ def test_gro1():
     file_to_check = 'gro_files/gro1.gro'
 
     gro_file = Gro(file_to_check, buffer=1)  # Reading line by line
-    coords, box = gro_file.coords, gro_file.box
+    coords, box = gro_file.read()
     number_of_atoms_to_check, box_to_check = _get_gro_info(file_to_check)
     box = [str(a) for a in box]  # Conversion for comparison to naive reader function
 
@@ -25,7 +25,7 @@ def test_gro1():
     assert len(coords) == number_of_atoms_to_check
 
     gro_file = Gro(file_to_check, buffer=2)  # Reading two lines at a time
-    coords, box = gro_file.coords, gro_file.box 
+    coords, box = gro_file.read()
     number_of_atoms_to_check, box_to_check = _get_gro_info(file_to_check)
     box = [str(a) for a in box]  # Conversion for comparison to naive reader function
 
@@ -33,7 +33,7 @@ def test_gro1():
     assert len(coords) == number_of_atoms_to_check
 
     gro_file = Gro(file_to_check)
-    coords, box = gro_file.coords, gro_file.box 
+    coords, box = gro_file.read()
     number_of_atoms_to_check, box_to_check = _get_gro_info(file_to_check)
     box = [str(a) for a in box]  # Conversion for comparison to naive reader function 
 
@@ -45,7 +45,7 @@ def test_gro2():
     file_to_check = 'gro_files/gro2.gro'
 
     gro_file = Gro(file_to_check, buffer=1)
-    coords, box = gro_file.coords, gro_file.box
+    coords, box = gro_file.read()
     number_of_atoms_to_check, box_to_check = _get_gro_info(file_to_check)
     box = [str(a) for a in box]  # Conversion for comparison to naive reader function
 
@@ -62,7 +62,7 @@ def test_large_gro():
 
     assert elapsed_time < 1.5
     
-    coords, box = gro_file.coords, gro_file.box
+    coords, box = gro_file.read()
     number_of_atoms_to_check, box_to_check = _get_gro_info(file_to_check)
     box = [str(a) for a in box]  # Conversion for comparison to naive reader function
     
@@ -71,15 +71,15 @@ def test_large_gro():
     assert len(coords) == number_of_atoms_to_check
 
 def test_bad_gro1():
-    file_to_check = 'gro_files/bad_gro1.gro'
+    gro_to_check = Gro('gro_files/bad_gro1.gro')
 
     with pytest.raises(ParserError) as error:
-        assert Gro(file_to_check)
+        assert gro_to_check.read()
     assert 'Error parsing gro_files/bad_gro1.gro: Gro file is not formatted properly' in str(error.value)
 
 def test_bad_gro2():
-    file_to_check = 'gro_files/bad_gro2.gro'
+    gro_to_check = Gro('gro_files/bad_gro2.gro')
 
     with pytest.raises(ParserError) as error:
-        assert Gro(file_to_check)
+        assert gro_to_check.read()
     assert 'Error parsing gro_files/bad_gro2.gro: Gro file is not formatted properly' in str(error.value) 

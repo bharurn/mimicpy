@@ -1,7 +1,7 @@
-from mimicpy.core.selector import VMD
 import pandas as pd
 from string import ascii_letters
 from random import choice
+from mimicpy import VMD
 
 class MockMPT:
     def __getitem__(self, a):
@@ -33,6 +33,7 @@ def get_mock_vmd_sele():
                 dct['y'].append(float(y))
                 dct['z'].append(float(z))
                 dct['charge'].append(float(q))
+                # last three should not be present in the selection (testing clean up of df)
                 dct['garbage1'].append(choice(ascii_letters))
                 dct['garbage2'].append(choice(ascii_letters))
                 dct['garbage3'].append(choice(ascii_letters))
@@ -43,20 +44,21 @@ def get_mock_vmd_sele():
         return df
 
 def test_vmd(mocker):
-    mocker.patch('vmd.molecule.load', return_value=100)
-    mocker.patch('vmd.molecule.get_periodic',\
-                 return_value={'a': 40, 'b': 40, 'c': 40, 'A': 90, 'B': 90, 'C': 90})
-    
     mock_sele = get_mock_vmd_sele()
-    mocker.patch('vmd.atomsel', return_value=mock_sele)
     
-    vmd = VMD()
+    ## create mock vmd library
+    mocker.patch('vmd.molecule.load', return_value=100)
+    mocker.patch('vmd.molecule.get_periodic', return_value={'a': 40, 'b': 40, 'c': 40, 'A': 90, 'B': 90, 'C': 90})
+    mocker.patch('vmd.atomsel', return_value=mock_sele)
+    ###
+    
+    vmd = VMD(MockMPT(), 'fake.gro') # pass fake gro file so it calls vmd.molecule.load
      
-    assert vmd.load(MockMPT(), "--") == [4, 4, 4]
+    assert vmd.mm_box == [4, 4, 4]
     
     assert vmd.molid == 100
     
-    sele = vmd.select("--")
+    sele = vmd.select()
     
     assert set(sele.columns) == {"name", "_name", "element", "_element", "resname",\
               "_resname", "resid", "_resid", "mass", '_mass', "charge", "mol", "type", '_type', 'x', 'y', 'z'}

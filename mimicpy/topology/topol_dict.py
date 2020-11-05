@@ -24,24 +24,24 @@ class TopolDict:
         self.dict_df = dict_df
         self.repeating = repeating
 
-    def __getitem__(self, key):  # TODO: Use try except syntax
+    def __getitem__(self, key):
         if key in self.dict_df:
             return self.dict_df[key]
         if key in self.repeating:
             return self.dict_df[self.repeating[key]]
-        raise KeyError(f'Molecule {key} is not in topology.')
+        raise KeyError('Molecule {} is not in topology'.format(key))
 
-    def __getall__(self):  # TODO: Give better variable names
+    def todict(self):
         extras = self.dict_df.copy()
         for i in self.repeating:
             extras[i] = self.__getitem__(i)
         return extras
 
     def __str__(self):
-        return str(self.__getall__())
+        return str(self.todict())
 
     def __repr__(self):
-        return repr(self.__getall__())
+        return repr(self.todict())
 
     def keys(self):
         """Handle keys of a TopolDict like keys of a regular dict"""

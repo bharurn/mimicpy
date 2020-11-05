@@ -41,7 +41,7 @@ class Mpt:
         elif mode == 'w':
             pass
         else:
-            raise MiMiCPyError(f'{mode} is not a mode. Only r or w can be used.')
+            raise MiMiCPyError('{} is not a mode. Only r or w can be used'.format(mode))
 
     @property
     def number_of_atoms(self):
@@ -119,32 +119,34 @@ class Mpt:
         return TopolDict(dict_df, repeating)
 
     @classmethod
-    def __from_top(cls, top_file, mode='r', buffer=1000, nonstandard_atomtypes=None):
-        top = Top(top_file, mode=mode, buffer=buffer, nonstandard_atomtypes=nonstandard_atomtypes)
+    def __from_top(cls, top_file, mode='r', buffer=1000, nonstandard_atomtypes=None, gmxdata=None):
+        top = Top(top_file, mode=mode, buffer=buffer, nonstandard_atomtypes=nonstandard_atomtypes, gmxdata=gmxdata)
         molecules = top.molecules
         topol_dict = top.topol_dict
-        return cls(molecules, topol_dict)
+        return cls(molecules, topol_dict, mode)
 
     @classmethod
-    def __from_mpt(cls, mpt_file):
+    def __from_mpt(cls, mpt_file, mode):
         unpacker = xdrlib.Unpacker(read(mpt_file, 'rb'))
         molecule_names = Mpt.__unpack_strlist(unpacker)
         number_of_molecules = unpacker.unpack_list(unpacker.unpack_int)
         molecules = list(zip(molecule_names, number_of_molecules))
         topol_dict = Mpt.__unpack_topol_dict(unpacker)
-        return cls(molecules, topol_dict)
+        return cls(molecules, topol_dict, mode)
 
     @classmethod
-    def from_file(cls, file, mode='r', buffer=1000, nonstandard_atomtypes=None, file_ext=None):
-        if isinstance(file, Mpt):
+    def from_file(cls, file, mode='r', buffer=1000, nonstandard_atomtypes=None, gmxdata=None, file_ext=None):
+        if not isinstance(file, str): # assume its mpt
             return file
-        if file_ext is None:
+        elif file_ext is None:
             file_ext = file.split('.')[-1]
+
         if file_ext == 'top':
-            return Mpt.__from_top(file, mode, buffer, nonstandard_atomtypes)
-        if file_ext == 'mpt':
-            return Mpt.__from_mpt(file)
-        raise MiMiCPyError('Please specify file extension (top or mpt).')
+            return Mpt.__from_top(file, mode, buffer, nonstandard_atomtypes, gmxdata)
+        elif file_ext == 'mpt':
+            return Mpt.__from_mpt(file, mode)
+        else:
+            raise MiMiCPyError('File extension (top or mpt) not specified.')
 
     def __expand_data(self):
         self._expanded_data = [self.__get_property(i) for i in self.columns]
@@ -176,7 +178,7 @@ class Mpt:
         resn_so_far = 0
         resn_list = []
         for mol, n_mols in self.molecules:
-            for _ in range(n_mols):  # TODO: Speed up this part
+            for _ in range(n_mols):
                 lst = self.topol_dict[mol]['resid'].to_numpy() + resn_so_far
                 resn_list += lst.tolist()
                 resn_so_far = lst[-1]
@@ -202,7 +204,7 @@ class Mpt:
            will be translated to
            np_vals['resname'] == 'SER' and np_vals['id'] < 5 and np_vals['mol'] != 'Protein_chain_B'
          """
-        add_space = lambda string, a: string.replace(a, f' {a} ')
+        add_space = lambda string, a: string.replace(a, ' {} '.format(a))
         selection = add_space(add_space(selection, '('), ')')
 
         np_selection_expression = ''
@@ -212,14 +214,14 @@ class Mpt:
         for s in selection.split():
             if word_position == 0:
                 if s in Mpt.columns or s == 'id':
-                    np_selection_expression += f"(np_vals['{s}']"
+                    np_selection_expression += "(np_vals['{}']".format(s)
                     selectors.append(s)
                 elif s == '(':
                     np_selection_expression += s
                     word_position = -1
                     open_brackets += 1
                 else:
-                    raise SelectionError(f'{s} is not a valid selection keyword.')
+                    raise SelectionError('\'{}\' is not a valid selection keyword'.format(s))
             elif word_position == 1:
                 if s == 'is':
                     np_selection_expression += '=='
@@ -228,56 +230,59 @@ class Mpt:
                 elif s in ('>', '>=', '<', '<='):
                     np_selection_expression += s
                 else:
-                    raise SelectionError(f'{s} is not a valid logical operator.')
+                    raise SelectionError('\'{}\' is not a valid logical operator'.format(s))
             elif word_position == 2:
                 if s.isnumeric():
-                    np_selection_expression += f'{s})'
+                    np_selection_expression += '{})'.format(s)
                 else:
-                    np_selection_expression += f"'{s}')"
+                    np_selection_expression += "'{}')".format(s)
             elif word_position == 3:
                 # If and' or 'or' encountered, reset word_position to -1
                 # if ) encountered, reset word_position to 2 to parse 'and' or 'or' again
                 if s == 'or':
-                    np_selection_expression += f' | '
+                    np_selection_expression += ' | '
                     word_position = -1
                 elif s == 'and':
-                    np_selection_expression += f' & '
+                    np_selection_expression += ' & '
                     word_position = -1
                 elif s == ')':
                     np_selection_expression += ')'
                     word_position = 2
                     open_brackets -= 1
                 else:
-                    raise SelectionError(f'{s} is not a valid boolean operator.')
+                    raise SelectionError('\'{}\' is not a valid boolean operator'.format(s))
             word_position += 1
 
         if open_brackets > 0:
-            raise SelectionError('Closing bracket is missing in selection.')
+            raise SelectionError('Closing bracket is missing in selection')
         if open_brackets < 0:
-            raise SelectionError('Open bracket is missing in selection.')
+            raise SelectionError('Open bracket is missing in selection')
 
         return np_selection_expression, selectors
 
     def select(self, selection):  # Maybe move to a new module
         """Select atoms based on selection language expression"""
         if selection is None or selection.strip() == '':
-            raise SelectionError('The selection cannot be empty.')
+            raise SelectionError('The selection cannot be empty')
         if self._expanded_data is None:
             self.__expand_data()
 
-        np_str, vals = Mpt.__translate(selection)
-        np_vals = {}
+        if selection == 'all':
+            ids = list(range(1, self._number_of_atoms+1))
+        else:
+            np_str, vals = Mpt.__translate(selection)
+            np_vals = {}
 
-        for i in vals:
-            if i == 'id':
-                arr = np.array(list(range(self._number_of_atoms)))+1
-            else:
-                arr = np.array(self.__get_property(i))
-            np_vals[i] = arr
+            for i in vals:
+                if i == 'id':
+                    arr = np.array(list(range(self._number_of_atoms)))+1
+                else:
+                    arr = np.array(self.__get_property(i))
+                np_vals[i] = arr
 
-        ids = (np.where(eval(np_str))[0]+1).tolist()
-        if ids == []:
-            raise SelectionError("The selection did not return any atoms.")
+            ids = (np.where(eval(np_str))[0]+1).tolist()
+            if ids == []:
+                raise SelectionError("The selection did not return any atoms")
 
         return self.__select_by_id(ids)
 

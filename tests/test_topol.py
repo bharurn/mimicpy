@@ -1,6 +1,5 @@
-import mimicpy
 from mimicpy.utils.errors import ParserError
-from mimicpy.io.top import Top
+from mimicpy import Top
 import pickle
 import pytest
 import io, logging
@@ -21,16 +20,16 @@ def test_dppc():
     mol_list = top.molecules
     topol_dict = top.topol_dict
 
-    files1 = ['dppc/topol.top', 'dppc/gromos53a6.ff/forcefield.itp']
-    files2 = ['dppc/dppc_A.itp', 'dppc/dppc_B.itp', 'dppc/gromos53a6.ff/spc.itp']
+    files1 = ['topol.top', 'forcefield.itp']
+    files2 = ['dppc_A.itp', 'dppc_B.itp', 'spc.itp']
 
     for i in files1:
-        assert f'No atoms found in {i}' in warns.getvalue()
+        assert 'No atoms found in {}'.format(i) in warns.getvalue()
 
     for i in files2:
-        assert f'Read atoms from {i}' in warns.getvalue()
+        assert 'Read atoms from {}'.format(i) in warns.getvalue()
 
-    assert 'Could not find dppc/posre.itp. Skipping...' in warns.getvalue()
+    assert 'Could not find posre.itp in local or Gromacs data directory. Skipping...' in warns.getvalue()
 
     assert mol_list==[('DPPC_A', 1), ('DPPC_B', 2), ('SOL', 100)]
 

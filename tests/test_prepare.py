@@ -1,7 +1,7 @@
 import io
 import logging
-from mimicpy.scripts.mdp import Mdp
-from mimicpy.utils.errors import MiMiCPyError, SelectionError
+from mimicpy import Mdp
+from mimicpy.utils.errors import SelectionError
 import pandas as pd
 import pytest
 
@@ -100,7 +100,7 @@ def test_prepare():
     ndx, cpmd = prep.get_mimic_input(mdp_inp=mock_mdp)
 
     import os
-    assert cpmd.mimic.paths == f"1\n{os.getcwd()}"
+    assert cpmd.mimic.paths == '1\n{}'.format(os.getcwd())
 
     lst, atoms = read_mock_cpmd()
 
@@ -122,7 +122,7 @@ def test_prepare():
         and "Rounding to integer" in warns.getvalue()
 
     assert "Wrong integrator for MiMiC run, set integrator = mimic" in warns.getvalue()
-    assert "Index group for QM atoms is not QMatoms, set QMMM-grps = QMatoms" in warns.getvalue()
+    assert "Index group for QM atoms is not qmatoms, set QMMM-grps to the appropriate group" in warns.getvalue()
     assert "Temperature coupling will not be active, set tcoupl = no" in warns.getvalue()
     assert "Molecules should not be constrained by Gromacs, set constraints = none" not in warns.getvalue()
     assert "Pressure coupling will not be active, set pcoupl = no" not in warns.getvalue()
