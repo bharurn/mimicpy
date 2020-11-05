@@ -91,12 +91,18 @@ def prepqm(args):
     readline.parse_and_bind('set editing-mode vi') # handle command history
 
     while True:
-        user_input = input('> ')
+        try:
+            user_input = input('> ')
+        except KeyboardInterrupt:
+            print("Exiting without writing\n")
+            sys.exit()
+            
         user_input = user_input.split()
         try:
             command = user_input[0].lower()
         except IndexError: # handle empty commands
             continue
+        
 
         if command in ['quit', 'q']:
             try:
