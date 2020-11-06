@@ -1,3 +1,6 @@
+
+##### MiMiCPy VMD settings script
+##
 proc prepqm {mpt {sele atomselect0} {molid 0} {cpmd cpmd.inp} {ndx index.ndx}} {
 	if { [file exists $mpt] == 0} {
 		puts "$mpt_file not found!"
@@ -23,8 +26,10 @@ proc prepqm {mpt {sele atomselect0} {molid 0} {cpmd cpmd.inp} {ndx index.ndx}} {
 	set y [$sele get y]
 	set z [$sele get z]
 	
-	# execute python script & disp output
-	puts $[exec python mpy_vmd.py $mpt $cpmd $ndx $name $type $index\
+	# execute mimicpy main_vmd script & disp logger output
+	puts $[exec mimicpy_vmd $mpt $cpmd $ndx $name $type $index\
 	 $mass $element $resname $resid $x $y $z $a $b $:c $alpha\
 	  $beta $gamma]
 }
+##
+##################################

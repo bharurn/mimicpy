@@ -1,14 +1,22 @@
 #!/usr/bin/env python
 
-import os
 import sys
+import os
+import platform
+from shutil import copyfileobj
 from setuptools import setup, find_packages
+from setuptools.command.install import install
+from setuptools.command.develop import develop
+
 
 def get_package():
     root = 'mimicpy'
     return  [root]+[root+'.'+i for i in find_packages(root)]
 
 def get_reqs():
+    if not os.path.isfile('requirements.txt'):
+        return ['numpy>=1.12.0', 'pandas>=0.24.0']
+        
     with open('requirements.txt', 'r') as f:
         reqs = f.read().splitlines()
 
@@ -26,18 +34,64 @@ def get_details(detail, deflt):
         else:
             return deflt
 
-if sys.version_info < (3):
-    print('Python2 is not supported')
+if sys.version_info < (3,5):
+    print('MiMiCPy requires Python >= 3.5')
+    sys.exit(1)
+    
+class PostBaseCommand(object):
+    """Base class for post-installation code"""
+    
+    def copy_script(self, source, dest):
+        if not os.path.isfile(source):
+            print("Cannot find source file {}, Copying skipped..".format(source))
+        else:
+            with open(source, 'r') as fsrc, open(dest, 'a') as fdest:
+                copyfileobj(fsrc, fdest)
+        
+    def run(self):
+        super().run()
+        pymol_dir = os.environ.get('PYMOLDIR', default=None)
+        vmd_dir = os.environ.get('VMDDIR', default=None)
+        
+        if pymol_dir:
+            pymolrc = os.path.join(pymol_dir, '.pymolrc.py')
+            self.copy_script('extras/pymolrc.py', pymolrc)
+            print("Wrote PyMOL settings to file {}".format(pymolrc))
+        
+        if vmd_dir:
+            if platform.system() == 'Windows':
+                vmdrc = os.path.join(vmdrc, 'vmd.rc')
+            else:
+                vmdrc = os.path.join(vmdrc, '.vmdrc')
+                
+            self.copy_script('extras/vmdrc', vmdrc)
+            print("Wrote VMD settings to file {}".format(vmdrc))
+        
+class PostInstallCommand(PostBaseCommand, install):
+    """Post-installation code for installation mode"""
+    pass
+
+class PostDevelopCommand(PostBaseCommand, develop):
+    """Post-installation code for develop mode"""
+    pass
+
 
 setup(
     name='mimicpy',
     version=get_details('version', 1.0),
     zip_safe=False,
     description='Python tools to prepare MiMiC QM/MM runs.',
-    author=get_details('authors', "--"),
+    author=get_details('authors', ""),
     author_email='b.raghavan@fz-juelich.de',
     packages=get_package(),
     install_requires=get_reqs(),
     entry_points = {
-        'console_scripts': ['mimicpy = mimicpy.__main__:main'],
+        'console_scripts': [
+            'mimicpy = mimicpy.__main__:main',
+            'mimicpy_vmd = mimicpy.__main_vmd__:main'
+        ],
+    },
+    cmdclass={
+            'install': PostInstallCommand,
+            'develop': PostDevelopCommand,
     })
