@@ -1,7 +1,7 @@
 from ..utils.errors import MiMiCPyError
 
 class CustomAtomSel:
-    """Class to mimic AtomSel class from vmd python module"""
+    """Class to mock AtomSel class from vmd python module"""
     
     def __init__(self, **kwargs):
         # assign name, type, resid, resname, etc. to this class
@@ -20,7 +20,7 @@ class CustomAtomSel:
 
 class TclVMDConnector:
     """
-    Class to mimic vmd python module
+    Class to mock vmd python module
     Results of following Tcl commands to be passed in the constructor:
         ##Values set to TclVMDConnector.sele
         atomsel get name
@@ -42,7 +42,7 @@ class TclVMDConnector:
         molinfo <molid> get beta
         molinfo <molid> get gamma
         ##
-    All should be passed in this order, each param being a space seperated strings (this is Tcl's default behaviour)
+    All should be passed in this order, each param being a space separated string (this is Tcl's default behavior)
     The gro file should be loaded in Tcl/VMD, it will not be loaded here
     """
     

@@ -1,12 +1,7 @@
 
 ##### MiMiCPy VMD settings script
 ##
-proc prepqm {mpt {sele atomselect0} {molid 0} {cpmd cpmd.inp} {ndx index.ndx}} {
-	if { [file exists $mpt] == 0} {
-		puts "$mpt_file not found!"
-		return
-	}
-	
+proc prepqm {mpt {sele atomselect0} {molid 0} {inp None} {mdp None} {ndx index.ndx} {out cpmd.inp}} {
 	set a [molinfo $molid get a]
 	set b [molinfo $molid get b]
 	set c [molinfo $molid get c]
@@ -27,8 +22,8 @@ proc prepqm {mpt {sele atomselect0} {molid 0} {cpmd cpmd.inp} {ndx index.ndx}} {
 	set z [$sele get z]
 	
 	# execute mimicpy main_vmd script & disp logger output
-	puts $[exec mimicpy_vmd $mpt $cpmd $ndx $name $type $index\
-	 $mass $element $resname $resid $x $y $z $a $b $:c $alpha\
+	puts $[exec mimicpy_vmd $mpt $inp $mdp $ndx $out $name $type $index\
+	 $mass $element $resname $resid $x $y $z $a $b $c $alpha\
 	  $beta $gamma]
 }
 ##
