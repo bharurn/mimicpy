@@ -7,20 +7,11 @@ from shutil import copyfileobj
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 from setuptools.command.develop import develop
-
+from setuptools.command.egg_info import egg_info
 
 def get_package():
     root = 'mimicpy'
     return  [root]+[root+'.'+i for i in find_packages(root)]
-
-def get_reqs():
-    if not os.path.isfile('requirements.txt'):
-        return ['numpy>=1.12.0', 'pandas>=0.24.0']
-        
-    with open('requirements.txt', 'r') as f:
-        reqs = f.read().splitlines()
-
-    return reqs
 
 def get_details(detail, deflt):
     path = 'mimicpy/_'+detail
@@ -43,7 +34,8 @@ class PostBaseCommand(object):
     
     def copy_script(self, source, dest):
         if not os.path.isfile(source):
-            print("Cannot find source file {}, Copying skipped..".format(source))
+            print("Cannot find source file {}".format(source))
+            sys.exit(1)
         else:
             with open(source, 'r') as fsrc, open(dest, 'a') as fdest:
                 copyfileobj(fsrc, fdest)
@@ -55,7 +47,7 @@ class PostBaseCommand(object):
         
         if pymol_dir:
             pymolrc = os.path.join(pymol_dir, '.pymolrc.py')
-            self.copy_script('extras/pymolrc.py', pymolrc)
+            self.copy_script('plugins/pymol.py', pymolrc)
             print("Wrote PyMOL settings to file {}".format(pymolrc))
         
         if vmd_dir:
@@ -64,7 +56,7 @@ class PostBaseCommand(object):
             else:
                 vmdrc = os.path.join(vmdrc, '.vmdrc')
                 
-            self.copy_script('extras/vmdrc', vmdrc)
+            self.copy_script('plugins/vmdrc', vmdrc)
             print("Wrote VMD settings to file {}".format(vmdrc))
         
 class PostInstallCommand(PostBaseCommand, install):
@@ -74,17 +66,21 @@ class PostInstallCommand(PostBaseCommand, install):
 class PostDevelopCommand(PostBaseCommand, develop):
     """Post-installation code for develop mode"""
     pass
+    
+class PostEggInfoCommand(PostBaseCommand, egg_info):
+    """Post-installation code for egg info mode"""
+    pass
 
 
 setup(
     name='mimicpy',
     version=get_details('version', 1.0),
-    zip_safe=False,
+    zip_safe=True,
     description='Python tools to prepare MiMiC QM/MM runs.',
-    author=get_details('authors', ""),
+    author=get_details('authors', "Bharath Raghavan and Florian Schackert"),
     author_email='b.raghavan@fz-juelich.de',
     packages=get_package(),
-    install_requires=get_reqs(),
+    install_requires=['numpy>=1.12.0', 'pandas>=0.24.0'],
     entry_points = {
         'console_scripts': [
             'mimicpy = mimicpy.__main__:main',
@@ -94,4 +90,5 @@ setup(
     cmdclass={
             'install': PostInstallCommand,
             'develop': PostDevelopCommand,
+            'egg_info': PostEggInfoCommand,
     })
