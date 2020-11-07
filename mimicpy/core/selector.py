@@ -37,7 +37,7 @@ class DefaultSelector:
 class VisPackage(ABC, DefaultSelector):
     ######Core Methods
     ##
-    def __init__(self, mpt_file, coord_file, cmd, buffer=1000, nonstandard_atomtypes=None, gmxdata=None, file_ext=None):
+    def __init__(self, mpt_file, coord_file, cmd, buffer, nonstandard_atomtypes, gmxdata, file_ext):
         self.cmd = cmd
         super.__init__(mpt_file, coord_file, buffer, nonstandard_atomtypes, gmxdata, file_ext)
         if coord_file:
@@ -86,7 +86,7 @@ class PyMOL(VisPackage):
     Can be used by connecting to PyMOL using xmlrpc or by executing in the PyMOL interpreter
     """
 
-    def __init__(self, mpt_file, coord_file=None, url=None):
+    def __init__(self, mpt_file, coord_file=None, url=None, buffer=1000, nonstandard_atomtypes=None, gmxdata=None, file_ext=None):
 
         if url is None:
             try:
@@ -105,7 +105,7 @@ class PyMOL(VisPackage):
                 raise MiMiCPyError('Could not connect to PyMOL xmlrpc server at address {}'.format(url))
 
 
-        super().__init__(mpt_file, coord_file, cmd)
+        super().__init__(mpt_file, coord_file, cmd, buffer, nonstandard_atomtypes, gmxdata, file_ext)
 
     def _vis_pack_load(self, coord_file):
         self.cmd.load(coord_file)
@@ -149,7 +149,7 @@ class PyMOL(VisPackage):
 
 class VMD(VisPackage):
 
-    def __init__(self, mpt_file, coord_file=None, tcl_vmd_params=None):
+    def __init__(self, mpt_file, coord_file=None, tcl_vmd_params=None, buffer=1000, nonstandard_atomtypes=None, gmxdata=None, file_ext=None):
         if tcl_vmd_params:
             # use the Tcl connector
             vmd = TclVMDConnector(tcl_vmd_params)
@@ -162,7 +162,7 @@ class VMD(VisPackage):
 
         self.molid = -1 # default to top mol
 
-        super().__init__(mpt_file, coord_file, vmd)
+        super().__init__(mpt_file, coord_file, vmd, buffer, nonstandard_atomtypes, gmxdata, file_ext)
 
     def _vis_pack_load(self, coord_file):
         self.molid = self.cmd.molecule.load(coord_file.split('.')[-1], coord_file)
