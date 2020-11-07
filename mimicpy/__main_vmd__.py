@@ -9,8 +9,8 @@ def main():
         sys.exit(1)
     
     top = sys.argv[1]
-    inp = None if sys.argv[2] == 'None' else: sys.argv[2]
-    mdp = None if sys.argv[3] == 'None' else: sys.argv[3]
+    inp = None if sys.argv[2] == 'None' else sys.argv[2]
+    mdp = None if sys.argv[3] == 'None' else sys.argv[3]
     ndx = sys.argv[4]
     out = sys.argv[5]
     #sys.argv[6:] should have all selection info from VMD
