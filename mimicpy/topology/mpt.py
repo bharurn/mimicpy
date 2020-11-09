@@ -179,7 +179,10 @@ class Mpt:
         resn_list = []
         for mol, n_mols in self.molecules:
             for _ in range(n_mols):
-                lst = self.topol_dict[mol]['resid'].to_numpy() + resn_so_far
+                resn_np = self.topol_dict[mol]['resid'].to_numpy()
+                first_resid = resn_np[0]
+                resn_np -= first_resid - 1
+                lst = resn_np + resn_so_far
                 resn_list += lst.tolist()
                 resn_so_far = lst[-1]
         return resn_list
