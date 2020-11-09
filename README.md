@@ -4,7 +4,7 @@ MiMiCPy is the python library for preparing QM/MM simulations with the MiMiC CPM
 MiMiCPy comes with a set of command lines tools to prepare MiMiC input scripts. Additionally, plugins for PyMOL and VMD are also provided.
 
 ## Installation
-To install, clone this repo and run install using the ```setup.py``` in the root folder.
+To install, clone this repo and install using ```setup.py``` in the root folder.
 ```
 git clone https://github.com/bharurn/mimicpy
 pip install mimicpy
@@ -20,9 +20,9 @@ PYMOLDIR="/home/user/" VMDDIR="/home/user/" pip install mimicpy
 MiMiCPy requires Python >= 3.5, pandas >= 0.24.0 and numpy >= 1.12.0. The plugins have been tested with PyMOL version 2.3.4 and VMD version 1.9.4a38, although other versions are expected to work. If a compatibility issue is found, please send us a bug report.
 
 ## Demo
-Selection of atoms for the QM region, and generation of the CPMD input script for MiMiC:
-```bash
-$ mimicpy prepqm -top acetone.top -coords acetone.gro
+A demo of selection of atoms for the QM region, and generation of the CPMD-MiMiC input script using MiMiCPy is shown below.
+```console
+user@system:~$ mimicpy prepqm -top acetone.top -coords acetone.gro
 
 
  	                ***** MiMiCPy *****
