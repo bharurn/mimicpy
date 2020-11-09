@@ -39,7 +39,8 @@ class VisPackage(ABC, DefaultSelector):
     ##
     def __init__(self, mpt_file, coord_file, cmd, buffer, nonstandard_atomtypes, gmxdata, file_ext):
         self.cmd = cmd
-        super.__init__(mpt_file, coord_file, buffer, nonstandard_atomtypes, gmxdata, file_ext)
+        self.mpt = Mpt.from_file(mpt_file, buffer=buffer, nonstandard_atomtypes=nonstandard_atomtypes,\
+                                 gmxdata=gmxdata, file_ext=file_ext)
         if coord_file:
             self._vis_pack_load(coord_file)
 
