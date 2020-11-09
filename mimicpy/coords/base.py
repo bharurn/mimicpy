@@ -18,8 +18,8 @@ class BaseCoordsClass(ABC):
         pass
 
     def write(self, sele, coords=None, box=None):
-        if coords:
-            sele = sele.join(coords)
+        if coords is not None:
+            sele = sele.merge(coords, left_on='id', right_on='id')
 
         write_string(self._write(sele.reset_index(), box), self.file_name, 'w')
 
