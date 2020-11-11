@@ -30,10 +30,10 @@ class Top:
         self.gmxdata = gmxdata
 
         if self.gmxdata:
-            logging.info('Using {} as path to Gromacs installation.'.format(self.gmxdata))
+            logging.debug('Using {} as path to Gromacs installation'.format(self.gmxdata))
         else:
             self.gmxdata = ''
-            logging.warning('Cannot find path to Gromacs installation.')
+            logging.warning('Cannot find path to Gromacs installation')
 
 
         self._molecules = None
@@ -86,9 +86,9 @@ class Top:
                 if itp.topol is not None:
                     atoms.update(itp.topol)
                     guessed_elems_history.update(itp.guessed_elems_history)
-                    logging.info('Read atoms from %s.', itp_file_name)
+                    logging.debug('Read atoms from %s.', itp_file_name)
                 else:
-                    logging.info('No atoms found in %s.', itp_file_name)
+                    logging.debug('No atoms found in %s.', itp_file_name)
             except OSError:
                 logging.warning('Could not find %s in local or Gromacs data directory. Skipping...', itp_file_name)
         topol_dict = TopolDict.from_dict(atoms)
@@ -97,11 +97,12 @@ class Top:
         self._topol_dict = topol_dict
 
         if guessed_elems_history:
-            logging.warning('\nSome atom types had no atom numbers infomation.\nThey were guessed as follows:\n')
+            logging.warning('\nSome atom types had no atom number infomation.\nThey were guessed as follows:\n')
             print_dict(guessed_elems_history, "Atom Type", "Element", logging.warning)
 
     def write_atomtypes(self, file):
         if self.mode != 'w':
+            self.mode = 'w'
             return self.__read(True)
 
         elements = {}
@@ -119,5 +120,6 @@ class Top:
             else:
                 lst[1] = int(lst[1])
             itp_str += "{:>11}{:6d}{:11.4f}{:11.4f}{:>6}     {:e}     {:e}\n".format(*lst)
-
+        
+        logging.info('Fixed atomtypes section and wrote to %s', file)
         write(itp_str, file)

@@ -58,17 +58,11 @@ class Preparation:
 
         # Check for obvious errors in selection
         if self.__qm_atoms.empty:
-            raise SelectionError('No atoms have been selected for the QM partition.')
-
-        # Delete self.mpt for better garbage collection
-        #try:
-        #    del self.selector.mpt
-        #except AttributeError:
-        #    pass
-
+            raise SelectionError('No atoms have been selected for the QM partition')
+            
         # Retrieve number of steps and timestep from mdp_inp and do some checks
         if mdp_inp is None:
-            maxsteps, timestep, mdp_errors = 1000, 5.0, ['Using default values for maxstep and timestep.']
+            maxsteps, timestep, mdp_errors = 1000, 5.0, ['Using default values for maxstep and timestep']
         else:
             maxsteps, timestep, mdp_errors = Mdp.from_file(mdp_inp).check()
         for error in mdp_errors:
@@ -114,7 +108,7 @@ class Preparation:
 
         total_charge = sum(self.__qm_atoms['charge'])
         if not round(total_charge, 2).is_integer():
-            logging.warning('Total charge of QM region is %s. Rounding to integer.', total_charge)
+            logging.warning('Total charge of QM region is %s, Rounding to integer', total_charge)
         cpmd.system.charge = round(total_charge)
 
         cpmd.cpmd.maxsteps = maxsteps

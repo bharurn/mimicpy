@@ -17,10 +17,10 @@ PYMOLDIR="/home/user/" VMDDIR="/home/user/" pip install mimicpy
 ```
 
 ## Portability Issues
-MiMiCPy requires Python >= 3.5, pandas >= 0.24.0 and numpy >= 1.12.0. The plugins have been tested with PyMOL version 2.3.4 and VMD version 1.9.4a38, although other versions are expected to work. If a compatibility issue is found, please send us a bug report.
+MiMiCPy requires Python >= 3.5, pandas >= 0.24.0 and numpy >= 1.12.0. The plugins have been tested with PyMOL version 2.3.4 and VMD version 1.9.4a38, although other versions are expected to work. If any incompatibilities are found, please post an issue on GitHub.
 
 ## Demo
-A demo of selection of atoms for the QM region, and generation of the CPMD-MiMiC input script using MiMiCPy is shown below.
+A demo of atom selection for the QM region, and generation of the CPMD-MiMiC input script using MiMiCPy is shown below.
 ```console
 user@system:~$ mimicpy prepqm -top acetone.top -coords acetone.gro
 
@@ -58,7 +58,7 @@ They were guessed as follows:
 Please enter selection below. For more information type 'help'
 > add resname is ACT
 > q
-Using default values for maxstep and timestep.
+Using default values for maxstep and timestep
 Wrote Gromacs index file to index.ndx
 Wrote new CPMD input script to cpmd.inp
 
