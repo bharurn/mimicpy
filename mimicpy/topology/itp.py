@@ -148,7 +148,7 @@ class Itp:
             included_itps = self.__get_included_topology_files(clean_itp_text)
             for included_itp in included_itps:
                 try:
-                    itp = Itp(included_itp)
+                    itp = Itp(included_itp, mode='w')
                     atom_types = itp.__get_all_atomtypes_sections()
                     if atom_types is not None:
                         atomtypes_section += atom_types
@@ -190,7 +190,7 @@ class Itp:
 
         def guess_element_from(mass, name, atom_type):
             mass_int = int(round(mass))
-            
+
             if mass_int == 1:  # Guess H from mass
                 element = 'H'
             elif mass_int < 36 and mass_int > 1:  # Guess He to Cl from mass
@@ -204,9 +204,9 @@ class Itp:
                 element = 'H'
                 logging.error('Atomic number for atom with type {} and name {} cannot'
                               ' be guessed. A default value of H was assigned'.format(atom_type, name))
-            
+
             self.guessed_elems_history[atom_type] = element
-            
+
             return element
 
         def read_atoms(atom_section):
