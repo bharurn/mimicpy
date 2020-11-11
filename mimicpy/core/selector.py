@@ -47,7 +47,7 @@ class VisPackage(ABC, DefaultSelector):
     def select(self, selection=None):
         sele = self._sele2df(selection)
         mpt_sele = self.mpt[sele['id']]
-        # TO DO: check if names/resname, etc. are same and issue warnings accordingly
+        # TODO: check if names/resname, etc. are same and issue warnings accordingly
         # the corresp. columns from the vis software will have underscore prefix
         df = mpt_sele.merge(sele, left_on='id', right_on='id').set_index(['id'])
 

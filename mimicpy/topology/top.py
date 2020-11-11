@@ -120,6 +120,6 @@ class Top:
             else:
                 lst[1] = int(lst[1])
             itp_str += "{:>11}{:6d}{:11.4f}{:11.4f}{:>6}     {:e}     {:e}\n".format(*lst)
-        
+
         logging.info('Fixed atomtypes section and wrote to %s', file)
         write(itp_str, file)
