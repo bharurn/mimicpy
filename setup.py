@@ -15,7 +15,7 @@ def get_package():
 
 class PostBaseCommand(object):
     """Base class for post-installation code"""
-    
+
     def copy_script(self, source, dest):
         if not os.path.isfile(source):
             print("Cannot find source file {}".format(source))
@@ -23,26 +23,26 @@ class PostBaseCommand(object):
         else:
             with open(source, 'r') as fsrc, open(dest, 'a') as fdest:
                 copyfileobj(fsrc, fdest)
-        
+
     def run(self):
         super().run()
         pymol_dir = os.environ.get('PYMOLDIR', default=None)
         vmd_dir = os.environ.get('VMDDIR', default=None)
-        
+
         if pymol_dir:
             pymolrc = os.path.join(pymol_dir, '.pymolrc.py')
             self.copy_script('plugins/pymol.py', pymolrc)
             print("Wrote PyMOL settings to file {}".format(pymolrc))
-        
+
         if vmd_dir:
             if platform.system() == 'Windows':
-                vmdrc = os.path.join(vmdrc, 'vmd.rc')
+                vmdrc = os.path.join(vmd_dir, 'vmd.rc')
             else:
-                vmdrc = os.path.join(vmdrc, '.vmdrc')
-                
-            self.copy_script('plugins/vmdrc', vmdrc)
+                vmdrc = os.path.join(vmd_dir, '.vmdrc')
+
+            self.copy_script('plugins/vmd.tcl', vmdrc)
             print("Wrote VMD settings to file {}".format(vmdrc))
-        
+
 class PostInstallCommand(PostBaseCommand, install):
     """Post-installation code for installation mode"""
     pass
@@ -50,7 +50,7 @@ class PostInstallCommand(PostBaseCommand, install):
 class PostDevelopCommand(PostBaseCommand, develop):
     """Post-installation code for develop mode"""
     pass
-    
+
 class PostEggInfoCommand(PostBaseCommand, egg_info):
     """Post-installation code for egg info mode"""
     pass
