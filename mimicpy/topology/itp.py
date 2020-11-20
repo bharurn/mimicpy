@@ -148,7 +148,7 @@ class Itp:
             included_itps = self.__get_included_topology_files(clean_itp_text)
             for included_itp in included_itps:
                 try:
-                    itp = Itp(included_itp)
+                    itp = Itp(included_itp, mode='w')
                     atom_types = itp.__get_all_atomtypes_sections()
                     if atom_types is not None:
                         atomtypes_section += atom_types
@@ -189,22 +189,24 @@ class Itp:
     def __read(self):
 
         def guess_element_from(mass, name, atom_type):
-            element = 'H'
             mass_int = int(round(mass))
-            if mass_int <= 0:  # Cannot guess from mass
-                if name in ELEMENTS.values():  # Guess from atom name
-                    element = name
-                elif atom_type in ELEMENTS.values():  # Guess from atom type
-                    element = atom_type
-                else:
-                    element = name.title()[0]
-            elif mass_int <= 1:  # Guess H from mass
+
+            if mass_int == 1:  # Guess H from mass
                 element = 'H'
-            elif mass_int < 36:  # Guess He to Cl from mass
+            elif mass_int < 36 and mass_int > 1:  # Guess He to Cl from mass
                 element = ELEMENTS[mass_int//2]
-            else:  # Assume name is element symbol from Ar onwards
-                element = name.title()  # Case insensitive
+            # for mass > 36 of mass <= 0
+            elif name.title() in ELEMENTS.values():  # Guess from atom name
+                element = name.title()
+            elif atom_type.title() in ELEMENTS.values():  # Guess from atom type
+                element = atom_type.title()
+            else:
+                element = 'H'
+                logging.error('Atomic number for atom with type {} and name {} cannot'
+                              ' be guessed. A default value of H was assigned'.format(atom_type, name))
+
             self.guessed_elems_history[atom_type] = element
+
             return element
 
         def read_atoms(atom_section):
@@ -222,7 +224,7 @@ class Itp:
                     if number_of_bad_lines > 5:
                         raise ParserError(self.file, 'topology',
                                           details='Too many bad lines in [ atoms ] section.')
-                    logging.warning('Atom %s in [ atoms ] section is not formatted properly. Skipping...', i)
+                    logging.error('Atom %s in [ atoms ] section is not formatted properly. Skipping...', i)
                     number_of_bad_lines += 1
                     continue
                 number = int(number)
@@ -234,7 +236,7 @@ class Itp:
                 elif self.guess_elements:
                     element = guess_element_from(mass, name, atom_type)
                 else:
-                    raise ParserError(self.file, 'topology', details=('Cannot determine atomic symbol'
+                    raise ParserError(self.file, 'topology', details=('No atomic number information'
                                      ' for atom with name {} and type {} in residue {}'.format(name, atom_type, resname)))
                 atom_info[cols[0]].append(number)
                 atom_info[cols[1]].append(atom_type)

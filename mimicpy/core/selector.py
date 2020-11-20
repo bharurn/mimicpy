@@ -39,14 +39,15 @@ class VisPackage(ABC, DefaultSelector):
     ##
     def __init__(self, mpt_file, coord_file, cmd, buffer, nonstandard_atomtypes, gmxdata, file_ext):
         self.cmd = cmd
-        super.__init__(mpt_file, coord_file, buffer, nonstandard_atomtypes, gmxdata, file_ext)
+        self.mpt = Mpt.from_file(mpt_file, buffer=buffer, nonstandard_atomtypes=nonstandard_atomtypes,\
+                                 gmxdata=gmxdata, file_ext=file_ext)
         if coord_file:
             self._vis_pack_load(coord_file)
 
     def select(self, selection=None):
         sele = self._sele2df(selection)
         mpt_sele = self.mpt[sele['id']]
-        # TO DO: check if names/resname, etc. are same and issue warnings accordingly
+        # TODO: check if names/resname, etc. are same and issue warnings accordingly
         # the corresp. columns from the vis software will have underscore prefix
         df = mpt_sele.merge(sele, left_on='id', right_on='id').set_index(['id'])
 
