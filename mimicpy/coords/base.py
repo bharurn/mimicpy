@@ -17,15 +17,26 @@ class BaseCoordsClass(ABC):
     def _read(self):
         pass
 
-    def write(self, sele, coords=None, box=None):
-        if coords:
-            sele = sele.join(coords)
-
-        write_string(self._write(sele.reset_index(), box), self.file_name, 'w')
+    def write(self, sele, coords=None, box=None, as_str=False, title=''):
+        if coords is not None:
+            sele = sele.merge(coords, left_on='id', right_on='id')
+        s = self._write(sele.reset_index(), box, title)
+        if as_str:
+            return s
+        else:
+            write_string(s, self.file_name, 'w')
 
     @abstractmethod
-    def _write(self, mpt_coords, box):
+    def _write(self, mpt_coords, box, title):
         pass
+    
+    def str_checker(self, s, n):
+        if len(s) > n:
+            s = s[:n]
+        return s
+
+    def int_checker(self, i, n):
+        return int(self.str_checker(str(i), n))
 
 # adapter class
 class CoordsIO:
@@ -70,7 +81,14 @@ class CoordsIO:
         self.mode = 'r'
         self._coords, self._box = self.__coords_obj.read()
 
-    def write(self, sele, coords=None, box=None):
+    def write(self, sele, coords=None, box=None, as_str=False, title=''):
         if self.mode != 'w':
             self.mode = 'w'
-        self.__coords_obj.write(sele, coords, box)
+        return self.__coords_obj.write(sele, coords, box, as_str, title)
+    
+    def __enter__(self):
+        return self
+  
+    def __exit__(self, type, value, traceback): 
+        pass
+        

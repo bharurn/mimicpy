@@ -70,11 +70,11 @@ def prepqm(args):
     except FileNotFoundError as e:
         print('\n\nError: Cannot find file {}! Exiting..\n'.format(e.filename))
         loader.close(halt=True)
-        sys.exit()
+        sys.exit(1)
     except (mimicpy.utils.errors.ParserError, mimicpy.utils.errors.MiMiCPyError) as e:
         print(e)
         loader.close(halt=True)
-        sys.exit()
+        sys.exit(1)
 
     loader.close()
 
@@ -131,14 +131,14 @@ def get_nsa_mpt(args, only_nsa=False):
             from os.path import isfile
             if not isfile(args.nsa):
                 print("Error: Cannot find file {}! Exiting..\n".format(args.nsa))
-                sys.exit()
+                sys.exit(1)
             else:
                 nsa_txt =  mimicpy.utils.file_handler.read(args.nsa)
                 for i, line in enumerate(nsa_txt.splitlines()):
                     splt = line.split()
                     if len(splt) < 2:
                         print("Line {} in nonstandard atomtypes file {} not in 2-column format!\n".format(i+1, args.nsa))
-                        sys.exit()
+                        sys.exit(1)
                     elif len(splt) > 2:
                         print("Line {} in nonstandard atomtypes file {} has more than 2-columns. Using first two values only.\n".format(i+1, args.nsa))
 
@@ -157,10 +157,10 @@ def get_nsa_mpt(args, only_nsa=False):
         return mimicpy.Mpt.from_file(args.top, mode='w', nonstandard_atomtypes=nsa_dct)
     except FileNotFoundError as e:
         print('\n\nError: Cannot find file {}! Exiting..\n'.format(e.filename))
-        sys.exit()
+        sys.exit(1)
     except mimicpy.utils.errors.ParserError as e:
         print(e)
-        sys.exit()
+        sys.exit(1)
 
 def getmpt(args):
     get_nsa_mpt(args).write(args.mpt)
@@ -172,10 +172,10 @@ def fixtop(args):
         top = mimicpy.Top(args.top, mode='w', nonstandard_atomtypes=nsa_dct)
     except FileNotFoundError as e:
         print('\n\nError: Cannot find file {}! Exiting..\n'.format(e.filename))
-        sys.exit()
+        sys.exit(1)
     except mimicpy.utils.errors.ParserError as e:
         print(e)
-        sys.exit()
+        sys.exit(1)
     print("\n**Writing fixed atomtypes section**\n")
     top.write_atomtypes(args.out)
 
