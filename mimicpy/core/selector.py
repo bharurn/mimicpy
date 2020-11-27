@@ -57,7 +57,7 @@ class VisPackage(ABC, DefaultSelector):
         cols = [i for i in df.columns if i.startswith('_')]
         for j in cols:
             i = j[1:]
-            logging.warning("\nThe following atom(s) did that have matching '{}' information:\n".format(i))
+            logging.warning("\nThe following atom(s) did not have matching '{}' information:\n".format(i))
             d = df[df[i] != df[j]]
             dct = {'Atom ID': d.index.to_list(), 'From Topology':d[i].to_list(), 'From Software': d[j].to_list()}
             print_table(dct, logging.warning)
