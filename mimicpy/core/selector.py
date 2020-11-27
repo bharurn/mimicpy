@@ -1,11 +1,12 @@
+from abc import ABC, abstractmethod
+from collections import defaultdict
+import logging
+import xmlrpc.client as xmlrpclib
 import pandas as pd
 from ..topology.mpt import Mpt
 from ..coords.base import CoordsIO
 from ..utils.errors import MiMiCPyError
-from ._tclvmd import TclVMDConnector
-import xmlrpc.client as xmlrpclib
-from collections import defaultdict
-from abc import ABC, abstractmethod
+from ..utils.strings import print_table
 
 
 class DefaultSelector:
@@ -47,12 +48,20 @@ class VisPackage(ABC, DefaultSelector):
     def select(self, selection=None):
         sele = self._sele2df(selection)
         mpt_sele = self.mpt[sele['id']]
-        # TODO: check if names/resname, etc. are same and issue warnings accordingly
-        # the corresp. columns from the vis software will have underscore prefix
         df = mpt_sele.merge(sele, left_on='id', right_on='id').set_index(['id'])
-
+        
         if df.empty:
             raise MiMiCPyError('The atoms IDs in selected do not exist in {}'.format(self.mpt))
+            
+        # check for mismatch between mpt and mol viz
+        cols = [i for i in df.columns if i.startswith('_')]
+        for j in cols:
+            i = j[1:]
+            logging.warning("\nThe following atom(s) did that have matching '{}' information:\n".format(i))
+            d = df[df[i] != df[j]]
+            dct = {'Atom ID': d.index.to_list(), 'From Topology':d[i].to_list(), 'From Software': d[j].to_list()}
+            print_table(dct, logging.warning)
+
         return df
 
     ##
@@ -62,12 +71,17 @@ class VisPackage(ABC, DefaultSelector):
     ##
     @abstractmethod
     def _vis_pack_load(self, coord_file):
-        # call load gro file of vis pack
+        """
+        Call the corrseponding coord load function of Visualization Package
+        """
         pass
 
     @property
     @abstractmethod
     def mm_box(self):
+        """
+        Call the corrseponding function of Visualization Package to get box size
+        """
         pass
 
     @abstractmethod
@@ -114,6 +128,7 @@ class PyMOL(VisPackage):
     @property
     def mm_box(self):
         box = self.cmd.get_symmetry("all")
+        # convert from ang to nm
         return [b/10 for b in box[:3]]
 
 
@@ -150,15 +165,11 @@ class PyMOL(VisPackage):
 
 class VMD(VisPackage):
 
-    def __init__(self, mpt_file, coord_file=None, tcl_vmd_params=None, buffer=1000, nonstandard_atomtypes=None, gmxdata=None, file_ext=None):
-        if tcl_vmd_params:
-            # use the Tcl connector
-            vmd = TclVMDConnector(tcl_vmd_params)
-        else:
-            try:
-                import vmd
-            except ImportError:
-                raise MiMiCPyError("VMD python package not found. Make sure that you have VMD built with python support"
+    def __init__(self, mpt_file, coord_file=None, buffer=1000, nonstandard_atomtypes=None, gmxdata=None, file_ext=None):
+        try:
+            import vmd
+        except ImportError:
+            raise MiMiCPyError("VMD python package not found. Make sure that you have VMD built with python support"
                                    "\nConsider using the Tcl VMD Connector instead.")
 
         self.molid = -1 # default to top mol
@@ -171,6 +182,7 @@ class VMD(VisPackage):
     @property
     def mm_box(self):
         box = self.cmd.molecule.get_periodic(self.molid)
+        # convert from ang to nm
         return [box[k]/10 for k in ['a', 'b', 'c']]
 
     def _sele2df(self, selection):
@@ -187,9 +199,11 @@ class VMD(VisPackage):
             df_dict[i] = getattr(sele, i)
 
             if i == 'index':
+                # vmd uses 0 based index, mimicpy uses 1 based index
                 df_dict[i] = [j+1 for j in df_dict[i]]
 
             if i in ['x', 'y', 'z']:
+                # convert from ang to nm
                 df_dict[i] = [j/10 for j in df_dict[i]]
 
         df = pd.DataFrame(df_dict, columns=params_to_get)
