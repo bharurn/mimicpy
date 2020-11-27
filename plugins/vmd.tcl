@@ -21,8 +21,8 @@ proc prepqm {top {sele atomselect0} {molid 0} {inp None} {mdp None} {ndx index.n
 	set y [$sele get y]
 	set z [$sele get z]
 	
-	# execute mimicpy main_vmd script & disp logger output
-	puts $[exec mimicpy_vmd $top $inp $mdp $ndx $out $name $type $index\
+	# execute mimicpy main_vmd script & disp output
+	puts $[exec mimicpy_vmd $top $inp $mdp $ndx $out $molid $name $type $index\
 	 $mass $element $resname $resid $x $y $z $a $b $c $alpha\
 	  $beta $gamma]
 }
