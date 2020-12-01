@@ -3,12 +3,12 @@
 import sys
 import mimicpy
 
-class CustomAtomSel:
+class MockAtomSel:
     """Class to mock AtomSel class from vmd python module"""
     
     def __init__(self, **kwargs):
         # assign name, type, resid, resname, etc. to this class
-        # this will be accessed by CustomVMD class
+        # this will be accessed by MockVMDSelector class
         for k, v in kwargs.items():
             # tcl returns eveything as space separated strings
             lst = v.split()
@@ -21,7 +21,7 @@ class CustomAtomSel:
         
             setattr(self, k, lst)
 
-class TclVMDConnector:
+class MockVMDModule:
     """
     Class to mock vmd python module
     Results of following Tcl commands to be passed in the constructor:
@@ -79,14 +79,16 @@ class TclVMDConnector:
         # self.sele if expected to be list of strings of name, type, resid,.. directly from tcl script
         kwargs = dict(zip(params, self.sele))
         
-        return CustomAtomSel(**kwargs)
+        return MockAtomSel(**kwargs)
     
-class CustomVMDSelector(mimicpy.VMD):
-
+class MockVMDSelector(mimicpy.VMDSelector):
+    """Class to mock VMDSelector class"""
+    
     def __init__(self, mpt_file, molid, tcl_vmd_params):
         self.molid = molid
-        super().__init__(mpt_file, None, TclVMDConnector(tcl_vmd_params), 1000, None, None, None)
-
+        self.cmd = MockVMDModule(tcl_vmd_params)
+        self.mpt = mimicpy.Mpt.from_file(mpt_file)
+        
 def main():
     if len(sys.argv) < 22:
         print("Not enough arguments passed. Exiting..\n")
@@ -101,7 +103,7 @@ def main():
     # sys.argv[7:] should have all selection info from VMD
 
     try:
-        qm = mimicpy.Preparation(CustomVMDSelector(top, molid, sys.argv[7:]))
+        qm = mimicpy.Preparation(MockVMDSelector(top, molid, sys.argv[7:]))
     except FileNotFoundError as e:
         print('\n\nError: Cannot find file {}! Exiting..\n'.format(e.filename))
         sys.exit(1)
