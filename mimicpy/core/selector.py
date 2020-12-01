@@ -5,9 +5,8 @@ import xmlrpc.client as xmlrpclib
 import pandas as pd
 from ..topology.mpt import Mpt
 from ..coords.base import CoordsIO
-from ..utils.errors import MiMiCPyError
+from ..utils.errors import MiMiCPyError, SelectionError
 from ..utils.strings import print_table
-
 
 class DefaultSelector:
 
@@ -30,7 +29,7 @@ class DefaultSelector:
         df = sele.merge(self.coords_reader.coords, left_on='id', right_on='id')
 
         if df.empty:
-            raise MiMiCPyError('The atoms selected from mpt were not found in the coordinate file')
+            raise SelectionError('The atoms selected from topology were not found in the coordinates file')
         return df
 
 ###### Selector using Visualization packages, currently PyMOL and VMD supported
@@ -51,16 +50,17 @@ class VisPackage(ABC, DefaultSelector):
         df = mpt_sele.merge(sele, left_on='id', right_on='id').set_index(['id'])
         
         if df.empty:
-            raise MiMiCPyError('The atoms IDs in selected do not exist in {}'.format(self.mpt))
+            raise MiMiCPyError('The atoms IDs in selection do not exist in {}'.format(self.mpt))
             
-        # check for mismatch between mpt and mol viz
+        # check for mismatch between mpt and mol vis
         cols = [i for i in df.columns if i.startswith('_')]
         for j in cols:
             i = j[1:]
             logging.warning("\nThe following atom(s) did not have matching '{}' information:\n".format(i))
             d = df[df[i] != df[j]]
-            dct = {'Atom ID': d.index.to_list(), 'From Topology':d[i].to_list(), 'From Software': d[j].to_list()}
-            print_table(dct, logging.warning)
+            if not d.empty:
+                dct = {'Atom ID': d.index.to_list(), 'From Topology':d[i].to_list(), 'From Software': d[j].to_list()}
+                print_table(dct, logging.warning)
 
         return df
 
@@ -95,7 +95,7 @@ class VisPackage(ABC, DefaultSelector):
     ##
     #######
 
-class PyMOL(VisPackage):
+class PyMOLSelector(VisPackage):
     """
     PyMOL selector to process a PyMOL selection and combine it with an MPT
     Can be used by connecting to PyMOL using xmlrpc or by executing in the PyMOL interpreter
@@ -108,7 +108,7 @@ class PyMOL(VisPackage):
                 # import pymol in the pymol enviornment
                 from pymol import cmd
             except ImportError:
-                raise MiMiCPyError('Could not connect to PyMOL, make sure PyMOL is installed')
+                raise MiMiCPyError('PyMOL python package not found, make sure PyMOL is installed')
         else:
             # connecting by xmlrpc url
             cmd = xmlrpclib.ServerProxy(url)
@@ -118,7 +118,6 @@ class PyMOL(VisPackage):
                 cmd.get_view()
             except ConnectionRefusedError:
                 raise MiMiCPyError('Could not connect to PyMOL xmlrpc server at address {}'.format(url))
-
 
         super().__init__(mpt_file, coord_file, cmd, buffer, nonstandard_atomtypes, gmxdata, file_ext)
 
@@ -163,14 +162,17 @@ class PyMOL(VisPackage):
         return df.rename(columns={"name": "_name", "symbol": "_element", "resn": "_resname",\
                                "resi_number": "_resid"})
 
-class VMD(VisPackage):
+class VMDSelector(VisPackage):
+    """
+    VMD selector to process a VMD selection and combine it with an MPT
+    Requires VMD python package to run
+    """
 
     def __init__(self, mpt_file, coord_file=None, buffer=1000, nonstandard_atomtypes=None, gmxdata=None, file_ext=None):
         try:
             import vmd
         except ImportError:
-            raise MiMiCPyError("VMD python package not found. Make sure that you have VMD built with python support"
-                                   "\nConsider using the Tcl VMD Connector instead.")
+            raise MiMiCPyError("VMD python package not found, make sure that you have VMD built with python support")
 
         self.molid = -1 # default to top mol
 

@@ -82,7 +82,10 @@ class MockVMDModule:
         return MockAtomSel(**kwargs)
     
 class MockVMDSelector(mimicpy.VMDSelector):
-    """Class to mock VMDSelector class"""
+    """
+    Class to mock VMDSelector class
+    Removes requirement of VMD python package, by reading data directly set from Tcl
+    """
     
     def __init__(self, mpt_file, molid, tcl_vmd_params):
         self.molid = molid
