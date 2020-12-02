@@ -1,5 +1,5 @@
 
-##### MiMiCPy VMD settings script
+##### MiMiCPy VMD plugin
 ##
 proc prepqm {top {sele atomselect0} {molid 0} {inp None} {mdp None} {ndx index.ndx} {out cpmd.inp}} {
 	set a [molinfo $molid get a]
@@ -11,20 +11,15 @@ proc prepqm {top {sele atomselect0} {molid 0} {inp None} {mdp None} {ndx index.n
 	
 	# get all params from selection
 	set name [$sele get name]
-	set type [$sele get type]
 	set index [$sele get index]
-	set mass [$sele get mass]
-	set element [$sele get element]
-	set resname [$sele get resname]
-	set resid [$sele get resid]
+        set resname [$sele get resname]
 	set x [$sele get x]
 	set y [$sele get y]
 	set z [$sele get z]
 	
-	# execute mimicpy main_vmd script & disp logger output
-	puts $[exec mimicpy_vmd $top $inp $mdp $ndx $out $name $type $index\
-	 $mass $element $resname $resid $x $y $z $a $b $c $alpha\
-	  $beta $gamma]
+	# execute mimicpy main_vmd script & disp output
+	puts $[exec mimicpy_vmd $top $inp $mdp $ndx $out $molid $name $index\
+			        $resname $x $y $z $a $b $c $alpha $beta $gamma]
 }
 ##
 ##################################

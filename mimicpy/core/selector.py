@@ -1,12 +1,12 @@
+from abc import ABC, abstractmethod
+from collections import defaultdict
+import logging
+import xmlrpc.client as xmlrpclib
 import pandas as pd
 from ..topology.mpt import Mpt
 from ..coords.base import CoordsIO
-from ..utils.errors import MiMiCPyError
-from ._tclvmd import TclVMDConnector
-import xmlrpc.client as xmlrpclib
-from collections import defaultdict
-from abc import ABC, abstractmethod
-
+from ..utils.errors import MiMiCPyError, SelectionError
+from ..utils.strings import print_table
 
 class DefaultSelector:
 
@@ -29,7 +29,7 @@ class DefaultSelector:
         df = sele.merge(self.coords_reader.coords, left_on='id', right_on='id')
 
         if df.empty:
-            raise MiMiCPyError('The atoms selected from mpt were not found in the coordinate file')
+            raise SelectionError('The atoms selected from topology were not found in the coordinates file')
         return df
 
 ###### Selector using Visualization packages, currently PyMOL and VMD supported
@@ -47,12 +47,21 @@ class VisPackage(ABC, DefaultSelector):
     def select(self, selection=None):
         sele = self._sele2df(selection)
         mpt_sele = self.mpt[sele['id']]
-        # TODO: check if names/resname, etc. are same and issue warnings accordingly
-        # the corresp. columns from the vis software will have underscore prefix
         df = mpt_sele.merge(sele, left_on='id', right_on='id').set_index(['id'])
-
+        
         if df.empty:
-            raise MiMiCPyError('The atoms IDs in selected do not exist in {}'.format(self.mpt))
+            raise MiMiCPyError('The atoms IDs in selection do not exist in {}'.format(self.mpt))
+            
+        # check for mismatch between mpt and mol vis
+        cols = [i for i in df.columns if i.startswith('_')]
+        for j in cols:
+            i = j[1:]
+            d = df[df[i] != df[j]]
+            if not d.empty:
+                logging.warning("\nThe following atom(s) did not have matching '{}' information:\n".format(i))
+                dct = {'Atom ID': d.index.to_list(), 'From Topology':d[i].to_list(), 'From Software': d[j].to_list()}
+                print_table(dct, logging.warning)
+
         return df
 
     ##
@@ -62,12 +71,17 @@ class VisPackage(ABC, DefaultSelector):
     ##
     @abstractmethod
     def _vis_pack_load(self, coord_file):
-        # call load gro file of vis pack
+        """
+        Call the corrseponding coord load function of Visualization Package
+        """
         pass
 
     @property
     @abstractmethod
     def mm_box(self):
+        """
+        Call the corrseponding function of Visualization Package to get box size
+        """
         pass
 
     @abstractmethod
@@ -81,7 +95,7 @@ class VisPackage(ABC, DefaultSelector):
     ##
     #######
 
-class PyMOL(VisPackage):
+class PyMOLSelector(VisPackage):
     """
     PyMOL selector to process a PyMOL selection and combine it with an MPT
     Can be used by connecting to PyMOL using xmlrpc or by executing in the PyMOL interpreter
@@ -94,7 +108,7 @@ class PyMOL(VisPackage):
                 # import pymol in the pymol enviornment
                 from pymol import cmd
             except ImportError:
-                raise MiMiCPyError('Could not connect to PyMOL, make sure PyMOL is installed')
+                raise MiMiCPyError('PyMOL python package not found, make sure PyMOL is installed')
         else:
             # connecting by xmlrpc url
             cmd = xmlrpclib.ServerProxy(url)
@@ -105,7 +119,6 @@ class PyMOL(VisPackage):
             except ConnectionRefusedError:
                 raise MiMiCPyError('Could not connect to PyMOL xmlrpc server at address {}'.format(url))
 
-
         super().__init__(mpt_file, coord_file, cmd, buffer, nonstandard_atomtypes, gmxdata, file_ext)
 
     def _vis_pack_load(self, coord_file):
@@ -114,6 +127,7 @@ class PyMOL(VisPackage):
     @property
     def mm_box(self):
         box = self.cmd.get_symmetry("all")
+        # convert from ang to nm
         return [b/10 for b in box[:3]]
 
 
@@ -123,7 +137,7 @@ class PyMOL(VisPackage):
 
         sele = self.cmd.get_model(selection, 1)
 
-        params_to_get = ['id', 'symbol', 'name', 'resn', 'resi_number', 'coord']
+        params_to_get = ['id', 'name', 'resn', 'coord']
 
         if isinstance(sele, dict):
             # sele is dict if using xmlrpc
@@ -145,21 +159,19 @@ class PyMOL(VisPackage):
         df.insert(2, "y", y, True)
         df.insert(2, "z", z, True)
         df = df.drop(['coord'], axis=1)
-        return df.rename(columns={"name": "_name", "symbol": "_element", "resn": "_resname",\
-                               "resi_number": "_resid"})
+        return df.rename(columns={"name": "_name", "resn": "_resname"})
 
-class VMD(VisPackage):
+class VMDSelector(VisPackage):
+    """
+    VMD selector to process a VMD selection and combine it with an MPT
+    Requires VMD python package to run
+    """
 
-    def __init__(self, mpt_file, coord_file=None, tcl_vmd_params=None, buffer=1000, nonstandard_atomtypes=None, gmxdata=None, file_ext=None):
-        if tcl_vmd_params:
-            # use the Tcl connector
-            vmd = TclVMDConnector(tcl_vmd_params)
-        else:
-            try:
-                import vmd
-            except ImportError:
-                raise MiMiCPyError("VMD python package not found. Make sure that you have VMD built with python support"
-                                   "\nConsider using the Tcl VMD Connector instead.")
+    def __init__(self, mpt_file, coord_file=None, buffer=1000, nonstandard_atomtypes=None, gmxdata=None, file_ext=None):
+        try:
+            import vmd
+        except ImportError:
+            raise MiMiCPyError("VMD python package not found, make sure that you have VMD built with python support")
 
         self.molid = -1 # default to top mol
 
@@ -171,6 +183,7 @@ class VMD(VisPackage):
     @property
     def mm_box(self):
         box = self.cmd.molecule.get_periodic(self.molid)
+        # convert from ang to nm
         return [box[k]/10 for k in ['a', 'b', 'c']]
 
     def _sele2df(self, selection):
@@ -179,7 +192,7 @@ class VMD(VisPackage):
 
         sele = self.cmd.atomsel(selection, self.molid)
 
-        params_to_get = ['name', 'type', 'index', 'mass', 'element', 'resname', 'resid', 'x', 'y', 'z']
+        params_to_get = ['name', 'index', 'resname', 'x', 'y', 'z']
 
         df_dict = {}
 
@@ -187,14 +200,15 @@ class VMD(VisPackage):
             df_dict[i] = getattr(sele, i)
 
             if i == 'index':
+                # vmd uses 0 based index, mimicpy uses 1 based index
                 df_dict[i] = [j+1 for j in df_dict[i]]
 
             if i in ['x', 'y', 'z']:
+                # convert from ang to nm
                 df_dict[i] = [j/10 for j in df_dict[i]]
 
         df = pd.DataFrame(df_dict, columns=params_to_get)
 
-        df = df.rename(columns={"name": "_name", "element": "_element", "resname": "_resname",\
-                               "resid": "_resid", 'mass': '_mass', 'type': '_type'})
+        df = df.rename(columns={"name": "_name", "resname": "_resname"})
 
         return df.rename(columns={"index": "id"})

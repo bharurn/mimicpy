@@ -1,12 +1,13 @@
 
-##### MiMiCPy PyMOL settings script
+##### MiMiCPy PyMOL plugin
 ##
+import sys
 import mimicpy
 from pymol import cmd
 
 def prepqm(top, selection=None, is_link=False, inp=None, mdp=None, ndx='index.ndx', out='cpmd.inp'):
     try:
-        qm = mimicpy.Preparation(mimicpy.PyMOL(top))
+        qm = mimicpy.Preparation(mimicpy.PyMOLSelector(top))
     except FileNotFoundError as e:
         print('\n\nError: Cannot find file {}! Exiting..\n'.format(e.filename))
         sys.exit(1)
