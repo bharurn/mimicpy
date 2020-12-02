@@ -14,9 +14,9 @@ class MockAtomSel:
             lst = v.split()
             
             # convert string to int/float
-            if k == 'index' or k == 'resid':
+            if k == 'index':
                 lst = [int(i) for i in lst]
-            elif k == 'mass' or k == 'x' or k == 'y' or k == 'z':
+            elif k == 'x' or k == 'y' or k == 'z':
                 lst = [float(i) for i in lst]
         
             setattr(self, k, lst)
@@ -27,12 +27,8 @@ class MockVMDModule:
     Results of following Tcl commands to be passed in the constructor:
         ##Values set to TclVMDConnector.sele
         atomsel get name
-        atomsel get type
         atomsel get index
-        atomsel get mass
-        atomsel get element
         atomsel get resname
-        atomsel get resid
         atomsel get x
         atomsel get y
         atomsel get z
@@ -50,11 +46,11 @@ class MockVMDModule:
     """
     
     def __init__(self, params):
-        if len(params) < 16:
+        if len(params) < 12:
             raise mimicpy.utils.errors.MiMiCPyError("Not enough params passed to TclVMDConnector")
             
-        self.sele = params[:10]
-        self.box_size = params[10:]
+        self.sele = params[:6]
+        self.box_size = params[6:]
         # set props of molecules, molecule.load() -> return dummy molid, molecule.get_periodc() -> return actual box size
         self.molecule = type('obj', (object,), {'load' : lambda a,b: -1, 'get_periodic': self.__get_periodic})
         
@@ -75,7 +71,7 @@ class MockVMDModule:
             raise mimicpy.utils.errors.MiMiCPyError("Did not receive QM atoms information from Tcl")
         
         # get selection params from tcl script
-        params = ['name', 'type', 'index', 'mass', 'element', 'resname', 'resid', 'x', 'y', 'z']
+        params = ['name', 'index', 'resname', 'x', 'y', 'z']
         # self.sele if expected to be list of strings of name, type, resid,.. directly from tcl script
         kwargs = dict(zip(params, self.sele))
         
@@ -93,7 +89,7 @@ class MockVMDSelector(mimicpy.VMDSelector):
         self.mpt = mimicpy.Mpt.from_file(mpt_file)
         
 def main():
-    if len(sys.argv) < 22:
+    if len(sys.argv) < 19:
         print("Not enough arguments passed. Exiting..\n")
         sys.exit(1)
 

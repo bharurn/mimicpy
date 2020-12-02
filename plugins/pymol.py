@@ -1,5 +1,5 @@
 
-##### MiMiCPy PyMOL settings script
+##### MiMiCPy PyMOL plugin
 ##
 import sys
 import mimicpy

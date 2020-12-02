@@ -56,9 +56,9 @@ class VisPackage(ABC, DefaultSelector):
         cols = [i for i in df.columns if i.startswith('_')]
         for j in cols:
             i = j[1:]
-            logging.warning("\nThe following atom(s) did not have matching '{}' information:\n".format(i))
             d = df[df[i] != df[j]]
             if not d.empty:
+                logging.warning("\nThe following atom(s) did not have matching '{}' information:\n".format(i))
                 dct = {'Atom ID': d.index.to_list(), 'From Topology':d[i].to_list(), 'From Software': d[j].to_list()}
                 print_table(dct, logging.warning)
 
@@ -137,7 +137,7 @@ class PyMOLSelector(VisPackage):
 
         sele = self.cmd.get_model(selection, 1)
 
-        params_to_get = ['id', 'symbol', 'name', 'resn', 'resi_number', 'coord']
+        params_to_get = ['id', 'name', 'resn', 'coord']
 
         if isinstance(sele, dict):
             # sele is dict if using xmlrpc
@@ -159,8 +159,7 @@ class PyMOLSelector(VisPackage):
         df.insert(2, "y", y, True)
         df.insert(2, "z", z, True)
         df = df.drop(['coord'], axis=1)
-        return df.rename(columns={"name": "_name", "symbol": "_element", "resn": "_resname",\
-                               "resi_number": "_resid"})
+        return df.rename(columns={"name": "_name", "resn": "_resname"})
 
 class VMDSelector(VisPackage):
     """
@@ -193,7 +192,7 @@ class VMDSelector(VisPackage):
 
         sele = self.cmd.atomsel(selection, self.molid)
 
-        params_to_get = ['name', 'type', 'index', 'mass', 'element', 'resname', 'resid', 'x', 'y', 'z']
+        params_to_get = ['name', 'index', 'resname', 'x', 'y', 'z']
 
         df_dict = {}
 
@@ -210,7 +209,6 @@ class VMDSelector(VisPackage):
 
         df = pd.DataFrame(df_dict, columns=params_to_get)
 
-        df = df.rename(columns={"name": "_name", "element": "_element", "resname": "_resname",\
-                               "resid": "_resid", 'mass': '_mass', 'type': '_type'})
+        df = df.rename(columns={"name": "_name", "resname": "_resname"})
 
         return df.rename(columns={"index": "id"})
