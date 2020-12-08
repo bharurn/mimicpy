@@ -80,8 +80,12 @@ class Preparation:
 
         if inp_tmp is None:
             cpmd = CpmdScript('Cpmd', 'System', 'Mimic', 'Atoms')
-        else:
+        elif isinstance(inp_tmp, str):
             cpmd = CpmdScript.from_file(inp_tmp)
+        else:
+            cpmd = inp_tmp
+        
+        cpmd.atoms.clear_parameters() # clear atoms from inp_temp
 
         # Get overlaps and atoms
         overlaps = '{}'.format(len(sorted_qm_atoms))

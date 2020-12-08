@@ -15,10 +15,13 @@ class Script(ABC):
     @property
     def parameters(self):
         return self.__orddict__
+    
+    def clear_parameters(self):
+        self.__orddict__ = OrderedDict()
 
     def __setattr__(self, key, value):
-        if key.startswith('_') or key == 'has_parameter' or key == 'parameters':
-            # Private attributes, has_parameter(), and parameters() are stored in __dict__
+        if key.startswith('_') or key == 'has_parameter' or key == 'parameters' or key == 'clear_parameters':
+            # Private attributes, and helper functions are stored in __dict__
             self.__dict__[key] = value
         else:
             # All others are script parameters and stored in __orddict__
