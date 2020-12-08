@@ -5,6 +5,7 @@ from ..coords.base import CoordsIO
 from .script import Script
 from ..utils.strings import clean
 from ..utils.errors import ParserError, MiMiCPyError
+from ..utils.constants import BOHR_RADIUS
 
 class Pseudopotential:
 
@@ -159,7 +160,7 @@ class CpmdScript(Script):
     @classmethod
     def from_string(cls, text):
          text = clean(text)
-         section_reg = re.compile(r'\&(.*?)\n((?:.+\n)+?)\s*(?:\&END)')
+         section_reg = re.compile(r'\s*\&(.*?)\n((?:.+\n)+?)\s*(?:\&END)')
          sections = section_reg.findall(text)
          
          inp = cls()
@@ -190,7 +191,11 @@ class CpmdScript(Script):
         for k,v in self.atoms.parameters.items():
             coords_list  += v.coords
         
-        coords_np = np.array(coords_list)/10
+        coords_np = np.array(coords_list)*BOHR_RADIUS
+        
+        if len(ids) != coords_np.shape[0]:
+            raise MiMiCPyError('Mismatch between no. of atoms in OVERLAPS and ATOMS sections ({} vs {})'.format(len(ids), coords_np.shape[0]))
+        
         coords = pd.DataFrame({'id': ids, 'x': coords_np[:,0], 'y': coords_np[:,1], 'z': coords_np[:,2]})
         
         if not title: title = 'Coordinates from CPMD/MiMiC script'
