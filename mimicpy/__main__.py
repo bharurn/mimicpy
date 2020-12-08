@@ -181,7 +181,7 @@ def cpmd2coords(args):
     
     try:
         cpmd.to_coords(mpt, args.coords, title='Coordinates from {}'.format(args.inp))
-    except mimicpy.errors.MiMiCPyError as e:
+    except mimicpy.utils.errors.MiMiCPyError as e:
         print(e)
         loader.close(halt=True)
         sys.exit(1)
