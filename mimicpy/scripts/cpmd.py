@@ -92,28 +92,29 @@ class Section(Script):
         if len(splt) == 1: setattr(section, splt[i], True)
         
         while i < len(splt)-1:
-            if splt[i] == 'PATHS':
+            splt_i = splt[i].strip()
+            if splt_i == 'PATHS':
                 try:
-                    setattr(section, splt[i], "\n".join(splt[i+1:i+3]))
+                    setattr(section, splt_i, "\n".join(splt[i+1:i+3]))
                 except IndexError:
                     raise ParserError(file='CPMD script', details='PATHS in MIMIC section not formatted correctly')
                 i += 2
                 
-            elif splt[i] == 'OVERLAPS':
+            elif splt_i == 'OVERLAPS':
                 try:
                     no = int(splt[i+1])
                     ov = "\n".join(splt[i+1:i+no+2])
                 except IndexError:
                     raise ParserError(file='CPMD script', details='OVERLAPS in MIMIC section not formatted correctly')
-                setattr(section, splt[i], ov)
+                setattr(section, splt_i, ov)
                 
                 i += no+1  
                     
             elif Section.__chknumeric(splt[i+1]):
-                setattr(section, splt[i], splt[i+1])
+                setattr(section, splt_i, splt[i+1])
                 
             elif not Section.__chknumeric(splt[i]):
-                setattr(section, splt[i], True)
+                setattr(section, splt_i, True)
                 
             i += 1
             
@@ -175,9 +176,9 @@ class CpmdScript(Script):
      
     def to_coords(self, mpt, out, title=None, ext=None):
         if not self.has_parameter('mimic'):
-            raise MiMiCPyError('No MIMIC section found in CPMD script')
+            raise MiMiCPyError('MIMIC section not found in CPMD script')
         elif not self.mimic.has_parameter('overlaps'):
-            raise MiMiCPyError('No OVERLAPS in MIMIC section found')
+            raise MiMiCPyError('OVERLAPS in MIMIC section not found in CPMD script')
             
         try:
             ids = [int(i.split()[1]) for i in self.mimic.overlaps.splitlines()[1:]]
