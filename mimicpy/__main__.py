@@ -201,7 +201,16 @@ def fixtop(args):
         sys.exit(1)
     print("\n**Writing fixed atomtypes section**\n")
     top.write_atomtypes(args.out)
-
+    
+def prepmm(args):
+    try:
+        mimicpy.Preparation.get_gmx_input(inp=args.mdp, qmatoms=args.qma, out=args.out)
+    except FileNotFoundError as e:
+        print('\n\nError: Cannot find file {}! Exiting..\n'.format(e.filename))
+        sys.exit(1)
+    except mimicpy.utils.errors.ScriptError as e:
+        print(e)
+        sys.exit(1)
 
 def main():
     print('\n \t                ***** MiMiCPy *****                  ')
@@ -260,11 +269,26 @@ def main():
                               required=False,
                               help='CPMD template input script',
                               metavar='[.inp]')
-    prepqm_others.add_argument('-mdp',
-                              required=False,
-                              help='Gromacs template MDP script',
-                              metavar='[.mdp]')
     parser_prepqm.set_defaults(func=prepqm)
+    ##
+    #####
+    parser_prepmm = subparsers.add_parser('prepmm',
+                                          help='create/fix Gromacs MDP script for MiMiC run')
+    prepmm_input = parser_prepmm.add_argument_group('options to specify input files')
+    prepmm_input.add_argument('-mdp',
+                              required=False,
+                              help='MDP template script',
+                              metavar='[.mdp]')
+    prepmm_input.add_argument('-qma',
+                              required=True,
+                              help='Name of QM atoms group',
+                              metavar='qmatoms')
+    prepmm_output = parser_prepmm.add_argument_group('options to specify output files')
+    prepmm_output.add_argument('-out',
+                               default='mimic.mdp',
+                               help='Fixed MDP script for MiMiC run',
+                               metavar='[.mdp] (mimic.mdp)')
+    parser_prepmm.set_defaults(func=prepmm)
     ##
     #####
     parser_cpmd2coords = subparsers.add_parser('cpmd2coords',
