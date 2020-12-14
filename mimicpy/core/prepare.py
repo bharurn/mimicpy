@@ -115,8 +115,11 @@ class Preparation:
             logging.warning('Total charge of QM region is %s, Rounding to integer', total_charge)
         cpmd.system.charge = round(total_charge)
 
-        cpmd.cpmd.maxsteps = maxsteps
-        cpmd.cpmd.timestep = timestep
+        if not cpmd.cpmd.has_parameter('maxstep'):
+            cpmd.cpmd.maxstep = maxsteps
+        
+        if not cpmd.cpmd.has_parameter('timestep'):
+            cpmd.cpmd.timestep = timestep
 
         if inp_out is None:
             logging.info('Created new CPMD input script for MiMiC run')
