@@ -40,7 +40,7 @@ class Preparation:
     def qm_atoms(self):
         return self.__qm_atoms
 
-    def get_mimic_input(self, inp_tmp=None, mdp_inp=None, ndx_out=None, inp_out=None):
+    def get_mimic_input(self, inp_tmp=None, ndx_out=None, inp_out=None):
         """Args:
             inp_tmp: cpmd input file, used as template
             mdp_inp: gromacs input file, checked for errors
@@ -60,14 +60,6 @@ class Preparation:
         if self.__qm_atoms.empty:
             raise SelectionError('No atoms have been selected for the QM partition')
             
-        # Retrieve number of steps and timestep from mdp_inp and do some checks
-        if mdp_inp is None:
-            maxsteps, timestep, mdp_errors = 1000, 5.0, ['Using default values for maxstep and timestep']
-        else:
-            maxsteps, timestep, mdp_errors = Mdp.from_file(mdp_inp).check()
-        for error in mdp_errors:
-            logging.warning('%s', error)
-
         # Create an index group in GROMACS format (and write it to a file)
         qm_ndx_group = Ndx('qmatoms') # use default name
         qm_ndx_group.qmatoms = self.__qm_atoms.index.to_list()
@@ -116,10 +108,10 @@ class Preparation:
         cpmd.system.charge = round(total_charge)
 
         if not cpmd.cpmd.has_parameter('maxstep'):
-            cpmd.cpmd.maxstep = maxsteps
+            cpmd.cpmd.maxstep = 1000
         
         if not cpmd.cpmd.has_parameter('timestep'):
-            cpmd.cpmd.timestep = timestep
+            cpmd.cpmd.timestep = 5.0
 
         if inp_out is None:
             logging.info('Created new CPMD input script for MiMiC run')
@@ -128,3 +120,64 @@ class Preparation:
             logging.info('Wrote new CPMD input script to %s', inp_out)
 
         return qm_ndx_group, cpmd
+    
+    @staticmethod
+    def get_gmx_input(inp=None, qmatoms=None, out=None):
+        
+        if qmatoms is None:
+            qmatoms = 'qmatoms'
+            
+        if inp is None:
+            mdp = Mdp()
+        elif isinstance(inp, str):
+            mdp = Mdp.from_file(inp)
+        else:
+            mdp = inp
+            
+        errors = False
+            
+        # TODO: Check for more errors in mdp file
+        if (not mdp.has_parameter('integrator') or mdp.integrator != 'mimic') and inp != None:
+            logging.warning('Wrong integrator for MiMiC run, setting integrator = mimic')
+            errors = True
+        
+        if (not mdp.has_parameter('qmmm_grps') or mdp.qmmm_grps != qmatoms) and inp != None:
+            logging.warning('Index group for QM atoms is not qmatoms, setting QMMM-grps to the appropriate group')
+            errors = True
+        
+        if mdp.has_parameter('constraints') and mdp.constraints != 'none':
+            logging.warning('Molecules should not be constrained by GROMACS, setting constraints = none')
+            errors = True
+            
+        if mdp.has_parameter('tcoupl') and mdp.tcoupl != 'no':
+            logging.warning('Temperature coupling will not be active, setting tcoupl = no')
+            errors = True
+            
+        if mdp.has_parameter('pcoupl') and mdp.pcoupl != 'no':
+            logging.warning('Pressure coupling will not be active, setting pcoupl = no')
+            errors = True
+            
+        if mdp.has_parameter('dt'):
+            dt = float(mdp.dt)
+            if dt > 0.0001:
+                logging.warning('Timestep may be too high for Gromacs (dt > 0.001)')
+                errors = True
+                
+        mdp.integrator = 'mimic'
+        mdp.dt = 0.0001
+        mdp.constraints = 'none'
+        mdp.tcoupl = 'no'
+        mdp.pcoupl = 'no'
+        mdp.qmmm_grps = qmatoms
+        
+        if not errors and inp != None:
+            if isinstance(inp, str):
+                fname = inp
+            else:
+                fname = 'MDP script'
+            logging.info('No errors found in {}'.format(fname))
+        elif out is None:
+            logging.info('Created new MDP script for MiMiC run')
+        else:
+            write(str(mdp), out, 'w')
+            logging.info('Wrote fixed MDP script to %s', out)
