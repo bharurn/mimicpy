@@ -29,7 +29,7 @@ class Script(ABC):
 
     def __getattr__(self, key):
         key = key.lower()
-        if key.startswith('_') or key == 'has_parameter' or key == 'parameters':
+        if key.startswith('_') or key == 'has_parameter' or key == 'parameters' or key == 'clear_parameters':
             return self.__getattribute__('__dict__')[key]
         try:
             return self.__getattribute__('__orddict__')[key]
