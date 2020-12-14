@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from ..topology.mpt import Mpt
 from ..utils.errors import MiMiCPyError, ParserError
 from ..utils.file_handler import Parser, write as write_string
 
@@ -18,6 +19,8 @@ class BaseCoordsClass(ABC):
         pass
 
     def write(self, sele, coords=None, box=None, as_str=False, title=''):
+        if isinstance(sele, Mpt):
+            sele = sele.select('all')
         if coords is not None:
             sele = sele.merge(coords, left_on='id', right_on='id')
         s = self._write(sele.reset_index(), box, title)

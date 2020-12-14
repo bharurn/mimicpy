@@ -80,8 +80,12 @@ class Preparation:
 
         if inp_tmp is None:
             cpmd = CpmdScript('Cpmd', 'System', 'Mimic', 'Atoms')
-        else:
+        elif isinstance(inp_tmp, str):
             cpmd = CpmdScript.from_file(inp_tmp)
+        else:
+            cpmd = inp_tmp
+        
+        cpmd.atoms.clear_parameters() # clear atoms from inp_temp
 
         # Get overlaps and atoms
         overlaps = '{}'.format(len(sorted_qm_atoms))
@@ -111,8 +115,11 @@ class Preparation:
             logging.warning('Total charge of QM region is %s, Rounding to integer', total_charge)
         cpmd.system.charge = round(total_charge)
 
-        cpmd.cpmd.maxsteps = maxsteps
-        cpmd.cpmd.timestep = timestep
+        if not cpmd.cpmd.has_parameter('maxstep'):
+            cpmd.cpmd.maxstep = maxsteps
+        
+        if not cpmd.cpmd.has_parameter('timestep'):
+            cpmd.cpmd.timestep = timestep
 
         if inp_out is None:
             logging.info('Created new CPMD input script for MiMiC run')

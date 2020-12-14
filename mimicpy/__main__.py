@@ -165,6 +165,29 @@ def get_nsa_mpt(args, only_nsa=False):
 def getmpt(args):
     get_nsa_mpt(args).write(args.mpt)
 
+def cpmd2coords(args):
+    mpt = get_nsa_mpt(args)
+    try:
+        cpmd = mimicpy.CpmdScript.from_file(args.inp)
+    except mimicpy.utils.errors.ParserError as e:
+        print(e)
+        sys.exit(1)
+    except FileNotFoundError as e:
+        print('\n\nError: Cannot find file {}! Exiting..\n'.format(e.filename))
+        sys.exit(1)
+    
+    print('')
+    loader = Loader('**Writing coordinates**')
+    
+    try:
+        cpmd.to_coords(mpt, args.coords, title='Coordinates from {}'.format(args.inp))
+    except mimicpy.utils.errors.MiMiCPyError as e:
+        print(e)
+        loader.close(halt=True)
+        sys.exit(1)
+    
+    loader.close()
+
 def fixtop(args):
     nsa_dct = get_nsa_mpt(args, True)
     print("\n**Reading topology**\n")
@@ -209,7 +232,7 @@ def main():
     ##
     #####
     parser_prepqm = subparsers.add_parser('prepqm',
-                                          help='create CPMD MiMiC input and Gromacs index files')
+                                          help='create CPMD/MiMiC input and Gromacs index files')
     prepqm_input = parser_prepqm.add_argument_group('options to specify input files')
     prepqm_input.add_argument('-top',
                               required=True,
@@ -244,23 +267,47 @@ def main():
     parser_prepqm.set_defaults(func=prepqm)
     ##
     #####
-    parser_getmpt = subparsers.add_parser('fixtop',
+    parser_cpmd2coords = subparsers.add_parser('cpmd2coords',
+                                          help='convert CPMD/MiMiC input to coordinates')
+    cpmd2coords_input = parser_cpmd2coords.add_argument_group('options to specify input files')
+    cpmd2coords_input.add_argument('-top',
+                              required=True,
+                              help='Topology file',
+                              metavar='[.top/.mpt]')
+    cpmd2coords_input.add_argument('-inp',
+                              required=True,
+                              help='CPMD input script with MIMIC/ATOMS sections',
+                              metavar='[.inp]')
+    cpmd2coords_output = parser_cpmd2coords.add_argument_group('options to specify output files')
+    cpmd2coords_output.add_argument('-coords',
+                               default='mimic.gro',
+                               help='coordinate file from CPMD/MIMIC script',
+                               metavar='[.gro/.pdb] (mimic.gro)')
+    cpmd2coords_others = parser_cpmd2coords.add_argument_group('other options')
+    cpmd2coords_others.add_argument('-nsa',
+                              required=False,
+                              help='list of non-standard atomtypes in 2-column format',
+                              metavar='[.txt/.dat]')
+    parser_cpmd2coords.set_defaults(func=cpmd2coords)
+    ##
+    #####
+    parser_fixtop = subparsers.add_parser('fixtop',
                                           help='fix atomtypes section of Gromacs topology')
-    getmpt_input = parser_getmpt.add_argument_group('options to specify input files')
-    getmpt_input.add_argument('-top',
+    fixtop_input = parser_fixtop.add_argument_group('options to specify input files')
+    fixtop_input.add_argument('-top',
                               required=True,
                               help='Gromacs topology file',
                               metavar='[.top]')
-    getmpt_input.add_argument('-nsa',
+    fixtop_input.add_argument('-nsa',
                               required=False,
                               help='list of non-standard atomtypes',
                               metavar='[.txt/.dat]')
-    getmpt_output = parser_getmpt.add_argument_group('options to specify output files')
-    getmpt_output.add_argument('-out',
+    fixtop_output = parser_fixtop.add_argument_group('options to specify output files')
+    fixtop_output.add_argument('-out',
                                default='atomtypes.itp',
                                help='fixed atomtypes itp file',
                                metavar='[.itp] (atomtypes.itp)')
-    parser_getmpt.set_defaults(func=fixtop)
+    parser_fixtop.set_defaults(func=fixtop)
     ##
     args = parser.parse_args()
     if vars(args) == {}:
