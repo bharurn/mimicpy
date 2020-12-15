@@ -181,3 +181,5 @@ class Preparation:
         else:
             write(str(mdp), out, 'w')
             logging.info('Wrote fixed MDP script to %s', out)
+        
+        return mdp

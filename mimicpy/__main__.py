@@ -107,7 +107,7 @@ def prepqm(args):
         if command in ['quit', 'q']:
             try:
                 if not prep.qm_atoms.empty:
-                    prep.get_mimic_input(args.inp, args.mdp, args.ndx, args.out)
+                    prep.get_mimic_input(args.inp, args.ndx, args.out)
                 break
             except mimicpy.utils.errors.SelectionError as error:
                 print(error)
@@ -280,7 +280,7 @@ def main():
                               help='MDP template script',
                               metavar='[.mdp]')
     prepmm_input.add_argument('-qma',
-                              required=True,
+                              required=False,
                               help='Name of QM atoms group',
                               metavar='qmatoms')
     prepmm_output = parser_prepmm.add_argument_group('options to specify output files')
